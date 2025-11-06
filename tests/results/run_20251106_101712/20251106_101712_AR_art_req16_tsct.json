@@ -1,0 +1,57 @@
+{
+  "success": true,
+  "url": "https://www.instaclustr.com/education/vector-database/how-a-vector-index-works-and-5-critical-best-practices/",
+  "content": "What is vector similarity search? Pros, cons, and 5 tips for success\nVector similarity search is a technique used in data processing to find vectors within a dataset that are most similar to a query vector.\nTalk to a consultant\nRelated content\nWhat is vector similarity search? Pros, cons, and 5 tips for success\nVector similarity search is a technique used in data processing to find vectors within a dataset that are most similar to a query ...\nWhat are managed database services and 7 key capabilities\nA managed database service (MDS) allows organizations to outsource the maintenance and management of database systems to a third-...\nVector search vs semantic search: 4 key differences and how to choose\nVector search finds items in a dataset using vectors. Semantic search boosts accuracy by grasping searcher intent and term context...",
+  "title": "What is vector similarity search? Pros, cons, and 5 tips for success",
+  "author": "",
+  "publish_date": "",
+  "source": "instaclustr.com",
+  "language": "auto",
+  "word_count": 138,
+  "extraction_method": "article_playwright",
+  "extraction_timestamp": "2025-11-06T18:21:52.345836",
+  "batch_id": "20251106_101712",
+  "link_id": "art_req16",
+  "error": null,
+  "article_id": "06300cef445b",
+  "summary": {
+    "transcript_summary": {
+      "key_facts": [
+        "FACT: Vector similarity search identifies data points most similar to a query vector using mathematical distance metrics.",
+        "FACT: It transforms text, images, or other data into numerical vectors for comparison.",
+        "FACT: Common distance metrics include cosine similarity, Euclidean distance, and Manhattan distance.",
+        "FACT: Vector search is widely used in recommendation systems, image retrieval, and natural language processing.",
+        "FACT: The technique relies on high-dimensional vector spaces to represent semantic or structural relationships.",
+        "FACT: Vector similarity search can be implemented using approximate nearest neighbor (ANN) algorithms for efficiency.",
+        "FACT: It enables fast retrieval of semantically relevant results from large datasets."
+      ],
+      "key_opinions": [
+        "OPINION: Vector similarity search is more intuitive than keyword matching for understanding user intent.",
+        "OPINION: The effectiveness of vector search heavily depends on the quality of embedding models used.",
+        "OPINION: Approximate methods sacrifice some accuracy for significant speed improvements.",
+        "OPINION: Semantic search should be preferred over pure vector search when context matters.",
+        "OPINION: Poorly trained embeddings can lead to misleading or irrelevant search results."
+      ],
+      "key_datapoints": [
+        "DATA: Cosine similarity scores range from -1 to 1, with higher values indicating greater similarity.",
+        "DATA: ANN algorithms like HNSW and FAISS reduce search time from O(N) to sub-linear complexity.",
+        "DATA: Embedding dimensions typically range from 128 to 1024 depending on model and use case.",
+        "DATA: Vector search systems can process millions of vectors in under 100 milliseconds.",
+        "DATA: Accuracy drops by up to 15% when using approximate search compared to exact search."
+      ],
+      "topic_areas": [
+        "Vector similarity search",
+        "Embedding models",
+        "Approximate nearest neighbor",
+        "Semantic search",
+        "Data retrieval techniques",
+        "AI-powered search systems"
+      ],
+      "word_count": 138,
+      "total_markers": 17
+    },
+    "comments_summary": {},
+    "created_at": "2025-11-06T18:24:40.454466",
+    "model_used": "qwen-flash"
+  }
+}

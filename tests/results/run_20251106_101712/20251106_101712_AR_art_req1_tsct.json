@@ -1,0 +1,77 @@
+{
+  "success": true,
+  "url": "https://cursor.com/docs/context/codebase-indexing",
+  "content": "Context\nCodebase Indexing\nCodebase indexing enables semantic search across your local workspace files, building a searchable index for natural language queries to find relevant code across your entire codebase.\nHow it works\nCursor transforms your code into searchable vectors through a 7-step process:\nYour workspace files are securely synchronized with Cursor's servers to keep the index current and up-to-date.\nFiles are broken down into meaningful chunks that capture the essence of your code—functions, classes, and logical code blocks rather than arbitrary text segments.\nEach chunk is converted into a vector representation using AI models. This creates a mathematical fingerprint that captures the semantic meaning of your code.\nThese embeddings are stored in a specialized vector database optimized for fast similarity search across millions of code chunks.\nWhen you search, your query is converted into a vector using the same AI models that processed your code.\nThe system finds the most similar code chunks by comparing your query's vector against stored embeddings.\nYou get relevant code snippets with file locations and context, ranked by semantic similarity to your search.\nYour workspace\nFile sync\nChunking\nAI embeddings\nVector database\nYour search query\nQuery embedding\nSearch results\nPrivacy and security\nData protection\nYour code's privacy is protected through multiple layers of security. File paths are encrypted before being sent to our servers, ensuring your project structure remains confidential. Your actual code content is never stored in plaintext on our servers, maintaining the confidentiality of your intellectual property. Code is only held in memory during the indexing process, then discarded, so there's no permanent storage of your source code.\nGetting started\nFirst-time indexing\nIndexing begins automatically when you open a workspace. The system scans your workspace structure, uploads files securely, and processes them through AI models to create embeddings. Semantic search becomes available at 80% completion.\nKeeping your index updated\nAutomatic sync\nCursor automatically keeps your index synchronized with your workspace through periodic checks every 5 minutes. The system intelligently updates only changed files, removing old embeddings and creating new ones as needed. Files are processed in batches for optimal performance, ensuring minimal impact on your development workflow.\nWhat gets indexed\nFile Type\tAction\nNew files\tAutomatically added to index\nModified files\tOld embeddings removed, fresh ones created\nDeleted files\tPromptly removed from index\nLarge/complex files\tMay be skipped for performance\nPerformance and troubleshooting\nPerformance: Uses intelligent batching and caching for accurate, up-to-date results.\nTroubleshooting steps:\nCheck internet connection\nVerify workspace permissions\nRestart Cursor\nContact support if issues persist\nThe indexing system works reliably in the background to keep your code searchable.\nWhy semantic search?\nWhile tools like grep and ripgrep are useful for finding exact string matches, semantic search goes further by understanding the meaning behind your code.\nIf you ask Agent to \"update the top navigation\", semantic search can find header.tsx even though the word \"navigation\" doesn't appear in the filename. This works because the embeddings understand that \"header\" and \"top navigation\" are semantically related.\nBenefits over grep alone\nSemantic search provides several advantages:\nFaster results: Compute happens during indexing (offline) rather than at runtime, so Agent searches are faster and cheaper\nBetter accuracy: Custom-trained models retrieve more relevant results than string matching\nFewer follow-ups: Users send fewer clarifying messages and use fewer tokens compared to grep-only search\nConceptual matching: Find code by what it does, not just what it's named\nAgent uses both grep and semantic search together. Grep excels at finding exact patterns, while semantic search excels at finding conceptually similar code. This combination delivers the best results.\nConfiguration\nCursor indexes all files except those in ignore files (e.g. .gitignore, .cursorignore).\nClick Show Settings to:\nEnable automatic indexing for new repositories\nConfigure which files to ignore\nIgnoring large content files improves answer accuracy.\nView indexed files\nTo see indexed file paths: Cursor Settings > Indexing & Docs > View included files\nThis opens a .txt file listing all indexed files.\nFAQ\nWhere can I see all indexed codebases?\nHow do I delete all indexed codebases?\nHow long are indexed codebases retained?\nIs my source code stored on Cursor servers?\nCan I customize path encryption?\nHow does team sharing work?\nWhat is smart index copying?\nDoes Cursor support multi-root workspaces?\nHow it works\nPrivacy and security\nData protection\nGetting started\nFirst-time indexing\nKeeping your index updated\nAutomatic sync\nWhat gets indexed\nPerformance and troubleshooting\nWhy semantic search?\nBenefits over grep alone\nConfiguration\nView indexed files\nFAQ\nCopy page\nShare feedback\nExplain more",
+  "title": "Codebase Indexing",
+  "author": "",
+  "publish_date": "",
+  "source": "cursor.com",
+  "language": "auto",
+  "word_count": 741,
+  "extraction_method": "article_playwright",
+  "extraction_timestamp": "2025-11-06T18:17:24.374518",
+  "batch_id": "20251106_101712",
+  "link_id": "art_req1",
+  "error": null,
+  "article_id": "dfc2bafdf600",
+  "summary": {
+    "transcript_summary": {
+      "key_facts": [
+        "FACT: Codebase indexing enables semantic search across local workspace files using AI-powered vector embeddings.",
+        "FACT: The indexing process involves seven steps: file sync, chunking, AI embedding, vector storage, query embedding, similarity search, and result delivery.",
+        "FACT: Files are broken into meaningful chunks such as functions, classes, and logical code blocks for better semantic representation.",
+        "FACT: Code embeddings are stored in a vector database optimized for fast similarity searches across millions of code segments.",
+        "FACT: Query vectors are generated using the same AI models used to process code, enabling semantic matching.",
+        "FACT: Search results include relevant code snippets with file locations and context, ranked by semantic similarity.",
+        "FACT: Code privacy is protected via encryption of file paths and no plaintext storage of source code on servers.",
+        "FACT: Source code is only held in memory during indexing and discarded afterward, ensuring no permanent retention.",
+        "FACT: First-time indexing begins automatically when opening a workspace, with semantic search available at 80% completion.",
+        "FACT: Index updates occur every 5 minutes via automatic sync, with only changed files reprocessed for efficiency.",
+        "FACT: Modified files have old embeddings removed and new ones created; deleted files are promptly removed from index.",
+        "FACT: Large or complex files may be skipped during indexing to maintain performance.",
+        "FACT: Semantic search understands conceptual meaning, allowing queries like 'update top navigation' to find header.tsx.",
+        "FACT: Agent uses both grep (exact match) and semantic search (conceptual match) together for optimal results.",
+        "FACT: Indexing excludes files listed in .gitignore, .cursorignore, or other ignore configurations."
+      ],
+      "key_opinions": [
+        "OPINION: Semantic search offers a more intuitive and powerful alternative to traditional string-based tools like grep.",
+        "OPINION: The combination of grep and semantic search provides the best balance between precision and recall.",
+        "OPINION: Automatic indexing reduces friction for developers by requiring minimal setup or configuration.",
+        "OPINION: Intelligent batching and caching ensure that indexing has minimal impact on development workflow.",
+        "OPINION: Skipping large files improves overall accuracy and performance of the search system.",
+        "OPINION: Real-time updates through periodic syncs make the index highly reliable and up-to-date.",
+        "OPINION: The current security model effectively protects intellectual property without compromising functionality.",
+        "OPINION: Users benefit from faster, more accurate results due to offline computation during indexing."
+      ],
+      "key_datapoints": [
+        "DATA: Semantic search becomes available at 80% completion of first-time indexing.",
+        "DATA: Index updates occur every 5 minutes via automatic sync.",
+        "DATA: Only changed files are reprocessed during updates, improving efficiency.",
+        "DATA: Large or complex files may be skipped to maintain performance.",
+        "DATA: Indexing uses intelligent batching and caching to optimize resource usage.",
+        "DATA: Code is never stored in plaintext on Cursor servers.",
+        "DATA: File paths are encrypted before transmission to servers.",
+        "DATA: Source code is held in memory only during indexing and then discarded.",
+        "DATA: Agent searches are faster and cheaper due to pre-computed embeddings.",
+        "DATA: Fewer user follow-up messages and lower token usage compared to grep-only search."
+      ],
+      "topic_areas": [
+        "Codebase indexing",
+        "Semantic search",
+        "Privacy and security",
+        "Automatic sync",
+        "File chunking",
+        "AI embeddings",
+        "Vector database",
+        "Performance optimization",
+        "Configuration settings",
+        "Agent search integration"
+      ],
+      "word_count": 741,
+      "total_markers": 33
+    },
+    "comments_summary": {},
+    "created_at": "2025-11-06T18:25:12.913894",
+    "model_used": "qwen-flash"
+  }
+}

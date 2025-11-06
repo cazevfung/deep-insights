@@ -1,0 +1,91 @@
+{
+  "batch_id": "20251105_062016",
+  "source": "YouTube",
+  "extraction_timestamp": "2025-11-05T14:25:55.850322",
+  "total_videos": 4,
+  "successful_extractions": 2,
+  "total_comments": 7,
+  "word_count": 209,
+  "comments": [
+    {
+      "content": "This works with LM Studio with nomic v2 MoE embedding, qdart in docker and my AMD Radeon 9070xt 16GB GPU processing using Vulkan, no cloud indexing.",
+      "video_id": "QoXsYr-tcKM",
+      "link_id": "yt_req3"
+    },
+    {
+      "content": "Is this what augment code uses for it's context engine? Do you maybe know?",
+      "video_id": "G3WstvhHO24",
+      "link_id": "yt_req4"
+    },
+    {
+      "content": "Building something similar a CLI tool that make a code graph of your codebase then a query layer on top it so you can ask question like \"which file imports math.ts\" in your codebase and you get all the result. Going to read you doc for sure it interesting",
+      "video_id": "G3WstvhHO24",
+      "link_id": "yt_req4"
+    },
+    {
+      "content": "Hi - this is looking good, but for me it is missing a step on how to integrate this within my IDE experience with the LLM that I'm using to code. Would the idea be to expose this as a MCP tool to the llm?",
+      "video_id": "G3WstvhHO24",
+      "link_id": "yt_req4"
+    },
+    {
+      "content": "Nice idea, just thinking to do same, but for my project. Did you cosider logical code chunking?",
+      "video_id": "G3WstvhHO24",
+      "link_id": "yt_req4"
+    },
+    {
+      "content": "hey will i be able to create a rag out of my codebase and have conversation with it? not asking about the llm part, just wanted to know if this tutorial can help me with getting relevant answers out of my codebase",
+      "video_id": "G3WstvhHO24",
+      "link_id": "yt_req4"
+    },
+    {
+      "content": "i think a question like: please explain the workflow of cooindex embedding, it will not work",
+      "video_id": "G3WstvhHO24",
+      "link_id": "yt_req4"
+    }
+  ],
+  "summary": {
+    "transcript_summary": {},
+    "comments_summary": {
+      "total_comments": 7,
+      "key_facts_from_comments": [
+        "FACT: The system works with LM Studio using nomic v2 MoE embeddings and qdart in Docker.",
+        "FACT: The setup runs on an AMD Radeon 9070xt 16GB GPU using Vulkan without cloud indexing.",
+        "FACT: A CLI tool is being developed to generate a code graph and enable natural language queries over a codebase.",
+        "FACT: The tool supports querying relationships like 'which file imports math.ts' in the codebase.",
+        "FACT: Integration with IDEs via MCP tools is being considered for LLM-powered coding workflows.",
+        "FACT: Logical code chunking is a potential enhancement for improving context relevance.",
+        "FACT: The tutorial enables creating a RAG system from a codebase for retrieving relevant answers."
+      ],
+      "key_opinions_from_comments": [
+        "OPINION: This may be similar to what augment code uses for its context engine.",
+        "OPINION: The current workflow lacks clear guidance on IDE integration with existing LLMs.",
+        "OPINION: Logical code chunking should be considered to improve retrieval accuracy.",
+        "OPINION: A RAG system built from this tutorial could support conversation with a codebase.",
+        "OPINION: The tutorial’s approach to code embedding needs refinement to handle complex queries."
+      ],
+      "key_datapoints_from_comments": [
+        "DATA: Uses nomic v2 MoE embeddings for code representation.",
+        "DATA: Runs on AMD Radeon 9070xt 16GB GPU via Vulkan backend.",
+        "DATA: Operates entirely locally with no cloud indexing required.",
+        "DATA: qdart is used within a Docker container for execution.",
+        "DATA: Supports query-based navigation such as 'which file imports math.ts'."
+      ],
+      "major_themes": [
+        "Theme: Local codebase indexing using embeddings and RAG",
+        "Theme: IDE integration and MCP tool compatibility",
+        "Theme: Code graph construction and semantic querying",
+        "Theme: Performance on consumer GPUs (AMD Radeon 9070xt)",
+        "Theme: Logical code chunking for improved context retrieval"
+      ],
+      "sentiment_overview": "mostly_positive",
+      "top_engagement_markers": [
+        "High-engagement comment about IDE integration: Asks how to integrate the tool into existing LLM workflows via MCP tools.",
+        "High-engagement comment about code graphing: Expresses interest in building a CLI tool that creates a code graph and enables natural language queries.",
+        "High-engagement comment about RAG capabilities: Inquires whether the tutorial can help build a RAG system to converse with a codebase."
+      ],
+      "total_markers": 17
+    },
+    "created_at": "2025-11-05T14:26:01.974235",
+    "model_used": "qwen-flash"
+  }
+}

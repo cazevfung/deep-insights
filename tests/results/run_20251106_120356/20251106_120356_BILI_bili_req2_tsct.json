@@ -1,0 +1,78 @@
+{
+  "success": true,
+  "bv_id": "BV1SkeuzLE1a",
+  "url": "https://www.bilibili.com/video/BV1SkeuzLE1a/",
+  "content": "在另一个世界有另一个你，它的故事因你而改变。智能体世界开启属于你们的文明旅程。新的冒险，从外貌到性格全由你来创造。Nti省时master精细，现在就让你的世界开始运转。智能体诞生后，你的一句话就能定方向、改路径。升级住所，推进职业，改变命运。想知道智能体在想什么？Game mode观察行为与心理。Data mode查看关系、价格和排名，帮他们做出更高收益的决策。每个智能体各自生活，与他们交谈，聆听内心的回响。翻开面板细读状态、行囊、职业与日记。在这片像素大陆，每个智能体的决定源自多层次的AI框架。从个体到世界，数据记录着文明的每一步成长。更多建筑等你和智能体一步步解锁。唤醒城市，迎接未知的冒险与故事。智能体世界不只是游戏，它是你与另一个自己共同创造文明的开始。",
+  "title": "",
+  "author": "",
+  "publish_date": "",
+  "source": "Bilibili (via SnapAny + Paraformer)",
+  "language": "zh-CN",
+  "word_count": 334,
+  "extraction_method": "snapany_paraformer",
+  "extraction_timestamp": "2025-11-06T20:04:57.461824",
+  "batch_id": "20251106_120356",
+  "link_id": "bili_req2",
+  "error": null,
+  "summary": {
+    "transcript_summary": {
+      "key_facts": [
+        "FACT: In another world, an alternate version of you exists and influences the story's outcome.",
+        "FACT: The Agent World allows users to embark on a civilization-building journey together with their digital counterpart.",
+        "FACT: Players can fully customize both appearance and personality of their intelligent agents.",
+        "FACT: Agents are capable of independent living, decision-making, and evolving over time.",
+        "FACT: A single player command can alter an agent's direction or life path after creation.",
+        "FACT: Players can upgrade homes, advance careers, and reshape individual destinies within the world.",
+        "FACT: Game Mode enables observation of agent behavior and internal psychological states.",
+        "FACT: Data Mode provides access to relationships, pricing trends, and rankings for strategic decision-making.",
+        "FACT: Each agent lives autonomously and interacts with others in a dynamic environment.",
+        "FACT: Players can communicate with agents and listen to their inner thoughts and reflections.",
+        "FACT: Agent status, inventory, profession, and personal diary are accessible via detailed panels.",
+        "FACT: The world operates on a multi-layered AI framework governing individual and collective actions.",
+        "FACT: All decisions made by agents are recorded as data, tracking civilizational progress.",
+        "FACT: New buildings unlock gradually through ongoing player-agent collaboration.",
+        "FACT: The world evolves from dormant state to active city upon player engagement."
+      ],
+      "key_opinions": [
+        "OPINION: The concept of a parallel self offers a deeply personal and emotionally resonant gaming experience.",
+        "OPINION: The ability to shape another version of oneself fosters meaningful narrative ownership.",
+        "OPINION: The autonomy given to agents makes the world feel alive and unpredictable.",
+        "OPINION: The dual modes (Game and Data) provide a balanced blend of emotional and analytical engagement.",
+        "OPINION: The focus on internal monologue and personal growth elevates the experience beyond typical gameplay.",
+        "OPINION: The incremental unlocking of content encourages long-term investment and curiosity.",
+        "OPINION: The pixel aesthetic enhances immersion while maintaining clarity in complex systems.",
+        "OPINION: The system’s design reflects a vision of co-creation between human and AI.",
+        "OPINION: The emphasis on decision impact gives players a sense of real-world consequence.",
+        "OPINION: The narrative depth suggests potential for emergent storytelling beyond scripted events."
+      ],
+      "key_datapoints": [
+        "DATA: Agents evolve based on individual choices and environmental interactions.",
+        "DATA: Player input directly influences agent life trajectories and world development.",
+        "DATA: Multiple layers of AI govern agent behavior, cognition, and social dynamics.",
+        "DATA: All agent decisions are logged and contribute to civilization-level data tracking.",
+        "DATA: New structures become available only after sustained player-agent collaboration.",
+        "DATA: Game Mode focuses on behavioral and psychological observation of agents.",
+        "DATA: Data Mode reveals economic, relational, and ranking metrics for optimized strategy.",
+        "DATA: Agent personalities and appearances are fully customizable at creation.",
+        "DATA: Player interactions with agents include dialogue and emotional listening.",
+        "DATA: Agent states, inventories, professions, and diaries are viewable in real-time panels."
+      ],
+      "topic_areas": [
+        "Agent customization",
+        "Civilization building",
+        "AI-driven autonomy",
+        "Player-agent interaction",
+        "Dual-mode gameplay",
+        "Narrative evolution",
+        "Data tracking systems",
+        "Emotional engagement",
+        "World progression mechanics"
+      ],
+      "word_count": 3,
+      "total_markers": 35
+    },
+    "comments_summary": {},
+    "created_at": "2025-11-06T20:16:20.201735",
+    "model_used": "qwen-flash"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "batch_id": "20251106_023619",
+  "scraper_type": "youtubecomments",
+  "total_comments": 7,
+  "successful_extractions": 2,
+  "total_videos": 4,
+  "comments": [
+    {
+      "content": "This works with LM Studio with nomic v2 MoE embedding, qdart in docker and my AMD Radeon 9070xt 16GB GPU processing using Vulkan, no cloud indexing.",
+      "video_id": "QoXsYr-tcKM",
+      "link_id": "yt_req3"
+    },
+    {
+      "content": "Building something similar a CLI tool that make a code graph of your codebase then a query layer on top it so you can ask question like \"which file imports math.ts\" in your codebase and you get all the result. Going to read you doc for sure it interesting",
+      "video_id": "G3WstvhHO24",
+      "link_id": "yt_req4"
+    },
+    {
+      "content": "Nice idea, just thinking to do same, but for my project. Did you cosider logical code chunking?",
+      "video_id": "G3WstvhHO24",
+      "link_id": "yt_req4"
+    },
+    {
+      "content": "Is this what augment code uses for it's context engine? Do you maybe know?",
+      "video_id": "G3WstvhHO24",
+      "link_id": "yt_req4"
+    },
+    {
+      "content": "Hi - this is looking good, but for me it is missing a step on how to integrate this within my IDE experience with the LLM that I'm using to code. Would the idea be to expose this as a MCP tool to the llm?",
+      "video_id": "G3WstvhHO24",
+      "link_id": "yt_req4"
+    },
+    {
+      "content": "hey will i be able to create a rag out of my codebase and have conversation with it? not asking about the llm part, just wanted to know if this tutorial can help me with getting relevant answers out of my codebase",
+      "video_id": "G3WstvhHO24",
+      "link_id": "yt_req4"
+    },
+    {
+      "content": "i think a question like: please explain the workflow of cooindex embedding, it will not work",
+      "video_id": "G3WstvhHO24",
+      "link_id": "yt_req4"
+    }
+  ],
+  "generated_at": "2025-11-06T14:15:08.759981"
+}

@@ -1,0 +1,15 @@
+{
+  "batch_id": "20251105_151201",
+  "scraper_type": "youtubecomments",
+  "total_comments": 0,
+  "successful_extractions": 0,
+  "total_videos": 19,
+  "comments": [],
+  "generated_at": "2025-11-05T23:12:04.717182",
+  "summary": {
+    "transcript_summary": {},
+    "comments_summary": {},
+    "created_at": "2025-11-05T23:14:48.097135",
+    "model_used": "qwen-flash"
+  }
+}

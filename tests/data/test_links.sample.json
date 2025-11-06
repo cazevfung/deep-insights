@@ -1,0 +1,12 @@
+{
+  "batchId": "YYYYMMDD_HHMMSS",
+  "createdAt": "2025-10-29T15:05:00Z",
+  "links": [
+    { "id": "yt_example", "type": "youtube", "url": "https://www.youtube.com/watch?v=XXXXXXXXXXX" },
+    { "id": "bili_example", "type": "bilibili", "url": "https://www.bilibili.com/video/BV1xxxxxxx/" },
+    { "id": "rd_example", "type": "reddit", "url": "https://www.reddit.com/r/.../comments/..." },
+    { "id": "art_example", "type": "article", "url": "https://example.com/article" }
+  ]
+}
+
+

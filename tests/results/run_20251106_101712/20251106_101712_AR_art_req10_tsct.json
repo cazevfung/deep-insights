@@ -1,0 +1,60 @@
+{
+  "success": true,
+  "url": "https://www.ibm.com/docs/en/cmofm/10.1.0?topic=ondemand-indexing-methods",
+  "content": "Document indexing is used for reports that contain logical\nitems such as policies, and statements. The report indexing is used\nfor reports that contain many pages of the same kind of data, such\nas a transaction log.\nContent Manager OnDemand provides two\nbasic ways to index data:\n- Each of the items in a report can be individually indexed on values\nsuch as account number, customer name, and balance. Content Manager OnDemand supports up to 128 index\nvalues per item. With document indexing, the user does not necessarily\nneed to know about reports or report cycles to retrieve a document\nfrom Content Manager OnDemand.\n- Each line in the report usually identifies a specific transaction,\nand it would not be cost effective to index each line. Content Manager OnDemand stores the report as groups\nof pages and indexes each group. When reports include a sorted transaction\nvalue (for example, invoice number), Content Manager OnDemand can index the data on the\ntransaction value. This is done by extracting the beginning and ending\ntransaction values for each group of pages and storing the values\nin the database. This type of indexing lets users retrieve a specific\ntransaction value directly.",
+  "title": "",
+  "author": "",
+  "publish_date": "",
+  "source": "ibm.com",
+  "language": "auto",
+  "word_count": 197,
+  "extraction_method": "article_trafilatura",
+  "extraction_timestamp": "2025-11-06T18:19:57.615493",
+  "batch_id": "20251106_101712",
+  "link_id": "art_req10",
+  "error": null,
+  "article_id": "4d856227bbe9",
+  "summary": {
+    "transcript_summary": {
+      "key_facts": [
+        "FACT: Document indexing is used for reports containing logical items like policies and statements.",
+        "FACT: Report indexing is used for multi-page reports with repetitive data, such as transaction logs.",
+        "FACT: Content Manager OnDemand supports up to 128 index values per document item.",
+        "FACT: Document indexing allows retrieval without knowledge of report structure or cycles.",
+        "FACT: Indexing individual lines in a report is not cost-effective due to volume.",
+        "FACT: Content Manager OnDemand stores reports as groups of pages rather than individual lines.",
+        "FACT: When transaction values are sorted (e.g., invoice number), the system can index on those values.",
+        "FACT: The system extracts beginning and ending transaction values for each page group.",
+        "FACT: Extracted transaction ranges are stored in the database for fast lookup.",
+        "FACT: This indexing method enables direct retrieval of specific transaction values."
+      ],
+      "key_opinions": [
+        "OPINION: Indexing by transaction value improves efficiency for large-scale report retrieval.",
+        "OPINION: Group-based indexing reduces overhead compared to line-by-line indexing.",
+        "OPINION: The 128-index limit per item may constrain complex reporting needs.",
+        "OPINION: Users benefit from not needing to understand report cycles for document access.",
+        "OPINION: Sorting transaction values enhances the usability of indexed data."
+      ],
+      "key_datapoints": [
+        "DATA: Up to 128 index values are supported per document item in Content Manager OnDemand.",
+        "DATA: Reports are stored and indexed as groups of pages, not individual lines.",
+        "DATA: Beginning and ending transaction values are extracted and stored for each page group.",
+        "DATA: Indexing on sorted transaction values enables direct retrieval of specific records."
+      ],
+      "topic_areas": [
+        "Document indexing",
+        "Report indexing",
+        "Transaction value indexing",
+        "Page grouping strategy",
+        "Index value limits",
+        "Data retrieval efficiency",
+        "Sorted data utilization"
+      ],
+      "word_count": 197,
+      "total_markers": 19
+    },
+    "comments_summary": {},
+    "created_at": "2025-11-06T18:23:59.595669",
+    "model_used": "qwen-flash"
+  }
+}

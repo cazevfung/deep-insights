@@ -1,0 +1,114 @@
+{
+  "batch_id": "20251105_134638",
+  "items": [
+    {
+      "relative_path": "20251105_134638_AR_art_req10_tsct.json",
+      "batch_id": "20251105_134638",
+      "size_bytes": 14437,
+      "source_prefix": "AR",
+      "kind": "tsct",
+      "link_id": "art_req10"
+    },
+    {
+      "relative_path": "20251105_134638_AR_art_req11_tsct.json",
+      "batch_id": "20251105_134638",
+      "size_bytes": 60813,
+      "source_prefix": "AR",
+      "kind": "tsct",
+      "link_id": "art_req11"
+    },
+    {
+      "relative_path": "20251105_134638_AR_art_req12_tsct.json",
+      "batch_id": "20251105_134638",
+      "size_bytes": 12838,
+      "source_prefix": "AR",
+      "kind": "tsct",
+      "link_id": "art_req12"
+    },
+    {
+      "relative_path": "20251105_134638_AR_art_req13_tsct.json",
+      "batch_id": "20251105_134638",
+      "size_bytes": 6187,
+      "source_prefix": "AR",
+      "kind": "tsct",
+      "link_id": "art_req13"
+    },
+    {
+      "relative_path": "20251105_134638_AR_art_req14_tsct.json",
+      "batch_id": "20251105_134638",
+      "size_bytes": 15290,
+      "source_prefix": "AR",
+      "kind": "tsct",
+      "link_id": "art_req14"
+    },
+    {
+      "relative_path": "20251105_134638_AR_art_req2_tsct.json",
+      "batch_id": "20251105_134638",
+      "size_bytes": 11380,
+      "source_prefix": "AR",
+      "kind": "tsct",
+      "link_id": "art_req2"
+    },
+    {
+      "relative_path": "20251105_134638_AR_art_req4_tsct.json",
+      "batch_id": "20251105_134638",
+      "size_bytes": 2741,
+      "source_prefix": "AR",
+      "kind": "tsct",
+      "link_id": "art_req4"
+    },
+    {
+      "relative_path": "20251105_134638_AR_art_req5_tsct.json",
+      "batch_id": "20251105_134638",
+      "size_bytes": 8661,
+      "source_prefix": "AR",
+      "kind": "tsct",
+      "link_id": "art_req5"
+    },
+    {
+      "relative_path": "20251105_134638_AR_art_req7_tsct.json",
+      "batch_id": "20251105_134638",
+      "size_bytes": 12080,
+      "source_prefix": "AR",
+      "kind": "tsct",
+      "link_id": "art_req7"
+    },
+    {
+      "relative_path": "20251105_134638_AR_art_req8_tsct.json",
+      "batch_id": "20251105_134638",
+      "size_bytes": 19885,
+      "source_prefix": "AR",
+      "kind": "tsct",
+      "link_id": "art_req8"
+    },
+    {
+      "relative_path": "20251105_134638_AR_art_req9_tsct.json",
+      "batch_id": "20251105_134638",
+      "size_bytes": 5600,
+      "source_prefix": "AR",
+      "kind": "tsct",
+      "link_id": "art_req9"
+    },
+    {
+      "relative_path": "20251105_134638_BILI_batch_cmt.json",
+      "batch_id": "20251105_134638",
+      "size_bytes": 43518,
+      "source_prefix": "BILI",
+      "kind": "cmt",
+      "link_id": "batch"
+    },
+    {
+      "relative_path": "20251105_134638_YT_batch_cmts.json",
+      "batch_id": "20251105_134638",
+      "size_bytes": 222,
+      "source_prefix": "YT",
+      "kind": "cmts",
+      "link_id": "batch"
+    },
+    {
+      "relative_path": "manifest.json",
+      "batch_id": "20251105_134638",
+      "size_bytes": 3014
+    }
+  ]
+}

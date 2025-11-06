@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "properties": {
+    "suggested_goals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "goal_text": { "type": "string" }
+        },
+        "required": ["id", "goal_text"]
+      }
+    }
+  },
+  "required": ["suggested_goals"]
+}
+
+

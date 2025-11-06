@@ -1,0 +1,76 @@
+{
+  "success": true,
+  "url": "https://cursor.com/docs/configuration/tools/large-codebases",
+  "content": "Cookbook\nLarge Codebases\nWorking with large codebases introduces a new set of challenges than working on smaller projects. Drawing from both our experience scaling Cursor's own codebase and insights from customers managing massive codebases, we've discovered some useful patterns for handling increased complexity.\nLet's explore some of these techniques that we've found be useful for large codebases.\nUse Chat to quickly get up to speed on unfamiliar code\nNavigating a large codebase, especially if it's new to you, can be challenging. You often grep, search, and click around to find the specific parts of the codebase you're looking for. With Chat, you can start asking questions to find what you're looking for and get a detailed explanation of how it works.\nHere we're getting help to find implementation details of codebase indexing in Cursor, and even asking for some examples to make it easier to understand.\nWrite rules for domain-specific knowledge\nIf you were onboarding a new collaborator into your codebase, what context would you give them to make sure they can start doing meaningful contributions?\nYour answer to this question is likely valuable information for Cursor to understand as well. For every organization or project, there's latent knowledge that might not be fully captured in your documentation. Using rules effectively is the single best way to ensure Cursor is getting the full picture.\nFor example, if you're writing instructions for how to implement a new feature or service, consider writing a short rule to document it for posterity.\n---\ndescription: Add a new VSCode frontend service\n---\n1. **Interface Definition:**\n- Define a new service interface using `createDecorator` and ensure `_serviceBrand` is included to avoid errors.\n2. **Service Implementation:**\n- Implement the service in a new TypeScript file, extending `Disposable`, and register it as a singleton with `registerSingleton`.\n3. **Service Contribution:**\n- Create a contribution file to import and load the service, and register it in the main entrypoint.\n4. **Context Integration:**\n- Update the context to include the new service, allowing access throughout the application.\nIf there are common formatting patterns that you want to make sure Cursor adheres to, consider auto-attaching rules based on glob patterns.\n---\nglobs: *.ts\n---\n- Use bun as package manager. See [package.json](mdc:backend/reddit-eval-tool/package.json) for scripts\n- Use kebab-case for file names\n- Use camelCase for function and variable names\n- Use UPPERCASE_SNAKE_CASE for hardcoded constants\n- Prefer `function foo()` over `const foo = () =>`\n- Use `Array<T>` instead of `T[]`\n- Use named exports over default exports, e.g (`export const variable ...`, `export function `)\nStay close to the plan-creation process\nFor larger changes, spending an above-average amount of thought to create a precise, well-scoped plan can significantly improve Cursor's output.\nIf you find that you're not getting the result you want after a few different variations of the same prompt, consider zooming out and creating a more detailed plan from scratch, as if you were creating a PRD for a coworker. Oftentimes the hard part is figuring out what change should be made, a task suited well for humans. With the right instructions, we can delegate some parts of the implementation to Cursor.\nOne way to use AI to augment the plan-creation process is to use Ask mode. To create a plan, turn on Ask mode in Cursor and dump whatever context you have from your project management systems, internal docs, or loose thoughts. Think about what files and dependencies you have in the codebase that you already know you want to include. This can be a file that includes pieces of code you want to integrate with, or perhaps a whole folder.\nHere's an example prompt:\nPlanning prompt\n- create a plan for how we shoud create a new feature (just like @existingfeature.ts)\n- ask me questions (max 3) if anything is unclear\n- make sure to search the codebase\n@Past Chats (my earlier exploration prompts)\nhere's some more context from [project management tool]:\n[pasted ticket description]\nWe're asking the model to create a plan and gather context by asking the human questions, referencing any earlier exploration prompts and also the ticket descriptions. Using a thinking model like claude-sonnet-4.5, gpt-5-codex, or gemini-2.5-pro is recommended as they can understand the intent of the change and better synthesize a plan.\nFrom this, you can iteratively formulate the plan with the help of Cursor before starting implementation.\nPick the right tool for the job\nOne of the most important skills in using Cursor effectively is choosing the right tool for the job. Think about what you're trying to accomplish and pick the approach that will keep you in flow.\nTool\tUse case\tStrength\tLimitation\nTab\tQuick, manual changes\tFull control, fast\tSingle-file\nInline Edit\tScoped changes in one file\tFocused edits\tSingle-file\nChat\tLarger, multi-file changes\tAuto-gathers context, deep edits\tSlower, context-heavy\nEach tool has its sweet spot:\nTab is your go-to for quick edits where you want to be in the driver's seat\nInline Edit shines when you need to make focused changes to a specific section of code\nChat is perfect for those bigger changes where you need Cursor to understand the broader context\nWhen you're using Chat mode (which can feel a bit slower but is incredibly powerful), help it help you by providing good context. Use @files to point to similar code you want to emulate, or @folder to give it a better understanding of your project structure. And don't be afraid to break bigger changes into smaller chunks - starting fresh chats helps keep things focused and efficient.\nTakeaways\nScope down changes and don't try to do too much at once\nInclude relevant context when you can\nUse Chat, Inline Edit & Tab for what they're best at\nCreate new chats often\nPlan with Ask mode, implement with Agent mode\nUse Chat to quickly get up to speed on unfamiliar code\nWrite rules for domain-specific knowledge\nStay close to the plan-creation process\nPick the right tool for the job\nTakeaways\nCopy page\nShare feedback\nExplain more",
+  "title": "Large Codebases",
+  "author": "",
+  "publish_date": "",
+  "source": "cursor.com",
+  "language": "auto",
+  "word_count": 999,
+  "extraction_method": "article_playwright",
+  "extraction_timestamp": "2025-11-06T18:17:31.231548",
+  "batch_id": "20251106_101712",
+  "link_id": "art_req2",
+  "error": null,
+  "article_id": "98cec6c109fe",
+  "summary": {
+    "transcript_summary": {
+      "key_facts": [
+        "FACT: Working with large codebases introduces unique challenges compared to smaller projects.",
+        "FACT: Cursor's team has gained insights from scaling their own codebase and customer experiences.",
+        "FACT: Chat mode in Cursor helps users quickly understand unfamiliar code by asking questions.",
+        "FACT: Rules can capture domain-specific knowledge not fully documented in standard resources.",
+        "FACT: Writing rules for feature implementation improves long-term maintainability and AI understanding.",
+        "FACT: Service interfaces in TypeScript must include `_serviceBrand` to avoid errors.",
+        "FACT: Services should be implemented in new files extending `Disposable` and registered as singletons.",
+        "FACT: Contributions require a dedicated file to import and load the service into the main entrypoint.",
+        "FACT: Context updates are needed to make new services accessible throughout the application.",
+        "FACT: Auto-attaching rules based on glob patterns can enforce consistent coding standards.",
+        "FACT: Using Bun as a package manager is recommended, with scripts defined in package.json.",
+        "FACT: Naming conventions include kebab-case for files, camelCase for variables, and UPPERCASE_SNAKE_CASE for constants.",
+        "FACT: The use of `function foo()` is preferred over `const foo = () =>` in this codebase.",
+        "FACT: `Array<T>` is preferred over `T[]` for type annotations.",
+        "FACT: Named exports are favored over default exports for better clarity and modularity."
+      ],
+      "key_opinions": [
+        "OPINION: Creating detailed plans before implementation significantly improves AI-generated outcomes.",
+        "OPINION: Ask mode in Cursor is ideal for gathering context and refining high-level plans.",
+        "OPINION: Larger changes benefit more from structured planning than direct execution.",
+        "OPINION: Human input is essential for defining what change should be made—AI excels at execution.",
+        "OPINION: Using thinking models like claude-sonnet-4.5 or gpt-5-codex enhances plan quality.",
+        "OPINION: Breaking big changes into smaller chunks improves focus and efficiency in Chat mode.",
+        "OPINION: Context-rich prompts lead to better AI performance in multi-file edits.",
+        "OPINION: Choosing the right tool (Tab, Inline Edit, Chat) depends on the scope and complexity of the task."
+      ],
+      "key_datapoints": [
+        "DATA: Use of `createDecorator` requires inclusion of `_serviceBrand` to prevent runtime errors.",
+        "DATA: Services must extend `Disposable` and be registered via `registerSingleton`.",
+        "DATA: File naming follows kebab-case pattern for all .ts files.",
+        "DATA: Variable and function names use camelCase.",
+        "DATA: Hardcoded constants are written in UPPERCASE_SNAKE_CASE.",
+        "DATA: `function foo()` syntax is preferred over arrow functions.",
+        "DATA: `Array<T>` type notation is used instead of `T[]`.",
+        "DATA: Named exports are preferred over default exports.",
+        "DATA: Bun is the recommended package manager with scripts defined in package.json.",
+        "DATA: Glob patterns like `*.ts` can trigger auto-attachment of formatting rules."
+      ],
+      "topic_areas": [
+        "Large codebase management",
+        "AI-assisted development",
+        "Codebase onboarding",
+        "Domain-specific rules",
+        "Tool selection in IDEs",
+        "Planning with AI",
+        "Coding standards",
+        "Multi-file editing",
+        "Context-aware AI assistance"
+      ],
+      "word_count": 999,
+      "total_markers": 33
+    },
+    "comments_summary": {},
+    "created_at": "2025-11-06T18:25:24.411523",
+    "model_used": "qwen-flash"
+  }
+}

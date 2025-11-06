@@ -1,0 +1,24 @@
+{
+  "test_time": "2025-10-29T12:15:30.400784",
+  "total_videos": 2,
+  "successful": 2,
+  "total_comments": 660,
+  "results": [
+    {
+      "url": "https://www.bilibili.com/video/BV1DP411g7jx",
+      "success": true,
+      "total_comments": 600,
+      "page_count": 30,
+      "word_count": 34874,
+      "error": null
+    },
+    {
+      "url": "https://www.bilibili.com/video/BV1M24y117K3",
+      "success": true,
+      "total_comments": 60,
+      "page_count": 3,
+      "word_count": 3528,
+      "error": null
+    }
+  ]
+}

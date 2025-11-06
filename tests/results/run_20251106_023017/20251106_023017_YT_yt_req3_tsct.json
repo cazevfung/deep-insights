@@ -1,0 +1,17 @@
+{
+  "success": true,
+  "video_id": "QoXsYr-tcKM",
+  "url": "https://www.youtube.com/watch?v=QoXsYr-tcKM",
+  "content": "Ruode's codebase indexing feature expands our agents capabilities, enabling it to grasp the entire codebase structure in one comprehensive view rather than processing individual files in isolation. This holistic approach ensures more accurate and efficient code understanding. When you index your codebase in RU, the system sends the code to advanced embedding models. These models then convert the raw data into meaningful chunks, capturing semantic relationships. The resulting embeddings are then stored in CQD, a vector database for quick and efficient retrieval later on. Now during your coding tasks, the LLM determines if it needs deeper codebased insights to get the task done. If so, it uses our codebased search tool to query Cudrant, retrieving relevant embeddings that precisely map out the locations and connections across the entire codebase. This retrieval gives the AI a clear map of the codebase, allowing it to read the necessary files and gather complete context. Nothing gets overlooked. Our indexing scans the whole codebase for any pertinent details before the LLM dives in. As a result, the LLM operates with full awareness, not limited to just a handful of files. Rue will then read all the essential files related to the task so that it can gather more information about the codebase before it starts working on it. This comprehensive context empowers the LLM to excel in coding tasks, delivering better suggestions, more precise analysis, and higher quality code generation overall. From our testing, we can confirm not only does codebase indexing makes agenic coding faster, but it also improves the quality of output. Try it out yourself and share your experience with it.",
+  "title": "Codebase Indexing Explained | How Roo Code's Indexing Actually Works",
+  "author": "Roo Code",
+  "publish_date": "",
+  "source": "YouTube",
+  "language": "auto",
+  "word_count": 270,
+  "extraction_method": "youtube",
+  "extraction_timestamp": "2025-11-06T10:31:02.266107",
+  "batch_id": "20251106_023017",
+  "link_id": "yt_req3",
+  "error": null
+}

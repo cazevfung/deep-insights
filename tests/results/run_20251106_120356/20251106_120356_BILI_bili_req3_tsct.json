@@ -1,0 +1,73 @@
+{
+  "success": true,
+  "bv_id": "BV158Z4YnEmX",
+  "url": "https://www.bilibili.com/video/BV158Z4YnEmX/",
+  "content": "在2025年，AI不再仅仅是游戏对手，更可以是npc队友、游戏策划，甚至是游戏的创造者。Hello, 大家好，欢迎收看硅谷101，我是视频主理人陈倩。在上一个视频啊，我带大家您参展了英伟达击tc大会，深聊了芯片和算力。那其实我们没来得及聊到芯片和AI在游戏中的升级，云应用也是业界非常关注的话题啊。而很巧的是就在英伟达gc期间，游戏开发者大会据dc也在旧金山同时举办。那gdc呢是全球最大的游戏开发者大会，有着全球游戏技术风向标之称，每年3月在旧金山市中心的mocarcenter举行。今年的gdc呢也是吸引了来自一百多个国家，四百多家厂商的超过3万名参会者和一千多名讲者。五天里面共计有超过725场讲座分享和工作坊。其实在过去两年gdc大会上，关于人工智能和机器学习的讨论就已经爆发了。所以今年不管是从gc的展会还是从讲座当中，我们都能切身的感受到AI的热度居高不下。比如说在gdc前两天的几个主题峰会里面，主办方也专门设计了GPU算力游戏、AI和机器学习等等好几个主题。所以呢为了更好的探究AI在游戏领域的进展，我们硅谷101呢也是派了另外一支小分队前往到gdc的现场。那么接下来就跟随硅谷101的特约研究员一文的步伐和镜头，到gdc的现场去看看今年的大会带给了游戏开发者们什么样的惊喜。硅谷101的朋友们大家好，我是特约研究员艺文。那这终呢我和我们的摄影师Tony来到了在旧金山举办的具有全球游戏风向标之称的2025年gdc的现场，带大家一起云逛展。和gc一样的gdc同样也是面向开发者的。所以说在现场呢我们不仅是看到了很多大牌的游戏厂商以及工作室在这里展示他们最新的游戏产品啊，也看到了很多科技公司在这里展示他们最新的游戏技术，以及呢基于AI为开发者提供的工具。比如说像本身就是做游戏硬件起家的英伟达呢，就在今年的gdc里展示了他们最新的blackboard芯片产品神经渲染和数字人技术，以及利用英伟达的dss four AI技术打造的最新游戏，也算是和gdc的一次联动了。除了刚才提到的英伟达以外呢，还有包括arm、谷歌还有腾讯在内的各大公司在dc展示了他们基于AI的产品设计或者提供给开发者的工具。我们呢也在这里看到了各大垂直领域的初创公司在崭露头角，一共呢有超过五十多个和AI一及机器学习相关的话题。那同时呢我们也很惊喜的发现，对于独立游戏开发者来说，AI也能在内容生成以及动态叙事上面提供很大的改变。其实这也和整个游戏行业近几年来迅速的创新和发展息息相关。制定官方的2025年游戏行业报告显示呢，调查中有52%的游戏开发者所在的公司都使用了生成式AI工具，和去年相比，使用AI的人数增加了5%，但同时也必须承认，还是有很多人对AI持有怀疑态度。我们也在制dc现场采访了一些开发团队，来聊聊他们的感受。那今年我们看到呢gdc不仅是一个游戏盛会啊，同时也是一个科技盛会。现在呢大家就和我们一起来看看吉地C让我们看到了AI在游戏上有哪些应用吧。要说2025年最热门的AI话题啊，agent一定能挤进前三。在我们硅谷101上1期讲AI agent的视频里面呢，我们也提到今年agent一定会有爆发式的增长。不过其实早在2023年，大家刚开始讨论agent的时候，我们就听过这样一种共识，AI agent最有希望的应用场景就是在电子游戏里面。2023年，斯坦福大学和谷歌的研究团队发表了生成式智能体可交互的人类行为模拟。这篇论文。也就是大家可能听说过的斯坦福小镇游戏。研究人员在一个类似游戏模拟人生的互动沙盒环境中呢，部署了25个这样的智能体，组成了一个虚拟小镇。用户可以通过自然语言与他们互动。在这个实验中，这些agent智能体表现出了逼真的社交行为。2024年谷歌deamind又提出了sia这种通用agent，同样的是在游戏环境里进行训练研究，最后发现sia后来无需额外的训练就可以适应不同的3D游戏环境，研究人员也就此认为，西玛的潜在应用范围可以扩展至现实任务。在这样的背景下，我们在2025年治力C发现游戏厂商已经看到了agent在现存游戏上的应用价值，甚至已经将他们变成了队友。比如接下来我们要讲的这种技术应用。其实竞技类游戏的玩家应该对AI是最不陌生的。毕竟我们从小就跟人机打交道嘛，也就是那些游戏里跟我们对战的电脑敌人。不过说实话呢，很多人机都不太聪明的样子，基本上是在送分。可能也就只有我这种游戏，菜鸟能打出优越感来。不过在今年的gdc上啊，我们看到了腾讯游戏基于生成式AI打造的AI队友。这下呢玩家不再是单打独斗了，而是变成了赛博指挥官，带着一整支AI小队去打仗。听起来是不是还有点燃？Hold on, stand by this truck standing, standing by ke cach down, daddy flback, standing, standing. 刚才看到的这个AI技术就是发是全球第一个能听懂人话，还活跃在第一人称射击游戏里的AI它即将在暗区突围的pc和手游端上线。我们和发背后的技术团队，腾讯游戏魔方工作室AI项目负责人廖诗阳博士聊了聊。他说这个技术最重要的一点就是帮玩家解决野队难配合、排队匹配慢、队友拉垮等一系列痛点。简单来说就是再也不用担心队友不上麦、不沟通，AI队友百分百配合你。Voice control in shiter is nothing new. 20 years ago, we have a game called so com. Anyone plays so com? Raise your hand. Wow, wow, wow, wow. Yeah. And you from the older generations like me. Socom allows players to use voice command to interact with npc teammates. And in 2023, a voice command mod was introduced already or not, enabling even more sophisticated technical Cal collaboration with npc teamates through voice control. But these games are pre llm, they require players to give instructions with exact wordings and do not support small talk with the AI, and also the AI lacks the ability to recognize and interprethings in a virtual world, 但是通过大模型，玩家可以直接与AI队友聊天，不需要绞尽脑汁记住那些指令，fu口从2023年4月开始研发，也就是趁GPT火了没多久之后，团队当时就在想能不能把大语言模型搬进游戏里，最后他们发现改变玩法的关键突破点在于让AI理解玩家的战术语言。还要听得懂，做得到训练方面，fu是基于开源大模型，加上团队自己的翻译，区内预训练期间使用的数据主要是由开发团队提供的数据，包括战术指令和有限的游戏内线料。训练后的发口最大的亮点不是听指令，而是能听懂战术意图，理解游戏环境。让他不再只是一个听话的小跟班，而是能独立思考和你并肩作战的聪明大子。Go me echo three, stay on the first floor, everyone else follow me upstairs. 不要紧不要紧不要。我们从demo里可以看到，玩家可以对AI做出和周遭环境以及场景相呼应的指令。这是因为这些AI队友具备空间感知能力。对比之下呢，传统AI只能走预设路线，遇上复杂地图就懵逼了。就在之前是从来没有一个呃A或者这个技术能够做到AI对环境有感知。就是说你跟他下一个指令，你跟他说啊去亲一进二楼，或者是或者说啊去躲在前面那个树后面，这些他都能够听懂。而且执行在在之前呢是没有这样的事。因为之前的所有所谓的控制一个AI的nc呢，他都是一些简单的指令，是没有目标的，没有会比如说冲击、防守、撤退呃跟随等等，他都是没有目标没有目标的。语音指令其实只是一个噱头，它是完全可以让比如说热见或者是战术轮盘这些输入的方式来取代的。因为它是没有目标。但是如果有目标的话，你说星星二楼或者是躲在前面那个树后面，你就没有办法用热键或者是用战术轮盘去下这个指令了。因为目标在游戏里面是无限多了，所以啊当然你可以就是键入，就是用键盘打字这样输入，呃，这是可以的。但是在动作游戏里面是很慢，这是做不了的。所以这样的话呢那语音的指令就不是一个噱头，它是一个完全是个必须要的事情。为了达到这个目的后，背后的团队做了三点技术尝试。第一是语音的输入，首先将语音数据转换为文字，再通过大圆模型理解语义，让AI队友知道玩家想要做什么，第二是通过多模态的能力，让AI队友了解游戏场景和场景中的物体。比如货车长什么样，左侧有一扇门，右侧有一个建筑物。最后呢因为AI队友也同样要通过说话的方式和玩家交流啊，所以要通过文本转语音技术生成语音数据。说到语音系统就得替的响应速度了。打过fps的都知道，战场上一秒钟都不能浪费，传统的AI大模型产品通常都要思考几秒的时间才能回应，有的时候甚至会连接不上服务器，放到fps里面敌人都跑没影了，但做到了响应时间控制在一秒以内。秘诀在于两点，首先就是和刚才提到的预训练数据有关，f限制了AI队友和玩家的闲聊能力，如果是语序比较长的内容就很可能超过一秒。更重要的是，f采用预缓存机制，AI呢会储存最近生成的战术指令。如果玩家提出了类似的指令，AI就可以及时响应，而无需重新计算。还比如说我啊我告诉一个AI你要去做什么。他说Roger的那这句话呢肯定肯定是是就经常会出现的。我叫他去某一个地方，他去到之后他说imposition，那imposition这这句话肯定是非常常用的，或者说我打死了一个敌人，他那那个别人我我会讲一句话，can go down这样，那这些都是比较常见的，我就不会再生成了，我就直接在那个cash里面去去拿。有了环境感知加上快速语音响应，AI队友就不仅是辅助工具，而是能让玩法彻底升级的变革者。廖博士也提到，未来的AI不仅是队友，整个游戏世界也有机会变聪明，这项技术可以扩展到rpg开放世界等更多类型的游戏。当然了，fps是最理想的首发场景，因为战术指令呢本来就简短直接，可以将AI的优势发挥的淋漓尽致。其实早在去年8月，fu就已经在德国科隆游戏展亮相，第一次进入玩家视野，很快就吸引了大量fps游戏玩家的关注，不过对于这个技术的落地效果，玩家们也有很多疑问，比如说demo里展示了英文环境下AI队友对玩家指令的反应和回复。那么如果使用中文语音指令，是否也能达到同样的流畅度呢？AI看起来表现完美，但实际上能否适应更复杂的技术场景，甚至是高端竞技局半年过去按区突围。官方也展示了fu的中文系统和移动端版本的demo。你们去前面蓝色的卡车这里三号大楼收到二号不要再热了，三号就位，明白了。廖博士说，不同语言确实有不同挑战，中文语音识别容易出同音字，理解上会有偏差。所以团队也在不断翻译听令，让AI更懂玩家说的游戏黑话，甚至是各种网络流行语。因为你不做翻to脸的话呢，其实你很多时候讲话他也不一定能够理解。你有可能比如说在语音转文字，它可能转转到一个语同音字，它就有点困难去理解，会有这个问题。英文呢就呃这个同音字的出现的机会比较少一点吧，如果中英文的这个句点就在这里。AI队友的出现意味着游戏中的AI正在向着真正的智能化迈进。他不仅能听懂人类语言，更能理解战场局势，甚至和玩家并肩作战。其实除了fu这个技术之外啊，我们也看到很多不同的公司呢在探索AI生成角色的可能性，尤其呢是在不同游戏类型当中的AI nc交互，就比如说这家硅谷的明星初创公司inward AI。陈立于2021年的inward，他们的目标很简单，帮你在游戏里造出有血有肉、能说会道的npc，而不是那些机械式的对话傀儡，在这定期现场，我们采访到了inward的CEO和联合创始人Ken gi其. 实反观inward的成长啊，也是游戏行业对AI态度转变的缩影。In the first year, everybody came out with us just like, what the heck is AI? You know? Is it even going to work? I don't really know. I don't trust it. Second year was ok. This is interesting, but I'm scared. The fear around it was a lot of because AI was largely focused on design time, you know, improving efficiency, content creation, all of those kinds of areas to improve productivity. That makes a lot of people rightfully fearful for, you know, job security in those different areas. And so what we've seen now happen this year is we've seen a huge shift towards production focus. 对于inworld来说，优秀的AI角色远不止会说话，真正有意义的是让游戏角色具备记忆决策能力，能根据玩家行为动态调整策略，比如新手引导、战斗协助，甚至动态调整游戏难度，AI角色可以观察玩家行为、提出建议、跟随行动，甚至根据你的游戏风格改变策略。其实呢，我也在直定机现场看到了一个in word内部测试的demo，是一个双人合作的密室逃脱解密游戏。但是呢和我合作的却不是另一个玩家，而是一个AI队友，let's go stand on the red. 大家可以看到我操作的角色在房间的一侧，而玻璃墙的另一边呢就是我的AI队友。我们需要合作走出这个房间，其中的任务其实不难啊，包括两个人同时移动到自己这边的红点上，以及呢我要操作我的角色，把箱子扔给对方等等。我觉得挺好，就是可以跟他对话，但是感觉没有在和一个深沉式的AI在对话。就我有一个部分就是我不小心静音了嘛，然后他那部分的时候他听不到我了，然后他自己不会做反应。如果你在和一个队友作战的话，他可能会就是尝试间他那里面找到一些事情呃去做。但是好像就在这个地方，就是我一定要去先做一个什么行动，然后他再会去回应这样子，但也有可能是我太菜了。那不论如何啊，在这个游戏里面我觉得我们看到了初具雏形的AI nc那AI agent最终落地到底长什么样，我觉得还没有明确的定论。但是呢在我们问到采访嘉宾关于agent的未来这个问题的时候，他们也很明确的告诉我们，游戏一定是agent落地的第一个应用场景。如果agi真做出来的话，首先第一个应用一定是在游戏里面，就像自动驾驶啊，自动驾驶的训练肯定是在虚拟空间里面做自动驾驶的训练，然后你才把它放在街上嘛。你现在见到街头上有这么多，比如说vivo这些这这自动驾驶的车，但是以前他是在虚拟环境里面熟练做训练。我觉得就是呃游戏是呃各种各样的AI技术的一个试验田吧。在C和各大公司交流的过程当中呢，我们发现啊AI在游戏上的应用很多还是处于探索阶段，不同团队对于AI这项技术的态度也不尽相同，有人激进就有人谨慎。但是呢我们也发现啊，很多公司呢都是在新的游戏产品上去测试AI的效果。但是像腾讯这样有很多成熟游戏产品的公司呢，却反而会从实际应用的角度出发，去解决玩家在游戏当中所遇到的痛点。那就比如说像这样。",
+  "title": "",
+  "author": "",
+  "publish_date": "",
+  "source": "Bilibili (via SnapAny + Paraformer)",
+  "language": "zh-CN",
+  "word_count": 6620,
+  "extraction_method": "snapany_paraformer",
+  "extraction_timestamp": "2025-11-06T20:05:40.395695",
+  "batch_id": "20251106_120356",
+  "link_id": "bili_req3",
+  "error": null,
+  "summary": {
+    "transcript_summary": {
+      "key_facts": [
+        "FACT: In 2025, AI is evolving beyond game opponents to become NPC teammates, game designers, and even creators.",
+        "FACT: The 2025 GDC was held in San Francisco’s Moscone Center with over 30,000 attendees from 100+ countries and 1,000+ speakers.",
+        "FACT: Over 725 sessions were held across five days at GDC 2025, covering AI, machine learning, and GPU-powered gaming.",
+        "FACT: 52% of surveyed game developers used generative AI tools in their studios, up 5% from the previous year.",
+        "FACT: Tencent Game's Magic Studio developed Fu, an AI teammate that understands natural language commands in first-person shooters.",
+        "FACT: Fu uses large language models combined with multimodal perception to interpret spatial context and tactical intent.",
+        "FACT: Fu supports voice control, real-time response under one second, and can understand complex instructions like ‘hide behind the tree’.",
+        "FACT: Fu’s system includes pre-caching common tactical phrases to reduce latency during fast-paced gameplay.",
+        "FACT: Inward AI is a Silicon Valley startup focused on creating emotionally intelligent, memory-capable NPCs for games.",
+        "FACT: Inward AI’s demo showed an AI teammate in a cooperative escape room game capable of following dynamic tasks and responding to player actions.",
+        "FACT: AI agents are considered ideal for testing in games before real-world deployment, similar to how autonomous vehicles are trained virtually.",
+        "FACT: The GDC 2025 featured more than 50 AI- and machine learning-related topics, highlighting industry-wide interest in AI integration."
+      ],
+      "key_opinions": [
+        "OPINION: AI teammates represent a paradigm shift in multiplayer gaming by solving coordination and communication issues in casual teams.",
+        "OPINION: Voice-controlled AI in FPS games is not just a gimmick—it’s essential for conveying complex spatial commands efficiently.",
+        "OPINION: The real breakthrough isn’t just understanding words, but interpreting tactical intent within dynamic game environments.",
+        "OPINION: AI NPCs must evolve beyond scripted dialogue to build believable relationships and adapt to player behavior over time.",
+        "OPINION: Game development is becoming the primary testing ground for advanced AI due to its controlled, scalable virtual environments.",
+        "OPINION: While some developers fear AI will replace jobs, others see it as a tool to enhance creativity and reduce repetitive work.",
+        "OPINION: The success of AI in games depends less on technical capability and more on seamless integration into existing gameplay loops."
+      ],
+      "key_datapoints": [
+        "DATA: 52% of game developers use generative AI tools, up 5% from the previous year.",
+        "DATA: Over 30,000 attendees from 100+ countries participated in GDC 2025.",
+        "DATA: 725 sessions were delivered across five days at GDC 2025.",
+        "DATA: Fu AI teammate responds to voice commands in under one second.",
+        "DATA: Fu uses pre-cached responses for common tactical phrases to minimize delay.",
+        "DATA: Inward AI’s demo tested AI behavior in a two-player cooperative puzzle scenario.",
+        "DATA: Tencent began developing Fu in April 2023, shortly after the rise of LLMs like GPT.",
+        "DATA: The Fu system was first shown at Gamescom 2024 in Germany.",
+        "DATA: Chinese voice input presents challenges due to homophones, requiring specialized speech recognition tuning.",
+        "DATA: AI teammates can dynamically adjust difficulty based on player performance and style."
+      ],
+      "topic_areas": [
+        "AI in gaming",
+        "AI teammates",
+        "Voice-controlled AI",
+        "Generative AI tools",
+        "Game development innovation",
+        "Multimodal AI perception",
+        "NPC intelligence",
+        "Real-time AI response",
+        "AI for game design",
+        "Agent-based gameplay"
+      ],
+      "word_count": 272,
+      "total_markers": 29
+    },
+    "comments_summary": {},
+    "created_at": "2025-11-06T20:16:26.407842",
+    "model_used": "qwen-flash"
+  }
+}

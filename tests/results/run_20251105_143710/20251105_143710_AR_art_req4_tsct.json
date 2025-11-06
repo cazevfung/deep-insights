@@ -1,0 +1,60 @@
+{
+  "success": true,
+  "url": "https://lobste.rs/s/myrlhi/how_cursor_indexes_codebases_fast",
+  "content": "Someone needs to write an MCP server which does this.\nCould someone help me understand how embedding of files are used after they’re generated?\nhttps://www.cursor.com/en/security has the better explanation of what's going on.\nCursor allows you to semantically index your codebase, which allows it to answer questions with the context of all of your code as well as write better code by referencing existing implementations. [...]\nAt inference time, we compute an embedding, let Turbopuffer do the nearest neighbor search, send back the obfuscated file path and line range to the client, and read those file chunks on the client locally. We then send those chunks back up to the server to answer the user's question.\nSo they're using the vector database to find code that's semantically similar to a user's question or, presumably, the code nearest to their cursor position when they generate a completion request.\nWhen you give cursor a prompt, it converts that into embeddings. Then it does a nearest neighboor search in the vector database. That returns a bunch of file paths & line numbers. It then grabs the contents from those file (on your local machine) and adds them to the LLM context.\nOne of the sources for this post is a comment on a forum by a Cursor founder from August 2023, so not clear how relevant it is to how Cursor works today: https://forum.cursor.com/t/codebase-indexing/36/2\nFrom that comment:\nThe embeddings are stored in a remote vector DB, along with starting / ending line numbers and the relative path to that file. None of your code is stored in our databases. It’s gone after the life of the request.\nThis raised my eyebrow a bit, because vector embeddings for predictable strings like code are very reversible: https://arxiv.org/abs/2310.06816\nUpdate: To their credit, they discuss on that issue in their security documentation:\nEmbedding reversal: academic work has shown that reversing embeddings is possible in some cases. Current attacks rely on having access to the model and embedding short strings into big vectors, which makes us believe that the attack would be somewhat difficult to do here. That said, it is definitely possible for an adversary who breaks into our vector database to learn things about the indexed codebases.",
+  "title": "",
+  "author": "",
+  "publish_date": "",
+  "source": "lobste.rs",
+  "language": "auto",
+  "word_count": 371,
+  "extraction_method": "article_trafilatura",
+  "extraction_timestamp": "2025-11-05T22:37:21.698596",
+  "batch_id": "20251105_143710",
+  "link_id": "art_req4",
+  "error": null,
+  "article_id": "5b7423366ccc",
+  "summary": {
+    "transcript_summary": {
+      "key_facts": [
+        "FACT: Cursor uses semantic indexing of codebases to enable context-aware code generation and question answering.",
+        "FACT: Embeddings are generated for code files and stored in a remote vector database with file paths and line ranges.",
+        "FACT: At inference time, user prompts are converted into embeddings for nearest neighbor search in the vector database.",
+        "FACT: The system returns obfuscated file paths and line ranges to the client, which retrieves the actual code chunks locally.",
+        "FACT: Retrieved code chunks are sent back to the server to augment the LLM's context for generating responses.",
+        "FACT: The vector database stores embeddings, line numbers, and relative file paths but does not store raw code content.",
+        "FACT: Raw code is never stored on Cursor’s servers; it is only used temporarily during request processing.",
+        "FACT: The Cursor founder confirmed in a forum post that code is not retained after the request lifecycle ends.",
+        "FACT: Embedding reversal attacks are theoretically possible, especially when models are accessible and short strings are embedded.",
+        "FACT: Cursor’s security documentation acknowledges embedding reversal risks and notes they are difficult to exploit in practice."
+      ],
+      "key_opinions": [
+        "OPINION: The use of vector databases for code indexing enables more accurate and contextually relevant AI-generated code.",
+        "OPINION: Local retrieval of code chunks enhances privacy by keeping sensitive code off centralized servers.",
+        "OPINION: The obfuscation of file paths adds an extra layer of protection against data leakage.",
+        "OPINION: Despite theoretical risks, the current implementation likely provides strong enough security for most users.",
+        "OPINION: The reliance on remote vector DBs introduces potential attack vectors that need ongoing monitoring."
+      ],
+      "key_datapoints": [
+        "DATA: Vector embeddings are stored in a remote database alongside relative file paths and line number ranges.",
+        "DATA: Code is not stored in Cursor’s databases beyond the lifetime of a single request.",
+        "DATA: Embedding reversal attacks require access to both the model and the embedding process.",
+        "DATA: The risk of embedding reversal is considered low due to the difficulty of executing such attacks in practice.",
+        "DATA: The system performs nearest neighbor search using embeddings derived from user prompts or cursor positions."
+      ],
+      "topic_areas": [
+        "Codebase indexing",
+        "Vector database usage",
+        "Embedding security",
+        "Local code retrieval",
+        "Privacy-preserving AI",
+        "Semantic search in code"
+      ],
+      "word_count": 371,
+      "total_markers": 20
+    },
+    "comments_summary": {},
+    "created_at": "2025-11-05T22:39:17.670059",
+    "model_used": "qwen-flash"
+  }
+}

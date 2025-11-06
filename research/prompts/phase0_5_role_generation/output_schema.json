@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "required": ["research_role"],
+  "properties": {
+    "research_role": {
+      "type": "string",
+      "description": "Generated research role/persona for analysis"
+    },
+    "rationale": {
+      "type": "string",
+      "description": "Reason for choosing this role"
+    }
+  }
+}
+

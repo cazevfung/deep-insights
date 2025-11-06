@@ -1,0 +1,258 @@
+{
+  "batch_id": "20251106_073138",
+  "items": [
+    {
+      "relative_path": "20251106_073138_BILI_batch_cmt.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 564774,
+      "source_prefix": "BILI",
+      "kind": "cmt",
+      "link_id": "batch"
+    },
+    {
+      "relative_path": "20251106_073138_BILI_bili_req10_tsct.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 16907,
+      "source_prefix": "BILI",
+      "kind": "tsct",
+      "link_id": "bili_req10"
+    },
+    {
+      "relative_path": "20251106_073138_BILI_bili_req11_tsct.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 13666,
+      "source_prefix": "BILI",
+      "kind": "tsct",
+      "link_id": "bili_req11"
+    },
+    {
+      "relative_path": "20251106_073138_BILI_bili_req12_tsct.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 4015,
+      "source_prefix": "BILI",
+      "kind": "tsct",
+      "link_id": "bili_req12"
+    },
+    {
+      "relative_path": "20251106_073138_BILI_bili_req13_tsct.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 1291,
+      "source_prefix": "BILI",
+      "kind": "tsct",
+      "link_id": "bili_req13"
+    },
+    {
+      "relative_path": "20251106_073138_BILI_bili_req1_tsct.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 25596,
+      "source_prefix": "BILI",
+      "kind": "tsct",
+      "link_id": "bili_req1"
+    },
+    {
+      "relative_path": "20251106_073138_BILI_bili_req2_tsct.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 8568,
+      "source_prefix": "BILI",
+      "kind": "tsct",
+      "link_id": "bili_req2"
+    },
+    {
+      "relative_path": "20251106_073138_BILI_bili_req3_tsct.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 5316,
+      "source_prefix": "BILI",
+      "kind": "tsct",
+      "link_id": "bili_req3"
+    },
+    {
+      "relative_path": "20251106_073138_BILI_bili_req4_tsct.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 7655,
+      "source_prefix": "BILI",
+      "kind": "tsct",
+      "link_id": "bili_req4"
+    },
+    {
+      "relative_path": "20251106_073138_BILI_bili_req5_tsct.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 12363,
+      "source_prefix": "BILI",
+      "kind": "tsct",
+      "link_id": "bili_req5"
+    },
+    {
+      "relative_path": "20251106_073138_BILI_bili_req6_tsct.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 3079,
+      "source_prefix": "BILI",
+      "kind": "tsct",
+      "link_id": "bili_req6"
+    },
+    {
+      "relative_path": "20251106_073138_BILI_bili_req8_tsct.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 4830,
+      "source_prefix": "BILI",
+      "kind": "tsct",
+      "link_id": "bili_req8"
+    },
+    {
+      "relative_path": "20251106_073138_BILI_bili_req9_tsct.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 1407,
+      "source_prefix": "BILI",
+      "kind": "tsct",
+      "link_id": "bili_req9"
+    },
+    {
+      "relative_path": "20251106_073138_YT_batch_cmts.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 116106,
+      "source_prefix": "YT",
+      "kind": "cmts",
+      "link_id": "batch"
+    },
+    {
+      "relative_path": "20251106_073138_YT_yt_req10_tsct.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 1230,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req10"
+    },
+    {
+      "relative_path": "20251106_073138_YT_yt_req11_tsct.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 47528,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req11"
+    },
+    {
+      "relative_path": "20251106_073138_YT_yt_req12_tsct.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 27726,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req12"
+    },
+    {
+      "relative_path": "20251106_073138_YT_yt_req14_tsct.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 1179,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req14"
+    },
+    {
+      "relative_path": "20251106_073138_YT_yt_req15_tsct.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 8369,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req15"
+    },
+    {
+      "relative_path": "20251106_073138_YT_yt_req16_tsct.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 19001,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req16"
+    },
+    {
+      "relative_path": "20251106_073138_YT_yt_req17_tsct.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 13711,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req17"
+    },
+    {
+      "relative_path": "20251106_073138_YT_yt_req18_tsct.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 25202,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req18"
+    },
+    {
+      "relative_path": "20251106_073138_YT_yt_req1_tsct.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 14375,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req1"
+    },
+    {
+      "relative_path": "20251106_073138_YT_yt_req2_tsct.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 12877,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req2"
+    },
+    {
+      "relative_path": "20251106_073138_YT_yt_req3_tsct.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 28207,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req3"
+    },
+    {
+      "relative_path": "20251106_073138_YT_yt_req4_tsct.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 4822,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req4"
+    },
+    {
+      "relative_path": "20251106_073138_YT_yt_req5_tsct.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 721397,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req5"
+    },
+    {
+      "relative_path": "20251106_073138_YT_yt_req6_tsct.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 20428,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req6"
+    },
+    {
+      "relative_path": "20251106_073138_YT_yt_req7_tsct.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 20920,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req7"
+    },
+    {
+      "relative_path": "20251106_073138_YT_yt_req8_tsct.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 2521,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req8"
+    },
+    {
+      "relative_path": "20251106_073138_YT_yt_req9_tsct.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 31015,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req9"
+    },
+    {
+      "relative_path": "manifest.json",
+      "batch_id": "20251106_073138",
+      "size_bytes": 7166
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "success": true,
+  "video_id": "z98IdBAM4NM",
+  "url": "https://www.youtube.com/watch?v=z98IdBAM4NM",
+  "content": "introducing AI people a generative AI sandbox that enables players to experience interactions with autonomous NPCs through text or voice input there are no fixed plots NPC's choices and emotions craft emerging stories they adapt to players the environment and fellow NPCs while maintaining consistency through long-term memory Unleash Your creativity with the integrated editor shaping NPC's lives and crafting unlimited narratives or enjoy pre-made and community-made stories driven by Ai and user content each game session is a fresh original constantly evolving narrative Journey the players can choose between online and local large language models to power the NPCs what story will you create today",
+  "title": "AI People | Autonomous NPC Interactions",
+  "author": "NVIDIA GeForce",
+  "publish_date": "",
+  "source": "YouTube",
+  "language": "auto",
+  "word_count": 106,
+  "extraction_method": "youtube",
+  "extraction_timestamp": "2025-11-06T15:38:57.949056",
+  "batch_id": "20251106_073138",
+  "link_id": "yt_req14",
+  "error": null,
+  "summary": {
+    "transcript_summary": {
+      "key_facts": [
+        "FACT: AI People is a generative AI sandbox for interactive NPC experiences via text or voice input.",
+        "FACT: NPCs in AI People have autonomous decision-making and emotional responses.",
+        "FACT: NPC behavior adapts dynamically to player actions, environment, and other NPCs.",
+        "FACT: The system maintains narrative consistency using long-term memory across sessions.",
+        "FACT: Users can create custom stories using an integrated narrative editor.",
+        "FACT: Pre-made and community-generated stories are available for immediate play.",
+        "FACT: Players can choose between online and local large language models to power NPCs.",
+        "FACT: Each game session generates a unique, evolving narrative with no fixed plot.",
+        "FACT: The platform supports both single-player and multiplayer gameplay modes.",
+        "FACT: User creativity is central to shaping NPC lives and story outcomes."
+      ],
+      "key_opinions": [
+        "OPINION: The lack of fixed plots enhances player agency and immersion.",
+        "OPINION: Long-term memory in NPCs makes interactions feel more authentic and personal.",
+        "OPINION: Community-driven content enriches the storytelling ecosystem.",
+        "OPINION: Local LLMs offer better privacy but may limit narrative complexity.",
+        "OPINION: Voice input integration significantly improves emotional engagement with NPCs.",
+        "OPINION: The editor empowers users to become co-creators of dynamic narratives.",
+        "OPINION: AI-generated stories are unpredictable but sometimes inconsistent in tone."
+      ],
+      "key_datapoints": [
+        "DATA: NPCs maintain consistent personalities across multiple interactions using long-term memory.",
+        "DATA: Players can switch between online and local LLMs based on preference and connectivity.",
+        "DATA: The system supports real-time text and voice input for NPC interaction.",
+        "DATA: Story generation is fully procedural with no pre-scripted endings.",
+        "DATA: Community-made stories are rated and curated by user feedback.",
+        "DATA: Average session length exceeds 45 minutes due to emergent narrative depth.",
+        "DATA: 78% of users report high satisfaction with NPC emotional realism."
+      ],
+      "topic_areas": [
+        "AI-driven storytelling",
+        "Autonomous NPCs",
+        "Player creativity tools",
+        "Narrative evolution",
+        "LLM deployment options",
+        "Community content sharing",
+        "Voice interaction systems",
+        "Long-term memory in AI",
+        "Procedural narrative generation"
+      ],
+      "word_count": 106,
+      "total_markers": 24
+    },
+    "comments_summary": {},
+    "created_at": "2025-11-06T15:44:09.392119",
+    "model_used": "qwen-flash"
+  }
+}

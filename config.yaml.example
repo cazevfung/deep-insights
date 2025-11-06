@@ -1,0 +1,168 @@
+scrapers:
+  youtube:
+    headless: false
+    timeout: 60000  # 60 seconds - YouTube pages can be slow to load
+    min_transcript_length: 10
+    preserve_timestamps: false
+    num_workers: 3
+  
+  bilibili:
+    headless: false  # Show browser for debugging
+    timeout: 60000  # 60 seconds total timeout
+    download_dir: 'downloads'
+    whisper_model: 'tiny'  # Options: 'tiny', 'base', 'small', 'medium', 'large-v3' (tiny is fastest for testing)
+    whisper_language: 'zh'  # Chinese
+    cleanup_after: false  # Deprecated: Video files are now always cleaned up after transcription
+    num_workers: 1  # Sequential only (Whisper is resource intensive)
+    use_faster_whisper: true  # Use faster-whisper instead of openai-whisper
+    # OSS Configuration for Paraformer (Required for cloud transcription)
+    # Get these from Alibaba Cloud Console: https://ram.console.aliyun.com/manage/ak
+    oss_access_key_id: 'YOUR_OSS_ACCESS_KEY_ID'  # Your OSS Access Key ID
+    oss_access_key_secret: 'YOUR_OSS_ACCESS_KEY_SECRET'  # Your OSS Access Key Secret  
+    oss_bucket: 'YOUR_OSS_BUCKET_NAME'  # Your OSS bucket name in cn-beijing region
+    oss_endpoint: 'https://oss-cn-beijing.aliyuncs.com'  # OSS endpoint
+    preferred_quality: '480p'
+    cookie_source: 'config'  # 'config' or 'file'
+    cookies:
+      SESSDATA: 'YOUR_SESSDATA_COOKIE'
+      DedeUserID: 'YOUR_DEDE_USER_ID'
+      DedeUserID__ckMd5: 'YOUR_DEDE_USER_ID_CK_MD5'
+      bili_jct: 'YOUR_BILI_JCT'
+      buvid3: 'YOUR_BUVID3'
+      buvid4: 'YOUR_BUVID4'
+      _uuid: 'YOUR_UUID'
+      b_nut: 'YOUR_B_NUT'
+      buvid_fp: 'YOUR_BUVID_FP'
+      b_lsid: 'YOUR_B_LSID'
+      bili_ticket: 'YOUR_BILI_TICKET'
+      CURRENT_FNVAL: '4048'
+  
+  bilibili_comments:
+    headless: false
+    timeout: 30000
+    max_comments_per_page: 20
+    max_pages: 30  # Maximum pages to scrape per video
+    cookie_source: 'file'  # 'file' or 'config'
+    cookie_file: 'data/cookies/bilibili_cookies.json'
+    sort_mode: 3  # 3 = hot comments, 2 = new comments
+    num_workers: 3
+  
+  article:
+    headless: true
+    timeout: 30000
+    method_preference: 'playwright'  # or 'trafilatura'
+    min_content_words: 50
+    remove_blocking_elements: true
+    num_workers: 3
+  
+  tieba:
+    headless: true
+    timeout: 30000
+    num_workers: 3
+  
+  reddit:
+    headless: false  # Must be false to allow login
+    timeout: 30000
+    num_workers: 3
+
+browser:
+  # Connect to existing Chrome browser instead of launching new instance
+  # This helps avoid login/anti-bot issues by using your normal Chrome profile
+  connect_to_existing_browser: false  # Set to true to connect to your Chrome
+  browser_cdp_url: 'http://localhost:9222'  # Chrome DevTools Protocol URL
+  # To use: Start Chrome with --remote-debugging-port=9222
+  # Example: chrome.exe --remote-debugging-port=9222 --user-data-dir="C:\temp\chrome-profile"
+  
+storage:
+  base_dir: 'data/research'
+  format: 'json'
+  save_metadata: true
+  cache_enabled: true
+  cache_dir: 'data/cache'
+
+web:
+  host: '127.0.0.1'
+  port: 5000
+  debug: false
+  title: '智能研究工具'
+
+qwen:
+  api_key: 'YOUR_QWEN_API_KEY'  # Get from https://dashscope.console.aliyun.com/
+  # Note: The actual client uses OpenAI-compatible endpoint:
+  # base_url: 'https://dashscope.aliyuncs.com/compatible-mode/v1'
+  # The api_url below is kept for reference but not used by QwenStreamingClient
+  api_url: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation'
+  model: 'qwen3-max'  # qwen3-max is the most capable model. Also available: qwen-plus, qwen-turbo
+  temperature: 0.7
+  max_tokens: 32000
+  language: 'zh-CN'  # Output in Chinese
+
+research:
+  summarization:
+    enabled: true  # Enable Phase 0 summarization with qwen-flash
+    model: "qwen-flash"  # Fast, cheap model for summarization
+    max_transcript_length_for_summary: 50000  # Chunk very long transcripts for summarization
+    max_comments_for_summary: 50000  # Sample large comment sets for summarization
+    save_to_files: true  # Save summaries to JSON files for persistence
+    reuse_existing_summaries: true  # Use existing summaries if found in JSON files
+  
+  retrieval:
+    window_words: 20000  # Increased from 3000 to minimize back-and-forth
+    window_overlap_words: 1000  # Proportional overlap (~5%)
+    max_windows_per_step: 50  # Increased from 8 to allow full coverage of large documents
+    max_transcript_chars: 0  # 0 = no limit (let API handle token limits). Sequential chunks already controlled by window_words
+    proactive_retrieval: true
+    # New settings for marker-based retrieval
+    max_followups_per_step: 5  # Increased from 2 for multi-round retrieval
+    max_content_items_per_turn: 3  # Limit concurrent items per retrieval turn
+    context_window_limit: 200000  # Total chars across all turns
+    prioritize_by_marker_relevance: true
+    never_truncate_items: true  # Enforce no truncation - always full content items
+    min_chars_per_request_item: 400
+    max_chars_per_request_item: 4000
+    min_total_followup_chars: 1500
+    max_total_followup_chars: 20000
+    enable_cache: true
+  
+  phases:
+    use_marker_overview: true  # Enable marker-based flow
+    marker_overview_max_items: 20  # Max items to show in overview
+  synthesis:
+    min_words_total: 5000
+    section_min_words: 350
+    section_target_words: 600
+    section_max_words: 800
+    expansion_passes: 1
+    appendix_min_words: 1200
+    quote_cap_percent: 5
+    section_context_budget_tokens: 6000
+
+prompts:
+  base_dir: 'research/prompts'
+
+servers:
+  # Backend API server configuration
+  backend:
+    host: '127.0.0.1'  # Use '0.0.0.0' to accept connections from all interfaces, or '127.0.0.1' for local-only
+    port: 3001
+    reload: true  # Enable auto-reload during development
+    reload_dirs: ['backend/app']
+  
+  # Frontend dev server configuration
+  frontend:
+    host: '0.0.0.0'  # Use '0.0.0.0' to accept connections from all interfaces, or '127.0.0.1' for local-only
+    port: 3000
+    proxy_timeout: 10000  # Proxy timeout in milliseconds
+  
+  # CORS configuration
+  cors:
+    allowed_origins:
+      - 'http://localhost:3000'
+      - 'http://127.0.0.1:3000'
+      - 'http://localhost:3001'
+      - 'http://127.0.0.1:3001'
+    allow_credentials: true
+    allow_methods: ['*']
+    allow_headers: ['*']
+
+

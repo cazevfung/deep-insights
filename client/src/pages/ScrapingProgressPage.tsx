@@ -1,0 +1,448 @@
+import React, { useEffect, useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
+import Card from '../components/common/Card'
+import ProgressBar from '../components/progress/ProgressBar'
+import StatusBadge from '../components/progress/StatusBadge'
+import ProgressGroup from '../components/progress/ProgressGroup'
+import { Icon } from '../components/common/Icon'
+import { useWorkflowStore } from '../stores/workflowStore'
+import { useWebSocket } from '../hooks/useWebSocket'
+import { apiService } from '../services/api'
+import { groupItemsByStatus, getItemId } from '../utils/progressUtils'
+
+const ScrapingProgressPage: React.FC = () => {
+  const navigate = useNavigate()
+  const {
+    batchId,
+    workflowStarted,
+    scrapingStatus,
+    setCurrentPhase,
+    cancelled,
+    cancellationInfo,
+    setWorkflowStarted,
+  } = useWorkflowStore()
+  
+  const [isCancelling, setIsCancelling] = useState(false)
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false)
+  const [workflowStatus, setWorkflowStatus] = useState<string | null>(null)
+  
+  // New item tracking and animation
+  const [newItemIds, setNewItemIds] = useState<Set<string>>(new Set())
+  const [showNewItemsNotification, setShowNewItemsNotification] = useState(false)
+  const [newItemsCount, setNewItemsCount] = useState(0)
+  const previousItemIdsRef = useRef<Set<string>>(new Set())
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const [scrollPosition, setScrollPosition] = useState(0)
+  const [userScrolled, setUserScrolled] = useState(false)
+  const userScrollTimeoutRef = useRef<number | null>(null)
+  
+  // Use refs to track initialization and prevent duplicate checks
+  const hasInitializedRef = useRef(false)
+  const checkInProgressRef = useRef(false)
+
+  // Connect WebSocket when component mounts (always connect for updates)
+  useWebSocket(batchId || '')
+
+  // Detect new items
+  useEffect(() => {
+    const currentIds = new Set(scrapingStatus.items.map((item) => getItemId(item)))
+    const previousIds = previousItemIdsRef.current
+    
+    // Find new items
+    const newIds = new Set<string>()
+    currentIds.forEach((id) => {
+      if (!previousIds.has(id)) {
+        newIds.add(id)
+      }
+    })
+
+    if (newIds.size > 0) {
+      setNewItemIds((prev) => {
+        const updated = new Set(prev)
+        newIds.forEach((id) => updated.add(id))
+        return updated
+      })
+      setNewItemsCount(newIds.size)
+
+      // Show notification if user has scrolled down
+      if (userScrolled && scrollPosition > 200) {
+        setShowNewItemsNotification(true)
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+          setShowNewItemsNotification(false)
+        }, 5000)
+      }
+    }
+
+    previousItemIdsRef.current = currentIds
+  }, [scrapingStatus.items, userScrolled, scrollPosition])
+
+  // Handle scroll position tracking
+  useEffect(() => {
+    const container = scrollContainerRef.current
+    if (!container) return
+
+    const handleScroll = () => {
+      const position = container.scrollTop
+      setScrollPosition(position)
+      
+      // Mark as user scrolled if they scroll down significantly
+      if (position > 200) {
+        setUserScrolled(true)
+        // Reset user scrolled flag after 2 seconds of no scrolling
+        if (userScrollTimeoutRef.current) {
+          clearTimeout(userScrollTimeoutRef.current)
+        }
+        userScrollTimeoutRef.current = setTimeout(() => {
+          setUserScrolled(false)
+        }, 2000)
+      } else {
+        setUserScrolled(false)
+      }
+    }
+
+    container.addEventListener('scroll', handleScroll)
+    return () => {
+      container.removeEventListener('scroll', handleScroll)
+      if (userScrollTimeoutRef.current) {
+        clearTimeout(userScrollTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  // Auto-scroll to top when new items appear (if user is near top)
+  useEffect(() => {
+    if (newItemIds.size > 0 && !userScrolled && scrollPosition < 200) {
+      const container = scrollContainerRef.current
+      if (container) {
+        container.scrollTo({ top: 0, behavior: 'smooth' })
+      }
+    }
+  }, [newItemIds.size, userScrolled, scrollPosition])
+
+  const handleScrollToTop = () => {
+    const container = scrollContainerRef.current
+    if (container) {
+      container.scrollTo({ top: 0, behavior: 'smooth' })
+      setShowNewItemsNotification(false)
+    }
+  }
+
+  const handleItemAnimationComplete = (itemId: string) => {
+    setNewItemIds((prev) => {
+      const updated = new Set(prev)
+      updated.delete(itemId)
+      return updated
+    })
+  }
+
+  useEffect(() => {
+    console.log('ScrapingProgressPage mounted, batchId:', batchId)
+    
+    if (!batchId) {
+      console.log('No batchId, navigating to home')
+      navigate('/')
+      return
+    }
+
+    // Check workflow status and start if needed
+    const checkAndStartWorkflow = async () => {
+      // Prevent multiple simultaneous checks using ref
+      if (checkInProgressRef.current) {
+        console.log('Already checking status, skipping')
+        return
+      }
+      
+      // If already initialized for this batchId, skip
+      if (hasInitializedRef.current) {
+        console.log('Already initialized for this batchId, skipping')
+        return
+      }
+      
+      console.log('Starting workflow check for batchId:', batchId)
+      checkInProgressRef.current = true
+      setIsCheckingStatus(true)
+      
+      try {
+        const workflowId = `workflow_${batchId}`
+        let currentStatus: string | null = null
+        
+        // Check if workflow is already running
+        try {
+          console.log('Checking workflow status for:', workflowId)
+          const status = await apiService.getWorkflowStatus(workflowId)
+          currentStatus = status.status
+          setWorkflowStatus(status.status)
+          console.log('Workflow status:', currentStatus)
+          
+          if (status.status === 'running') {
+            // Workflow already running, just connect WebSocket (already done above)
+            console.log('Workflow already running, connecting to updates...')
+            setWorkflowStarted(true)
+            hasInitializedRef.current = true
+            checkInProgressRef.current = false
+            setIsCheckingStatus(false)
+            return
+          }
+          
+          if (status.status === 'cancelled') {
+            // Workflow was cancelled, don't restart
+            console.log('Workflow was cancelled, not restarting')
+            hasInitializedRef.current = true
+            checkInProgressRef.current = false
+            setIsCheckingStatus(false)
+            return
+          }
+        } catch (error: any) {
+          // Status endpoint might not exist or workflow doesn't exist yet
+          // This is okay - we'll try to start
+          console.log('Could not get workflow status, will try to start:', error?.response?.status, error?.message)
+        }
+
+        // Only start if workflow hasn't been started for this batchId and status is not running
+        if (!workflowStarted && currentStatus !== 'running') {
+          console.log('Starting new workflow for batchId:', batchId)
+          try {
+            const response = await apiService.startWorkflow(batchId)
+            console.log('Workflow start response:', response)
+            setWorkflowStarted(true)
+            setWorkflowStatus('running')
+            hasInitializedRef.current = true
+          } catch (error: any) {
+            console.error('Failed to start workflow:', error)
+            console.error('Error details:', error?.response?.data, error?.response?.status)
+            // If error is because workflow already exists, mark as started
+            if (error?.response?.status === 409 || error?.message?.includes('already')) {
+              console.log('Workflow already exists, marking as started')
+              setWorkflowStarted(true)
+              setWorkflowStatus('running')
+              hasInitializedRef.current = true
+            }
+          }
+        } else {
+          console.log('Workflow already started or running, skipping start')
+          hasInitializedRef.current = true
+        }
+      } catch (error: any) {
+        console.error('Error checking/starting workflow:', error)
+        console.error('Error details:', error?.response?.data, error?.response?.status)
+      } finally {
+        checkInProgressRef.current = false
+        setIsCheckingStatus(false)
+      }
+    }
+
+    // Only run check if not already initialized
+    if (!hasInitializedRef.current) {
+      checkAndStartWorkflow()
+    }
+    
+    // Reset initialization ref when batchId changes
+    return () => {
+      // Reset refs when batchId changes to allow re-initialization for new batch
+      const currentBatchId = batchId
+      if (currentBatchId) {
+        // Use a timeout to check if batchId actually changed
+        // This prevents reset on every render
+        setTimeout(() => {
+          // Only reset if batchId is different (handled by React's dependency array)
+        }, 0)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [batchId]) // Only depend on batchId - navigate is stable and doesn't need to trigger re-runs
+  
+  // Reset initialization when batchId changes
+  useEffect(() => {
+    hasInitializedRef.current = false
+    checkInProgressRef.current = false
+    previousItemIdsRef.current = new Set()
+    setNewItemIds(new Set())
+    setShowNewItemsNotification(false)
+    setUserScrolled(false)
+    setScrollPosition(0)
+  }, [batchId])
+
+  // Calculate overall progress (use from status if available, otherwise calculate)
+  const overallProgress =
+    scrapingStatus.total > 0
+      ? ((scrapingStatus.completed + scrapingStatus.failed) / scrapingStatus.total) * 100
+      : 0
+
+  // Handle cancel button click
+  const handleCancel = async () => {
+    if (!batchId || cancelled || isCancelling) return
+    
+    if (window.confirm('确定要取消当前任务吗？已完成的链接会保留，未完成的将停止处理。')) {
+      setIsCancelling(true)
+      try {
+        await apiService.cancelWorkflow(batchId, '用户取消')
+        // State will be updated via WebSocket message
+      } catch (error) {
+        console.error('Failed to cancel workflow:', error)
+        alert('取消操作失败，请重试')
+        setIsCancelling(false)
+      }
+    }
+  }
+  
+  // Note: Navigation is now handled globally by useProgressNavigation hook
+  // This effect is kept for phase tracking only
+  useEffect(() => {
+    if (cancelled) return // Don't update phase if cancelled
+    
+    if (
+      scrapingStatus.total > 0 &&
+      scrapingStatus.completed + scrapingStatus.failed === scrapingStatus.total
+    ) {
+      // Update phase for tracking, navigation handled by useProgressNavigation
+      setCurrentPhase('research')
+    }
+  }, [scrapingStatus, setCurrentPhase, cancelled])
+
+  // Group items by status
+  const groupedItems = groupItemsByStatus(scrapingStatus.items)
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-6">
+      <Card
+        title="抓取进度"
+        subtitle={`批次ID: ${batchId || 'N/A'}`}
+      >
+        <div className="space-y-6">
+          {/* Workflow Status Indicator */}
+          {isCheckingStatus && (
+            <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-3 mb-4">
+              <p className="text-sm text-yellow-700">正在检查工作流状态...</p>
+            </div>
+          )}
+          
+          {workflowStatus === 'running' && !isCheckingStatus && (
+            <div className="bg-green-50 border border-green-300 rounded-lg p-3 mb-4">
+              <p className="text-sm text-green-700">工作流正在运行中...</p>
+            </div>
+          )}
+          
+          {workflowStatus === 'stopped' && !isCheckingStatus && (
+            <div className="bg-gray-50 border border-gray-300 rounded-lg p-3 mb-4">
+              <p className="text-sm text-gray-700">工作流已停止</p>
+            </div>
+          )}
+
+          {/* Cancellation Notice */}
+          {cancelled && cancellationInfo && (
+            <div className="bg-yellow-50 border border-yellow-400 rounded-lg p-4 mb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-semibold text-yellow-800 mb-1">任务已取消</h4>
+                  <p className="text-sm text-yellow-700">
+                    取消原因: {cancellationInfo.reason || '用户取消'}
+                  </p>
+                  {cancellationInfo.cancelled_at && (
+                    <p className="text-xs text-yellow-600 mt-1">
+                      取消时间: {new Date(cancellationInfo.cancelled_at).toLocaleString('zh-CN')}
+                    </p>
+                  )}
+                  {cancellationInfo.state_at_cancellation && (
+                    <div className="mt-2 text-xs text-yellow-700">
+                      <p>取消时状态:</p>
+                      <ul className="list-disc list-inside ml-2 mt-1">
+                        <li>已完成: {cancellationInfo.state_at_cancellation.completed || 0}</li>
+                        <li>失败: {cancellationInfo.state_at_cancellation.failed || 0}</li>
+                        <li>处理中: {cancellationInfo.state_at_cancellation.in_progress || 0}</li>
+                        <li>总计: {cancellationInfo.state_at_cancellation.total || 0}</li>
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Cancel Button */}
+          {!cancelled && batchId && (
+            <div className="flex justify-end mb-4">
+              <button
+                onClick={handleCancel}
+                disabled={isCancelling}
+                className={`px-4 py-2 rounded-lg font-medium text-white transition-colors ${
+                  isCancelling
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-red-500 hover:bg-red-600 active:bg-red-700'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                {isCancelling ? '取消中...' : '取消任务'}
+              </button>
+            </div>
+          )}
+
+          {/* Overall Progress */}
+          <div>
+            <ProgressBar
+              progress={overallProgress}
+              label="总体进度"
+              showPercentage
+            />
+          </div>
+
+          {/* Status Summary */}
+          <div className="flex items-center space-x-4">
+            <StatusBadge status="success">
+              已完成: {scrapingStatus.completed}
+            </StatusBadge>
+            <StatusBadge status="error">
+              失败: {scrapingStatus.failed}
+            </StatusBadge>
+            <StatusBadge status="pending">
+              处理中: {scrapingStatus.inProgress}
+            </StatusBadge>
+            <StatusBadge status="info">
+              总计: {scrapingStatus.total}
+            </StatusBadge>
+          </div>
+
+          {/* New Items Notification Badge */}
+          {showNewItemsNotification && newItemsCount > 0 && (
+            <div className="bg-primary-50 border border-primary-300 rounded-lg p-3 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Icon name="info" size={18} strokeWidth={2.5} className="text-primary-500" />
+                <span className="text-sm text-primary-700">
+                  {newItemsCount} 个新项目已开始处理
+                </span>
+              </div>
+              <button
+                onClick={handleScrollToTop}
+                className="text-sm text-primary-600 hover:text-primary-700 font-medium underline"
+              >
+                回到顶部
+              </button>
+            </div>
+          )}
+
+          {/* Grouped URL List */}
+          {scrapingStatus.items.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="font-semibold text-neutral-black">链接列表</h4>
+              <div
+                ref={scrollContainerRef}
+                className="space-y-3 max-h-96 overflow-y-auto"
+                style={{ scrollBehavior: 'smooth' }}
+              >
+                {groupedItems.map((group, index) => (
+                  <ProgressGroup
+                    key={`${group.status}-${index}`}
+                    group={group}
+                    newItemIds={newItemIds}
+                    onItemAnimationComplete={handleItemAnimationComplete}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+export default ScrapingProgressPage

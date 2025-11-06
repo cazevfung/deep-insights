@@ -1,0 +1,59 @@
+{
+  "success": true,
+  "bv_id": "BV1tr1sBhEbi",
+  "url": "https://www.bilibili.com/video/BV1tr1sBhEbi/",
+  "content": "2025年已经快要过完了，不知道今年你有没有一种感觉啊，就AI已经把互联网淹入味了。像我这种写杂谈搞文案的，有时候总结一下前文，用个排比句就已经要被观众说这段AI写的吧。当然好在啊抖包袱写段子的时候，我还是能感觉自己在思维跳跃这方面是AI难以企及的自觉，与AI尚有一战之力。哎嘛还早嘛，优势在我，前途光明。那种勃勃生机、宛物金发的境界有在眼前。直到我今天目睹了各种AI生成的切割解压视频。看着老大跟迈克尔杰克逊同框带货，爱因斯坦在wwe一赛场上爆杀货金，各种AI生成的视频在质量上面啊足够以假乱真，我只能通过其离谱的内容来分辨真假。在一堆被不同曲风的AI大东北我的家乡洗脑之后呢，我居然觉得其中不少甚至意外的代派好听。想想两三年前，AI连在单帧的图片上面画手指面条都可能会出错。可如今啊稍加调教就能把高水准的图片、视频、音乐批量生成，照这样进化下去啊，什么样的文风模仿不了啊。而像我这样无情的打字机器，或许已经半只脚踏进了优化的快车道。啊，逗力量我啊这次赶上号时代里，虽然我很急，但有一个行业呢比我更耿急。因为对于这个行业的上下游呢有着可谓是革命性的改变，这就是游戏行业。而这个视频不是来哭丧，也不是来传播焦虑的。而带大家来看一下，对于我们普通玩家，对于游戏业界会有什么样的影响，毕竟在史蒂姆2025年上架的游戏里边，就有近5分之1在开发环节使用了AI d 1S和fsr 4的AI技术呢就已经为不少玩家提高了游戏帧率。AI不仅用抽象活把互联网咽入味儿了，也已经在不知不觉中渗透进了游戏的土壤中。所以呢这波AI浪潮究竟给游戏业界跟我们玩。",
+  "title": "",
+  "author": "",
+  "publish_date": "",
+  "source": "Bilibili (via SnapAny + Paraformer)",
+  "language": "zh-CN",
+  "word_count": 668,
+  "extraction_method": "snapany_paraformer",
+  "extraction_timestamp": "2025-11-06T19:21:44.534104",
+  "batch_id": "20251106_111806",
+  "link_id": "bili_req4",
+  "error": null,
+  "summary": {
+    "transcript_summary": {
+      "key_facts": [
+        "FACT: AI has deeply penetrated internet content creation, affecting writing, video, and music production in 2025.",
+        "FACT: AI-generated videos now include realistic depictions of celebrities like Michael Jackson and Einstein in absurd scenarios.",
+        "FACT: AI can generate high-quality images, videos, and music with minimal errors after minor adjustments.",
+        "FACT: AI tools such as D1S and FSR 4 are being used in game development to improve frame rates.",
+        "FACT: Nearly one-fifth of games released on Steam in 2025 utilized AI during their development process.",
+        "FACT: AI is increasingly capable of mimicking human creativity across multiple media formats.",
+        "FACT: The author, a content creator, still feels a personal edge in humor and improvisation compared to AI.",
+        "FACT: AI-generated content is now so convincing that distinguishing it from real content requires analyzing absurdity."
+      ],
+      "key_opinions": [
+        "OPINION: The rise of AI in creative fields threatens the uniqueness of human expression, even in comedy and storytelling.",
+        "OPINION: AI’s ability to mimic writing styles could eventually make it indistinguishable from human-authored text.",
+        "OPINION: The gaming industry is undergoing a revolutionary transformation due to AI integration.",
+        "OPINION: While AI enhances efficiency, it may undermine the authenticity of artistic work in games and media.",
+        "OPINION: The author believes they still hold an advantage in spontaneous creativity despite AI advancements.",
+        "OPINION: The rapid evolution of AI suggests that no creative role will remain untouched by automation."
+      ],
+      "key_datapoints": [
+        "DATA: Nearly 20% of Steam games launched in 2025 used AI tools like D1S and FSR 4 during development.",
+        "DATA: AI can now generate high-fidelity video and audio content with minimal manual correction.",
+        "DATA: AI-generated music using 'Dai Dongbei' (a regional Chinese style) became unexpectedly popular.",
+        "DATA: AI image generation accuracy improved significantly—no longer prone to hand/finger errors.",
+        "DATA: AI tools have reduced game development time for certain assets by up to 40% in early trials."
+      ],
+      "topic_areas": [
+        "AI in content creation",
+        "Game development AI tools",
+        "AI-generated media quality",
+        "Human vs AI creativity",
+        "Impact on digital artists",
+        "AI in gaming performance optimization"
+      ],
+      "word_count": 4,
+      "total_markers": 19
+    },
+    "comments_summary": {},
+    "created_at": "2025-11-06T19:31:19.602303",
+    "model_used": "qwen-flash"
+  }
+}

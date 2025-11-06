@@ -1,0 +1,26 @@
+{
+  "batch_id": "20251105_080056",
+  "items": [
+    {
+      "relative_path": "20251105_080056_YT_batch_cmts.json",
+      "batch_id": "20251105_080056",
+      "size_bytes": 221,
+      "source_prefix": "YT",
+      "kind": "cmts",
+      "link_id": "batch"
+    },
+    {
+      "relative_path": "20251105_080056_YT_yt_req1_tsct.json",
+      "batch_id": "20251105_080056",
+      "size_bytes": 13977,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req1"
+    },
+    {
+      "relative_path": "manifest.json",
+      "batch_id": "20251105_080056",
+      "size_bytes": 502
+    }
+  ]
+}

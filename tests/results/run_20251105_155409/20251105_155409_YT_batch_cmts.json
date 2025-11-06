@@ -1,0 +1,210 @@
+{
+  "batch_id": "20251105_155409",
+  "scraper_type": "youtubecomments",
+  "total_comments": 40,
+  "successful_extractions": 1,
+  "total_videos": 3,
+  "comments": [
+    {
+      "content": "Many people have superficial knowledge about indexing. All they know is that indexing makes querying faster. But they don’t know how. Glad I found this video through your twitter post. Will read about B+ trees soon.",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "People run behind influencers and left with this GoldMine! Loved ur content.. following you when you joined Unacademy. 1 of the Most knowledgeable and inspiring person in the Tech Field.",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "Last time I was watching his interview . Now I am learning from him.",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "Great content sir! Just a summary: Whenever a record is read from the DB, the entire block is fetched which contains that particular record. Since block reads are expensive(takes more time to read) it is better to index the records based on the property you want to search. So now when you search the record it is first checked into the index table which is stored in quite a few blocks, so block read time will be very low. Since we know in which of the blocks, the exact record(which can be computed from index table using id attribute) is present, we can directly compute those blocks and return the record from them.",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "Loved your explanation as how indexes actually make querying faster with a tradeoff with taking extra space. Would really appreciate if you could make a dedicated video as how actual DBs use different types of indexing, B+ trees, for example.",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "These are the type of videos which really increase your curiosity about the deep dives of how the things really work in engineering. It was a great explaination, your videos are always awesome.",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "Great video. I just want to tell you that you have a typo on your thumbnail image - \"indices\" instead of indexes.",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "Never seen someone explaining thing in as simple and easy to understand way that you did, Thanks",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "Wonderful explanation of such an important topic. The way you explained it with practical examples made the concept quite clear to me. Thank you so much!",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "seriously blown out by how you explained such a complex thing in a simple manner. Thanks man!",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "Arpit bhaiya trust me this was really awesome (though I knew about indexes but still learnt many new things), Thanx ^_^",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "Bro You probably in google 1cr package. Because you have a huse knowledge abouts system. I watch your almost 20+ video and every video has nice and details information. So you do amazing work, to teach Deep concept about engineering side.",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "I don't think even my professor in under grad or grad school has taught me like they way you're explaining the concepts so succinctly, thank you.",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "Best Video for index, If you explain every topic in the same way, I'll learn everything from here only Thank you soo much!!!",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "Waiting for your book on System Design one day. There is real need for such book in the market. Keep inspiring.",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "Indices explained in the most simplest of terms. Excellent video , thank you Arpit.",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "you nailed it !! seriously its the best explanation I have ever seen for Index thank you",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "Its really fascinating to see you replying to comments to a video posted around 3 years ago. HATS OFF !!!",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "The flow you describe at 9:47 is a standard sql dbms or any specific vendor? Awsome content!",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "Also in the worst case, it may happen that the age =23 records are present across all the 34 blocks, in that case the performance with indexing will even be poor I think: 2+34 =36",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "I don't know why no one pointed out but the time to compare is 34 seconds and 4 seconds not 32",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "It would be great to understand when there are continuous writes happening, how the block sequence and index is kept updated",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "Thanks for a great video! It helped me gain understanding of how an index works on a table while querying. It would be great if you could also make a video on how indexes are stored eg. B+ tree and what happens behind the scenes when a query with indexed column is fired.",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "Hello, Arpit. It would be fantastic if you could include the following two points in the video or answer them here. 1. Can we index on the string (varchar/text), and if so, what happens? 2. What are the drawbacks of indexing (will it take up more memory?) Where should we not do it?",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "We do a multi-level indexing when we see that the index itself is very huge.... Multi-level indexing makes things slower not faster as it has to read the 2 -3 levels of index from disk before reaching the main index.... similar concepts are used in multi-level paging in operating systems.",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "Very good explanation on index, learnt a ton !! Thanks One doubt, what if the resultant IDs from the index were part of each of the 37 blocks ? Eg: IDs - 1,4,7,10,13,16,..... Then we would read all 37 blocks so totally 37 sec + 2 sec( reading index ) > sequential read So when should we not use an index on a column ?",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "Great content...what I understood before is that if you have index on certain column, db will make the record s sequential on the basis of that column and it will access the record like an element is accessed from an array in o(1). That made me doubt as well sometimes when I thought to add indexes on multiple columns. This video made the concept crystal for me",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "Key points to take: 1. While reading the data it reads full blocks 2. Making an indices will create the separate table like structure with sorted order along with its primary key mapped",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "One of the best video about fundamentals of indexing, Thank you Arpit !",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "If it's in phase 2 the id which I have got (4, 94) means in second phase it will iterate entire 34 or 33 block in that querying time will increase",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "I am lucky that I stumbled upon your channel it's really asli engineering in the true sense I really appreciate such content which touches the foundation concepts Thank you again, Asli me asli engineering",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "Thanks alot i learn alot from your content it is clear and to the point !",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "Your videos are so simple to understand and the pace is also very easy to follow. Great work !!! Perfect for me, and you are also covering very relevant important topics. Keep up the work, man.",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "Thanks for this video Arpit. I asked an EM about indexing, as it was only a buzzword to me at that point, couldn't wrap my head around jargons back then. I was able to relate this video as to how I used to search for words in my Oxford dictionary from the index written on the first few pages. Thanks for making super imaginable.",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "Arpit - you're truly talented, with such in-depth knowledge. No wonder, your career trajectory reflects that :) Keep rocking - onwards and upwards. ALso, Pleeeeease NEVER STOP MAKING SYSTEM DESIGNING VIDEOS! EXCELLENT!",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "Awesome contenttt, I am a DBA, and this cleared lots of doubts, I blindly used to create indexes to make my developers queries run faster",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "You did an excellent job with the explanation, and I really appreciate the clarity and detail you provided! Your effort in making the concepts clear and understandable is commendable.",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "Very informative and helpful. I never saw someone explain things in such depth",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "I think you missed to explain if age was 23 then i reads all 4 blocks but when we get rows ids let say 1 and 100 has 23 age how this time only two block will read or we have to iterate all of 4 blocks? 19:24",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    },
+    {
+      "content": "Very lately i am watching this video but its Very neat, clean and easily understandable content. Perfect explanation. Its clears my doubts on how indexing happens, really very helpful content. Appreciate your efforts bro. Thank you so much",
+      "video_id": "3G293is403I",
+      "link_id": "yt_req2"
+    }
+  ],
+  "generated_at": "2025-11-05T23:59:16.159594"
+}

@@ -1,0 +1,66 @@
+{
+  "success": true,
+  "url": "https://lobste.rs/s/myrlhi/how_cursor_indexes_codebases_fast",
+  "content": "Someone needs to write an MCP server which does this.\nCould someone help me understand how embedding of files are used after they’re generated?\nhttps://www.cursor.com/en/security has the better explanation of what's going on.\nCursor allows you to semantically index your codebase, which allows it to answer questions with the context of all of your code as well as write better code by referencing existing implementations. [...]\nAt inference time, we compute an embedding, let Turbopuffer do the nearest neighbor search, send back the obfuscated file path and line range to the client, and read those file chunks on the client locally. We then send those chunks back up to the server to answer the user's question.\nSo they're using the vector database to find code that's semantically similar to a user's question or, presumably, the code nearest to their cursor position when they generate a completion request.\nWhen you give cursor a prompt, it converts that into embeddings. Then it does a nearest neighboor search in the vector database. That returns a bunch of file paths & line numbers. It then grabs the contents from those file (on your local machine) and adds them to the LLM context.\nOne of the sources for this post is a comment on a forum by a Cursor founder from August 2023, so not clear how relevant it is to how Cursor works today: https://forum.cursor.com/t/codebase-indexing/36/2\nFrom that comment:\nThe embeddings are stored in a remote vector DB, along with starting / ending line numbers and the relative path to that file. None of your code is stored in our databases. It’s gone after the life of the request.\nThis raised my eyebrow a bit, because vector embeddings for predictable strings like code are very reversible: https://arxiv.org/abs/2310.06816\nUpdate: To their credit, they discuss on that issue in their security documentation:\nEmbedding reversal: academic work has shown that reversing embeddings is possible in some cases. Current attacks rely on having access to the model and embedding short strings into big vectors, which makes us believe that the attack would be somewhat difficult to do here. That said, it is definitely possible for an adversary who breaks into our vector database to learn things about the indexed codebases.",
+  "title": "",
+  "author": "",
+  "publish_date": "",
+  "source": "lobste.rs",
+  "language": "auto",
+  "word_count": 371,
+  "extraction_method": "article_trafilatura",
+  "extraction_timestamp": "2025-11-05T21:46:43.446188",
+  "batch_id": "20251105_134638",
+  "link_id": "art_req4",
+  "error": null,
+  "article_id": "9b4bcc90462a",
+  "summary": {
+    "transcript_summary": {
+      "key_facts": [
+        "FACT: Cursor uses semantic indexing of codebases to enable context-aware code generation and question answering.",
+        "FACT: Embeddings are generated for code files and stored in a remote vector database with file paths and line ranges.",
+        "FACT: During inference, user prompts are converted into embeddings for nearest neighbor search in the vector database.",
+        "FACT: The system returns obfuscated file paths and line ranges to the client, which retrieves the actual code chunks locally.",
+        "FACT: Retrieved code chunks are sent back to the server to augment the LLM's context for generating responses.",
+        "FACT: Code is not stored in Cursor’s databases after the request lifecycle ends; only embeddings persist temporarily.",
+        "FACT: The vector database stores relative file paths, start/end line numbers, and embeddings for each code segment.",
+        "FACT: Cursor’s security documentation acknowledges the risk of embedding reversal in specific attack scenarios.",
+        "FACT: The founder of Cursor confirmed in a forum post that no raw code is retained in their systems post-indexing.",
+        "FACT: Embedding reversal attacks require access to both the model and the ability to embed short strings into large vectors."
+      ],
+      "key_opinions": [
+        "OPINION: The use of vector embeddings for code indexing introduces significant privacy concerns despite claims of data safety.",
+        "OPINION: The security model relies heavily on assumptions about attacker capabilities, which may not hold in practice.",
+        "OPINION: Obfuscation of file paths is insufficient to prevent reconstruction of sensitive code structures.",
+        "OPINION: The reliance on local code retrieval increases the attack surface if the client machine is compromised.",
+        "OPINION: The claim of 'no code stored' is misleading if embeddings can be reverse-engineered to reconstruct source code.",
+        "OPINION: The current approach balances usability and security but may not be sufficient for highly sensitive codebases."
+      ],
+      "key_datapoints": [
+        "DATA: Embeddings are stored in a remote vector database with associated line ranges and relative file paths.",
+        "DATA: Code is retrieved from the client side after obfuscated path and line range are returned.",
+        "DATA: Raw code is not stored in Cursor’s databases beyond the lifetime of a single request.",
+        "DATA: Embedding reversal is theoretically possible, especially when attackers have access to the model and embedding process.",
+        "DATA: Current attacks on embedding reversal require embedding short strings into large vectors, which is resource-intensive.",
+        "DATA: The vector database is accessed during inference to perform nearest neighbor searches based on prompt embeddings.",
+        "DATA: The system uses Turbopuffer for nearest neighbor search in the vector database.",
+        "DATA: The security documentation explicitly addresses the risk of embedding reversal and its potential impact."
+      ],
+      "topic_areas": [
+        "Codebase semantic indexing",
+        "Vector database usage",
+        "Embedding security risks",
+        "Local code retrieval",
+        "Privacy in AI development tools",
+        "Prompt-to-code matching",
+        "Attack surface analysis",
+        "Data obfuscation techniques"
+      ],
+      "word_count": 371,
+      "total_markers": 24
+    },
+    "comments_summary": {},
+    "created_at": "2025-11-05T21:48:44.449384",
+    "model_used": "qwen-flash"
+  }
+}

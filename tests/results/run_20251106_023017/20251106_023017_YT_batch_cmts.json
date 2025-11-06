@@ -1,0 +1,15 @@
+{
+  "batch_id": "20251106_023017",
+  "scraper_type": "youtubecomments",
+  "total_comments": 1,
+  "successful_extractions": 1,
+  "total_videos": 3,
+  "comments": [
+    {
+      "content": "This works with LM Studio with nomic v2 MoE embedding, qdart in docker and my AMD Radeon 9070xt 16GB GPU processing using Vulkan, no cloud indexing.",
+      "video_id": "QoXsYr-tcKM",
+      "link_id": "yt_req3"
+    }
+  ],
+  "generated_at": "2025-11-06T10:31:22.192409"
+}

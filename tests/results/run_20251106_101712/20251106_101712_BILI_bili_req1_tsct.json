@@ -1,0 +1,75 @@
+{
+  "success": true,
+  "bv_id": "BV11zf6YyEnT",
+  "url": "https://www.bilibili.com/video/BV11zf6YyEnT/",
+  "content": "你一定听过这样的声音，家人们太炸裂了就在刚刚，OpenAI突然发布目前最强大模型，兄弟们，我整个人都惊呆了恶们能爱再次突破爱极限，拿出王炸模型3、达到人类智能水平。然而，我们又常常听到另外一种怀疑的声音，哼吹什么牛逼，只听听一本正经的胡说八道。我又不是没有见过。哎，矮就是资本炒作，骗我一次可以休想骗我第二次。那么真相究竟是什么？一方面哎展现出了令人惊叹的强大能力，仿佛无所不能，另一方面它又时不时让人抓狂。这种看似矛盾的现象恰恰反映了当下AI发展的真实面貌。容嬷嬷所指出的GPT t胡说八道现象，其根源在于AI的幻觉问题，也就是业界所称的AI hallucination现象。AI出现幻觉的现象是由多种原因导致的，其中一个主要因素是其工作原理中的概率生成机制。在生成文本时，大型语言模型依赖于统计概率来预测下一个最可能的词语，而不是基于事实进行查询，这可能引致信息错误，此外，AI的回答局限在训练数据的范围内，大模型并不掌握你的个人信息或公司内部的私有信息，对于超出训练数据范围的问题就容易胡说八道。现阶段，基于transformer架构的模型还无法彻底杜绝AI幻觉，不过给大模型外挂知识库补足其知识短板，就能有效减少AI幻觉问题，这一方法便是rag，rag的全称是retrieval aumented generation及检索增强生成。这个名称有点让人费解。没关系，接下来我们将深入浅出的解释reack的工作原理，帮助您更好的理解这一技术。检索增强生成rack是一种AI框架，它通过将大语言模型与外部信息源相整合来提升模型的输出质量。Rack从外部知识库中检索相关的上下文context，并将这些信息连同用户的问题一起传递给大语言模型，从而提高输出的准确性和可靠性。让我们一起通过一个具体的实例来理解rag的大致工作原理。我们以一个智能聊天客服机器人为例。想象一下您是一家汽车公司的高管，您希望为公司创建一个客户支持聊天机器人。以回答用户关于产品规格、故障排除、保修信息等方面的问题。用户提出了一个有关汽车中控显示屏出现故障的问题，客服机器人借助于rack技术准确回答了用户的问题，它是怎么做到的呢？首先当用户提出问题时，系统会先将问题转化为向量表示，随后在向量数据库中进行相似性搜索。向量数据库中储存的是外部知识库信息，这些信息往往是大模型原生状态下无法知晓的，例如公司的内部产品信息、特定项目的专属资料等，需要注意的是，纯向量数据库存储的并非大量外部知识库的原始内容，而是经过一系列处理，将外部知识库中的知识转化后所得到的向量数据，当系统检索出相关信息后，将作为问题的上下文相关信息context来使用。请记住context这个词，后面我们会频繁使用它。这些上下文相关信息context将被整合进提示词模板中，用户的问题也会被嵌入提示词模板内，与上下文相关信息context相结合，形成一个全新的提示词。接下来这个新提示词会被发送到大语言模型，利用其强大的推理和文本生成能力生成一个答案。刚才这个简单的例子粗略展示了rack检索增强生成的大致工作流程，让我们来总结一下rack带来的主要好处。第一，rag能减少幻觉问题。第二，reg能够为大语言模型注入最新资讯及特定领域的关键信息，帮助模型生成更精准、更贴合需求的回答。第三，在实际应用中，模型微调fine tun不仅成本高昂，而且每当模型更新时都需要重新进行这一复杂过程。相比之下，reg提供了一种高效而低成本的方案，因此成为推动AI技术落地实施的关键手段之一。接下来让我们深入探究一下rack究竟是怎样运作的呢？这是rag的流程。Reack工作流程的首要步骤是针对知识库内各类格式的文档如pdf、word、wiki等进行处理，在reg流程中，对知识库文档进行分割是一个至关重要的步骤，文档分割的质量直接决定了检索的准确性和生成模型的效果。将文本分割成有意义的片段或快的过程，叫做文本分块。它能显著改善信息检索和内容生成效果，提供更精准相关的结果。相关技术细节将在单独的视频讲解。这些文本块将由embedding model嵌入模型转换为向量embedding model是一种机器学习模型，它可以将高维输入数据如文本图像转换为低维向量，在Raack中，嵌入模型将文本块转换成向量。这些向量捕捉了文本的语义信息，从而可以在海量文本库中检索相关内容。有多种模型可以用来生成向量嵌入，例如可以使用OpenAI的text embedding 3 large模型，请注意，不同模型生成的向量数值可能会有所不同，这就是嵌入模型生成的vector embedding向量嵌入，那么究竟什么是vector embedding呢？向量嵌入vector embeddings是用一组数值表示的数据对象，在多维空间中捕捉文本、图像或音频的语义和关联，可以让机器学习算法能够更轻松的对其进行处理和解读，让我们来看一个Victor embeddings向量嵌入的例子，比如I love tennis这句话，我们先把I love tennis转换为几个token，再用embedding model嵌入模型来生成embeddings，比如单词I就转换为向量嵌入。所谓向量就是一个数字数组，其中每个数值表示对象在特定维度上的特征或属性，这就是I love tennis这句话的vector embedding。那么这些embedding可以用来干嘛？因为向量嵌入能够以数值形式捕捉对象间的语义关系，所以我们可以通过向量搜索，也称为相似性搜索，在向量空间中来查找相似对象。这是一个查询向量query，我们在向量空间中寻找与之距离最近的邻居，这些邻居便是与查询向量最相似的对象。来看一个具体例子，例如这里有三个词，cat猫Kitty、小猫、apple. 苹果用神经网络模型把它们转化为向量嵌入。如果我们仔细观察它们的向量数值，会发现猫和小猫的向量数值非常相似，数值上相近的向量嵌入在语义上也是相似的。这里猫Kat和小猫Kitty在语义上高度相关，尽管它们的拼写完全不同。再次观察Kitty、小猫和apple苹果的向量嵌入，我们会发现它们的数值差异显著，这表明他们在语义上并不相似。Victory balance dings听起来略显抽象，此刻我们不妨运用可视化的方式来帮助理解，这是opai的一个三维可视化事例。在向量空间中，包含了动物、运动员、电影、交通工具、村庄等多个类别的向量，这些不同的类别在向量嵌入空间中形成了五个清晰的簇。请注意，通常的embedding具有数百甚至数千个维度。为了实现向量空间的可视化，这里采用了pc技术，将嵌入维度从2048维降低到了三维。相似的对象在向量空间中会靠得更近，而不相似的对象则会分散的更远。在这个例子中，与动物相关的数据点聚集在一起，与运动员相关的数据点也形成了一个独立的聚集区域。那么这些embeddings存储在哪里呢？它们存储在向量数据库中。什么是向量数据库呢？向量数据库是一种专门用于存储和检索高维向量数据的数据库，它们主要用于处理与相似性搜索相关的任务。向量数据库能够存储海量的高维向量，这些向量可以表示数据对象的特征。向量数据库可以作为AI系统的长期记忆库。当前一些专业厂商提供高性能的向量数据库解决方案，例如pcom等，向量存储在向量数据库中，这些向量主要是由非结构化数据通过嵌入模型embedding model转化而来的。所谓的非结构化数据如文本、视频和音频，占全球数据的大约80%，它们通常来源于人类生成的内容，不易以预定义格式存储。这类数据可以通过转换为向量嵌入有效的存储在向量数据库中，以便进行管理和检索。而结构化数据则以表格形式存在，与非结构化数据形成对比。对于这些非结构化数据，可以基于语义相似度进行相似性搜索similarity search。Ok你可能会有一个疑问，向量数据库和传统数据库有什么区别？传统数据库主要用于存储结构化数据，数据通常以行和列的形式组织，适用于存储明确的数据类型，如整数字符串、日期等。向量数据库专注于存储和检索高维向量数据通常用于处理非结构化数据，如图像、文本和声音经过特征提取后的向量表示。向量数据库侧重于相似性搜索，它通过语义理解来检索相关结果，不依赖精确匹配来检索相关搜索结果，对拼写错误和同义词有较好的包容性。而传统数据库通过精确匹配关键词来检索数据，适用于结构化数据的高效查询。刚才我们简要介绍了向量数据库相关的知识，让我们重新回到rack的流程图中。当用户问一个问题后，该问题也会通过嵌入模型embedding model转换成向量嵌入vector embedding，用户的问题被转换为高维空间中的数值向量，该向量能够捕捉问题的语义特征。接下来系统会将该向量与向量数据库中的其他向量进行比较，以执行相似性搜索，从而找到最相关的数据条目，在向量数据库中检索与用户问题相关的信息的过程被称为检索retrival检索式增强生成retrival augmented generation名称中的首字母二正是来源于此。让我们来了解一下检索的技术细节，检索retrival本质上是在向量空间中寻找与查询向量最相似的邻居，这一过程通过计算查询向量与数据库中其他向量之间的距离。找到距离最近的邻居，从而返回最相关的对象。让我们来看一个例子，你可以看到wolf狼和dog狗这两个词在向量空间中靠的很近。因为狗实际上是狼的驯化后代紧邻狗的位置。您会发现cat猫这个词它与狗有一定的相似性，因为两者都是常见的宠物动物，而在右侧更远的地方则是代表水果的词语，如苹果和香蕉，这些词彼此间距离较近，但与动物相关的词汇则相距甚远。通过向量嵌入，我们可以利用向量空间中对象间的接近程度来识别和检索相似的对象。这种基于相似度的搜索方法被称为向量搜索、相似性搜索或语义搜索。它允许我们超越简单的关键词匹配，找到语义上相关的内容。例如，要找到与kitten幼猫这个词相似的词，我们可以为这个查询词生成一个向量嵌入，也称为查询向量。并检索其所有最近邻，显然他跟cat和dog靠的更近，离apple、banana等更远。现在问题来了，如何衡量向量嵌入的相似性？具体来说怎样计算两个向量之间的距离来确定他们是否相似？显然我们不能依赖肉眼进行这种比较。在相似性向量搜索中，最常用的度量距离的指标有欧式距离、余弦相似度、点击相似度、欧基里德距离用于测量高维空间中两点之间的直线距离。余弦相似度通过计算两个非零向量的夹角的余弦值来衡量它们之间的相似性。它常用于基于文本的数据点击dot product计算的是两个向量的模长乘积与它们之间夹角的余弦值的乘积，点击会受到向量的长度和方向的影响，让我们来仔细了解一下最常用的余弦相似度。余弦相似度计算的是两个向量在多维空间中投影后夹角的余弦值。这一度量的优势在于，即使两份文档因为长度不同而在欧式距离上相距甚远，它们之间的夹角可能仍然很小，从而具有较高的鱼弦相似度。因此鱼弦相似度主要应用于自然语言处理领域，这是余弦相似度的公式。假设我们要对queen皇后和king国王这两个词的相似度进行比较，那么可以将queen和king对应的向量分别带入余弦相似度的计算公式之中，最后求得的值为0.33。Ok那么余弦相似度的值范围是多少？余弦相似度的值范围从-1到1，一表示两个向量完全相同，零表示它们正交，也就是没有相关性。负一表示它们方向相反，接近一的值则表明向量之间有很高的相似性。余弦相似度通过衡量向量之间的夹角来评估它们的相似性。如果两个向量之间的夹角很小，这意味着它们非常相似。如果夹角较大，则意味着它们相似度较低。假设我们有狼狗和鸭子的向量嵌入，狗和狼向量之间的夹角比狗和鸭子向量之间的夹角要小。如果我们计算狗和狼向量之间的余弦相似度，可能会得到一个较高的值，这个值接近一，因为它们是相似的。然而狗和鸭子之间的鱼弦相似度可能会较低，这个值更接近0，因为它们代表的是具有不同特征的不同动物。总结一下，夹角越小，余弦值越高，表示相似性越大。刚才我们探讨了向量检索中的一些技术细节，现在让我们重新聚焦于reg的流程图。在检索阶段，系统会从海量的文档或数据集中找出与用户查询最为相关的内容。随后系统将进一步从中筛选出排名靠前的K文本片段top k text chunks。接下来在检索出的top k文本片段基础上，进一步根据与用户查询的相关性和上下文适配度进行重新调整。这个重新排序的步骤叫做reranking，让我们进一步了解重新排序的细节。例如系统从向量数据库中检索到了十个相关的候选文本块，但他们的初始排序可能并不是最优的，这十个文本块会被送入重排序模型re ranking model重新进行排序，进而优化他们与用户查询的相关性适配程度。在已完成重新排序的文本块里，筛选出排名靠前的top n个文本。在这个例子中，原先排名第七和第十的文本块经过重新排序后成功进入了to p 5，这些重新排序过的文本之后将作为上下文相关信息context发送给大模型，简而言之，通过reranking系统可以更准确的挑选最合适的片段，从而提升整体响应质量。重新排序过的文本将作为context上下文相关信息。Context被嵌入到提示词模板中，与用户的问题相结合，从而构建出一个全新的提示词。让我们看一下提示词模板的细节，这是一段代码示例，在模板中包含了一段指令。例如请根据下面的context上下文相关信息回答问题。如果没办法依据给出的信息来回答的话，请回复我不知道。这是先前从向量数据库中检索到的与用户问题相关的上下文。Context这部分是用户的问题，把外部知识库中检索到的相关信息context和用户问题融合在一个提示词模板prompt template中，再发给大模型，可以增强GPT的回答问题和生成内容的准确性和可靠性，新的提示词将被发送给大语言模型。如GPT 4O已生成最终的答案，GPT生成的答案再返回给用户。好了，以上就是我们对rack和向量数据库的初步介绍，最后让我们再次聚焦rack系统的核心模块，检索retrivial，它的本质就是寻找与查询向量最相邻的数据点。那么问题来了，我们该如何高效的找到这些最近邻呢？这就不得不提到向量数据库中的核心算法Ann近似最近邻算法。想知道它是如何工作的吗？别急，我们下期视频将为你揭晓。大家好，我是Jim大表哥，我们下期再见。",
+  "title": "",
+  "author": "",
+  "publish_date": "",
+  "source": "Bilibili (via SnapAny + Paraformer)",
+  "language": "zh-CN",
+  "word_count": 5907,
+  "extraction_method": "snapany_paraformer",
+  "extraction_timestamp": "2025-11-06T18:18:44.073491",
+  "batch_id": "20251106_101712",
+  "link_id": "bili_req1",
+  "error": null,
+  "summary": {
+    "transcript_summary": {
+      "key_facts": [
+        "FACT: OpenAI recently released its most powerful model to date, claiming it approaches human-level intelligence.",
+        "FACT: AI hallucination refers to the phenomenon where models generate false or misleading information.",
+        "FACT: Large language models generate text based on statistical probability rather than factual verification.",
+        "FACT: AI models are limited to knowledge within their training data and cannot access private or personal information.",
+        "FACT: Retrieval-Augmented Generation (RAG) integrates external knowledge sources with large language models to improve accuracy.",
+        "FACT: RAG reduces AI hallucinations by grounding responses in retrieved, up-to-date context from external databases.",
+        "FACT: RAG enables real-time updates without retraining the entire model, unlike fine-tuning.",
+        "FACT: Text documents such as PDFs, Word files, and wikis are processed through splitting into chunks during RAG workflows.",
+        "FACT: Embedding models convert text chunks into vector embeddings that capture semantic meaning.",
+        "FACT: Vector databases store high-dimensional embeddings for efficient similarity search across non-structured data.",
+        "FACT: Similarity search in vector space identifies semantically related content using distance metrics like cosine similarity.",
+        "FACT: Reranking improves retrieval quality by reordering top-k results based on relevance to the user query.",
+        "FACT: Prompt templates combine user questions with retrieved context to guide accurate model responses.",
+        "FACT: Approximate Nearest Neighbor (ANN) algorithms enable fast and scalable nearest-neighbor searches in vector databases."
+      ],
+      "key_opinions": [
+        "OPINION: The new OpenAI model's claims of human-level intelligence are overstated and lack verifiable evidence.",
+        "OPINION: AI hallucinations are not just bugs but inherent flaws in probabilistic generation mechanisms.",
+        "OPINION: RAG is a more practical solution than model fine-tuning for enterprise AI applications.",
+        "OPINION: The term 'Retrieval-Augmented Generation' is unnecessarily complex and confusing for general audiences.",
+        "OPINION: Vector databases are essential infrastructure for trustworthy AI systems in real-world deployments.",
+        "OPINION: Current LLMs still rely too heavily on outdated training data without dynamic knowledge integration.",
+        "OPINION: Reranking is a critical but often overlooked component in achieving high-quality AI outputs.",
+        "OPINION: The visualizations of vector spaces help demystify abstract concepts like semantic similarity."
+      ],
+      "key_datapoints": [
+        "DATA: OpenAI released a new model claimed to approach human-level intelligence.",
+        "DATA: RAG reduces hallucination rates by integrating external knowledge sources.",
+        "DATA: Embedding models like OpenAI's text-embedding-3-large generate high-dimensional vectors.",
+        "DATA: Vector embeddings typically have hundreds to thousands of dimensions (e.g., 2048D).",
+        "DATA: Cosine similarity values range from -1 to 1, with values near 1 indicating high similarity.",
+        "DATA: Reranking improves top-k result relevance, allowing lower-ranked items to rise in priority.",
+        "DATA: Non-structured data accounts for approximately 80% of global data volume.",
+        "DATA: ANN algorithms significantly speed up nearest-neighbor searches in large-scale vector databases.",
+        "DATA: Vector space dimensionality can be reduced via PCA for visualization purposes (e.g., 2048D → 3D)."
+      ],
+      "topic_areas": [
+        "AI hallucination",
+        "RAG framework",
+        "Vector embeddings",
+        "Similarity search",
+        "Text chunking",
+        "Embedding models",
+        "Vector databases",
+        "Prompt engineering",
+        "Reranking techniques",
+        "ANN algorithms"
+      ],
+      "word_count": 44,
+      "total_markers": 31
+    },
+    "comments_summary": {},
+    "created_at": "2025-11-06T18:26:12.569930",
+    "model_used": "qwen-flash"
+  }
+}

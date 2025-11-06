@@ -1,0 +1,152 @@
+"""Phase 2: Synthesize All Research Goals into Unified Topic (Preserve Questions)."""
+
+import json
+from typing import Dict, Any, List, Optional
+from research.phases.base_phase import BasePhase
+from research.prompts import compose_messages, load_schema
+
+
+class Phase2Synthesize(BasePhase):
+    """Phase 2: Create unified topic while preserving Phase 1 questions directly."""
+    
+    def execute(
+        self,
+        phase1_output: Dict[str, Any],
+        data_abstract: str,
+        user_input: Optional[str] = None,
+        user_topic: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Create unified topic while preserving Phase 1 questions directly.
+        
+        Args:
+            phase1_output: Full Phase 1 output object containing suggested_goals
+            data_abstract: Abstract of available data
+            user_input: Optional user amendment feedback or project description
+            user_topic: Optional user-specified research topic
+            
+        Returns:
+            Dict with synthesized_goal (preserving Phase 1 questions) and raw_response
+        """
+        self.logger.info("Phase 2: Synthesizing research goals (preserving questions)")
+        
+        # Progress indicator
+        if self.ui:
+            self.ui.display_message("正在综合研究主题...", "info")
+        
+        # Extract goals from full phase1_output (backward compatible)
+        all_goals = phase1_output.get("suggested_goals", [])
+        if not all_goals and isinstance(phase1_output, list):
+            # Backward compatibility: accept list directly
+            all_goals = phase1_output
+        
+        if len(all_goals) < 1:
+            raise ValueError(f"Expected at least 1 goal, got {len(all_goals)}")
+        
+        # Store goals count for validation
+        self._goals_count = len(all_goals)
+        
+        # Extract goal_text directly from Phase 1 - DON'T regenerate
+        component_questions = [goal.get("goal_text", "") for goal in all_goals]
+        
+        # Format goals as numbered list dynamically (for prompt context only)
+        goals_list = "\n".join([
+            f"{i+1}. {goal.get('goal_text', '')}" 
+            for i, goal in enumerate(all_goals)
+        ])
+        
+        # Format user context for prompt
+        user_context_section = ""
+        if user_topic:
+            user_context_section += f"**用户研究主题：**\n{user_topic}\n\n"
+        if user_input:
+            user_context_section += f"**用户补充说明：**\n{user_input}\n\n"
+        
+        # Compose messages from externalized prompt templates
+        context = {
+            "goals_list": goals_list,
+            "goals_count": len(all_goals),
+            "data_abstract": data_abstract,
+            "user_context": user_context_section.strip() if user_context_section else "",
+        }
+        messages = compose_messages("phase2_synthesize", context=context)
+        
+        # Progress indicator: calling AI
+        if self.ui:
+            self.ui.display_message("正在生成综合研究主题...", "info")
+        
+        # Stream and parse JSON response
+        response = self._stream_with_callback(messages)
+        
+        # Parse JSON from response
+        try:
+            # Try to extract JSON from response
+            parsed = self.client.parse_json_from_stream(iter([response]))
+            synthesized_goal_raw = parsed.get("synthesized_goal", {})
+        except Exception as e:
+            self.logger.warning(f"JSON parsing error, trying to extract manually: {e}")
+            # Fallback: try to find JSON in response
+            import re
+            json_match = re.search(r'\{.*\}', response, re.DOTALL)
+            if json_match:
+                parsed = json.loads(json_match.group())
+                synthesized_goal_raw = parsed.get("synthesized_goal", {})
+            else:
+                raise ValueError(f"Could not parse synthesized goal from response: {response[:200]}")
+        
+        # Optional schema validation
+        schema = load_schema("phase2_synthesize", name="output_schema.json")
+        if schema:
+            self._validate_against_schema(parsed, schema)
+        
+        # Build synthesized_goal with preserved Phase 1 questions
+        synthesized_goal = {
+            "comprehensive_topic": synthesized_goal_raw.get("comprehensive_topic", ""),
+            "component_questions": component_questions,  # Use Phase 1 questions directly
+            "unifying_theme": synthesized_goal_raw.get("unifying_theme", ""),
+            "research_scope": synthesized_goal_raw.get("research_scope", "")
+        }
+        
+        result = {
+            "synthesized_goal": synthesized_goal,
+            "component_goals": all_goals,  # Preserve original Phase 1 goals
+            "raw_response": response
+        }
+        
+        # Store in session
+        self.session.set_metadata("synthesized_goal", synthesized_goal)
+        self.session.set_metadata("component_goals", all_goals)
+        
+        self.logger.info(f"Phase 2 complete: Created unified topic, preserved {len(component_questions)} questions")
+        
+        return result
+    
+    def _validate_against_schema(self, data: Dict[str, Any], schema: Dict[str, Any]) -> None:
+        """
+        Minimal validator for the expected Phase 2 schema.
+        Raises ValueError if validation fails.
+        """
+        # Top-level required
+        required_keys = schema.get("required", [])
+        for key in required_keys:
+            if key not in data:
+                raise ValueError(f"Schema validation failed: missing required key '{key}'")
+        
+        # synthesized_goal specifics
+        synthesized_goal = data.get("synthesized_goal")
+        if not isinstance(synthesized_goal, dict):
+            raise ValueError("Schema validation failed: 'synthesized_goal' must be an object")
+        
+        goal_schema = schema.get("properties", {}).get("synthesized_goal", {})
+        goal_required = goal_schema.get("required", ["comprehensive_topic"])
+        
+        for req in goal_required:
+            if req not in synthesized_goal:
+                raise ValueError(f"Schema validation failed: 'synthesized_goal' missing '{req}'")
+        
+        # Type checks
+        if not isinstance(synthesized_goal.get("comprehensive_topic"), str):
+            raise ValueError("Schema validation failed: 'comprehensive_topic' must be a string")
+
+
+
