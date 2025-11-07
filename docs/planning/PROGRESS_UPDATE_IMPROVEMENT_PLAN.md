@@ -77,12 +77,12 @@ There is a significant delay between scraping completion and Phase 0 start, with
      - Current item index / total items
      - Progress percentage
      - Current item link_id
-     - Status: "正在创建摘要", "正在处理", "完成"
+     - Status: "正在总结", "阅读中", "完成"
 
 3. **Per-Item Progress Updates**
-   - Before API call: "正在创建摘要 [1/5]: yt_req1"
+   - Before API call: "正在总结 [1/5]: yt_req1"
    - During API call: Could stream tokens if API supports it (qwen-flash may not support streaming)
-   - After API call: "摘要创建完成 [1/5]: yt_req1 (15 标记)"
+   - After API call: "总结好了 [1/5]: yt_req1 (15 标记)"
 
 4. **WebSocket Message Format**
    ```json
@@ -94,7 +94,7 @@ There is a significant delay between scraping completion and Phase 0 start, with
      "progress": 20.0,
      "link_id": "yt_req1",
      "stage": "summarizing_transcript" | "summarizing_comments" | "completed",
-     "message": "正在创建摘要 [1/5]: yt_req1",
+     "message": "正在总结 [1/5]: yt_req1",
      "timestamp": "2025-11-07T14:43:56.670121"
    }
    ```

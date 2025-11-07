@@ -176,8 +176,8 @@
 - Include troubleshooting section (e.g., what to check if tokens appear in the wrong pane).
 
 ### 9. Open Questions
-- How long should completed streams persist? (Default 5, configurable?)
-- Should pinned streams sync across sessions or remain local only?
-- Do we need export options for archived streams (e.g., download as JSON)?
-- How to surface stream metadata in logs/telemetry dashboards (Grafana, etc.)?
+- How long should completed streams persist? (Default 5, configurable?) Keep them for the entire session
+- Should pinned streams sync across sessions or remain local only? Sync across sessions.
+- Do we need export options for archived streams (e.g., download as JSON)? No.
+- How to surface stream metadata in logs/telemetry dashboards (Grafana, etc.)? Structured backend logging
 
