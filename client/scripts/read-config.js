@@ -27,9 +27,30 @@ try {
 }
 
 // Extract server configuration with defaults
-const backendPort = config?.servers?.backend?.port || 3001;
-const frontendHost = config?.servers?.frontend?.host || '0.0.0.0';
-const frontendPort = config?.servers?.frontend?.port || 3000;
+const envBackendPort = process.env.BACKEND_PORT_OVERRIDE;
+const envFrontendPort = process.env.FRONTEND_PORT_OVERRIDE;
+
+const backendPort = (() => {
+  if (envBackendPort) {
+    const parsed = Number.parseInt(envBackendPort, 10);
+    if (!Number.isNaN(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  return config?.servers?.backend?.port || 3001;
+})();
+
+const frontendHost = process.env.FRONTEND_HOST_OVERRIDE || config?.servers?.frontend?.host || '0.0.0.0';
+
+const frontendPort = (() => {
+  if (envFrontendPort) {
+    const parsed = Number.parseInt(envFrontendPort, 10);
+    if (!Number.isNaN(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  return config?.servers?.frontend?.port || 3000;
+})();
 const proxyTimeout = config?.servers?.frontend?.proxy_timeout || 10000;
 
 // Export configuration

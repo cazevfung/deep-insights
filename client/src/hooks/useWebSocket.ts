@@ -23,8 +23,13 @@ export const useWebSocket = (batchId: string) => {
     setGoals,
     setPlan,
     setSynthesizedGoal,
+    startStream,
     appendStreamToken,
-    clearStreamBuffer,
+    completeStream,
+    setStreamError,
+    setActiveStream,
+    pinStream,
+    unpinStream,
     addPhase3Step,
     setFinalReport,
     addError,
@@ -247,20 +252,149 @@ export const useWebSocket = (batchId: string) => {
           }
           break
 
+        case 'summarization:progress':
+          // Update summarization progress
+          updateResearchAgentStatus({
+            summarizationProgress: {
+              currentItem: data.current_item || 0,
+              totalItems: data.total_items || 0,
+              linkId: data.link_id || '',
+              stage: data.stage || '',
+              progress: data.progress || 0,
+              message: data.message || '',
+            },
+            // Also update currentAction to show the message
+            currentAction: data.message || null,
+          })
+          break
+
+        case 'batch:initialized':
+          // Store expected total from batch initialization
+          // This is the TOTAL scraping processes that need to run, not just started ones
+          // Backend sends expected_total (snake_case), we map to expectedTotal (camelCase)
+          console.log('🔵 Received batch:initialized message:', {
+            expected_total: data.expected_total,
+            total_processes: data.total_processes,
+            all_keys: Object.keys(data),
+          })
+          const expectedTotalFromInit = data.expected_total || data.total_processes
+          // Only update if we have a valid value (> 0)
+          if (expectedTotalFromInit && expectedTotalFromInit > 0) {
+            console.log('✅ Setting expectedTotal (camelCase) from expected_total (snake_case):', expectedTotalFromInit)
+            updateScrapingStatus({
+              expectedTotal: expectedTotalFromInit,  // Map snake_case to camelCase
+            })
+            console.log('✅ Batch initialized with expected total:', expectedTotalFromInit)
+          } else {
+            console.error('❌ batch:initialized message missing expected_total or total_processes, or value is 0:', {
+              expected_total: data.expected_total,
+              total_processes: data.total_processes,
+              calculated: expectedTotalFromInit,
+              full_data: data,
+            })
+          }
+          break
+
         case 'scraping:status':
           // Normalize status format in items (handle both snake_case and kebab-case)
           const normalizedItems = (data.items || []).map((item: any) => ({
             ...item,
             status: item.status === 'in_progress' ? 'in-progress' : item.status,
           }))
-          updateScrapingStatus({
-            total: data.total || 0,
+          
+          // IMPORTANT: Update expectedTotal from scraping:status if available
+          // This ensures we get the correct total even if batch:initialized was missed
+          // Only update if we have a valid value (> 0), otherwise preserve existing
+          // Use expected_total (standardized field name), fallback to total_processes (deprecated) for backward compatibility
+          const expectedTotalFromStatus = data.expected_total || data.total_processes || null
+          
+          const statusUpdate: any = {
+            total: data.total || 0,  // Keep for backward compatibility (started processes)
             completed: data.completed || 0,
             failed: data.failed || 0,
             inProgress: data.inProgress || 0,
             items: normalizedItems,
+            // Use completion rate and flags from backend (calculated against expected_total)
+            completionRate: data.completion_rate ?? 0.0,
+            is100Percent: data.is_100_percent ?? false,
+            canProceedToResearch: data.can_proceed_to_research ?? false,
+          }
+          
+          // Only include expectedTotal if we have a valid value (> 0)
+          // Backend sends expected_total (snake_case), we map to expectedTotal (camelCase)
+          if (expectedTotalFromStatus && expectedTotalFromStatus > 0) {
+            statusUpdate.expectedTotal = expectedTotalFromStatus  // Map snake_case to camelCase
+            console.log('✅ Updating expectedTotal (camelCase) from expected_total (snake_case):', expectedTotalFromStatus)
+          } else {
+            console.warn('⚠️ scraping:status message missing expected_total or value is 0:', {
+              expected_total: data.expected_total,
+              total_processes: data.total_processes,
+              calculated: expectedTotalFromStatus,
+              will_not_update: true,
+            })
+          }
+          
+          updateScrapingStatus(statusUpdate)
+          console.log('🔵 Received scraping:status:', {
+            total: data.total,
+            expected_total: data.expected_total,  // Backend field (snake_case)
+            total_processes: data.total_processes,
+            expectedTotalFromStatus,
+            will_update_expectedTotal: expectedTotalFromStatus && expectedTotalFromStatus > 0,
+            completed: data.completed,
+            completion_rate: data.completion_rate,
+            is_100_percent: data.is_100_percent,
           })
           break
+
+        case 'scraping:all_complete_confirmed': {
+          // Determine the most reliable expected total value available
+          const completionCandidates = [
+            data.expected_total,
+            data.total_final,
+            data.registered_count,
+            (data.completed_count ?? 0) + (data.failed_count ?? 0),
+          ].filter((value) => typeof value === 'number' && value > 0)
+          const resolvedExpectedTotal = completionCandidates.length > 0 ? completionCandidates[0] : 0
+          const totalFinal = data.total_final ?? ((data.completed_count ?? 0) + (data.failed_count ?? 0))
+          const pendingCount = data.pending_count ?? 0
+          const inProgressCount = data.in_progress_count ?? 0
+          const completionRateFromMessage = data.completion_rate ?? (resolvedExpectedTotal > 0 ? totalFinal / resolvedExpectedTotal : 0)
+          const isFullyComplete = (data.is_100_percent ?? false) || (
+            resolvedExpectedTotal > 0 &&
+            totalFinal >= resolvedExpectedTotal &&
+            pendingCount === 0 &&
+            inProgressCount === 0
+          )
+
+          updateScrapingStatus({
+            expectedTotal: resolvedExpectedTotal,
+            total: resolvedExpectedTotal || totalFinal,
+            completed: data.completed_count ?? 0,
+            failed: data.failed_count ?? 0,
+            inProgress: inProgressCount,
+            completionRate: completionRateFromMessage,
+            is100Percent: isFullyComplete,
+            canProceedToResearch: Boolean(data.confirmed && isFullyComplete),
+          })
+
+          console.log('✅ Received scraping:all_complete_confirmed:', {
+            confirmed: data.confirmed,
+            expected_total: data.expected_total,
+            resolvedExpectedTotal,
+            total_final: totalFinal,
+            completion_rate: completionRateFromMessage,
+            isFullyComplete,
+          })
+
+          if (data.confirmed && isFullyComplete) {
+            addNotification('抓取任务全部完成，可以进入研究阶段', 'success')
+          } else {
+            console.warn('⚠️ Scraping completion confirmation received but not fully confirmed:', data)
+          }
+
+          break
+        }
 
         case 'scraping:item_progress':
           // Real-time progress update for a specific link
@@ -306,17 +440,45 @@ export const useWebSocket = (batchId: string) => {
           })
           break
 
-        case 'research:stream_start':
-          clearStreamBuffer()
+        case 'research:stream_start': {
+          const streamId = data.stream_id || `stream:${Date.now()}`
+          startStream(streamId, {
+            phase: data.phase ?? null,
+            metadata: data.metadata ?? null,
+            startedAt: data.timestamp,
+          })
+          if (data.active === false) {
+            setActiveStream(null)
+          } else {
+            setActiveStream(streamId)
+          }
           break
+        }
 
         case 'research:stream_token':
-          appendStreamToken(data.token)
+          if (data.stream_id) {
+            appendStreamToken(data.stream_id, data.token || '')
+          } else {
+            console.warn('Received stream token without stream_id, ignoring')
+          }
           break
 
-        case 'research:stream_end':
-          // Handle stream end if needed
+        case 'research:stream_end': {
+          if (data.stream_id) {
+            completeStream(data.stream_id, {
+              metadata: data.metadata,
+              endedAt: data.timestamp,
+            })
+          }
           break
+        }
+
+        case 'research:stream_error': {
+          if (data.stream_id) {
+            setStreamError(data.stream_id, data.error || 'unknown error')
+          }
+          break
+        }
 
         case 'research:user_input_required':
           updateResearchAgentStatus({

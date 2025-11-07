@@ -121,7 +121,7 @@ class Phase0Prepare(BasePhase):
         from research.summarization.content_summarizer import ContentSummarizer
         
         # Initialize summarizer with client and config
-        summarizer = ContentSummarizer(client=self.client, config=self.config)
+        summarizer = ContentSummarizer(client=self.client, config=self.config, ui=self.ui)
         
         summaries_created = 0
         summaries_reused = 0
@@ -129,13 +129,59 @@ class Phase0Prepare(BasePhase):
         total_items = len(batch_data)
         self.logger.info(f"Starting summarization for {total_items} content items")
         
+        # Send initial progress update
+        if hasattr(self, 'ui') and self.ui:
+            if hasattr(self.ui, 'display_summarization_progress'):
+                self.ui.display_summarization_progress(
+                    current_item=0,
+                    total_items=total_items,
+                    link_id="",
+                    stage="starting",
+                    message=f"开始创建摘要 ({total_items} 个内容项)"
+                )
+            else:
+                self.ui.display_message(
+                    f"开始创建摘要 ({total_items} 个内容项)",
+                    "info"
+                )
+        
         for idx, (link_id, data) in enumerate(batch_data.items(), 1):
             self.logger.info(f"[{idx}/{total_items}] Processing content item: {link_id}")
+            
+            # Send progress update before processing item
+            if hasattr(self, 'ui') and self.ui:
+                if hasattr(self.ui, 'display_summarization_progress'):
+                    self.ui.display_summarization_progress(
+                        current_item=idx,
+                        total_items=total_items,
+                        link_id=link_id,
+                        stage="summarizing",
+                        message=f"正在总结 [{idx}/{total_items}]: {link_id}"
+                    )
+                else:
+                    self.ui.display_message(
+                        f"正在创建摘要 [{idx}/{total_items}]: {link_id}",
+                        "info"
+                    )
             
             # Check if summary already exists (if reuse_existing_summaries is enabled)
             if self.reuse_existing_summaries and data.get("summary"):
                 self.logger.debug(f"Reusing existing summary for {link_id}")
                 summaries_reused += 1
+                if hasattr(self, 'ui') and self.ui:
+                    if hasattr(self.ui, 'display_summarization_progress'):
+                        self.ui.display_summarization_progress(
+                            current_item=idx,
+                            total_items=total_items,
+                            link_id=link_id,
+                            stage="reused",
+                            message=f"摘要已存在 [{idx}/{total_items}]: {link_id}"
+                        )
+                    else:
+                        self.ui.display_message(
+                            f"摘要已存在 [{idx}/{total_items}]: {link_id}",
+                            "success"
+                        )
                 continue
             
             # Check if summary exists in JSON file
@@ -145,18 +191,40 @@ class Phase0Prepare(BasePhase):
                     data["summary"] = existing_summary
                     summaries_reused += 1
                     self.logger.info(f"Loaded existing summary from file for {link_id}")
+                    if hasattr(self, 'ui') and self.ui:
+                        if hasattr(self.ui, 'display_summarization_progress'):
+                            self.ui.display_summarization_progress(
+                                current_item=idx,
+                                total_items=total_items,
+                                link_id=link_id,
+                                stage="loaded",
+                                message=f"从文件加载摘要 [{idx}/{total_items}]: {link_id}"
+                            )
+                        else:
+                            self.ui.display_message(
+                                f"从文件加载摘要 [{idx}/{total_items}]: {link_id}",
+                                "success"
+                            )
                     continue
             
             # Create new summary
             self.logger.info(f"[{idx}/{total_items}] Creating summary with markers for '{link_id}' using {self.summarization_model}")
             
             try:
+                # Time the API call
+                import time
+                api_start_time = time.time()
+                self.logger.info(f"[TIMING] Starting summarization API call for {link_id} at {api_start_time:.3f}")
+                
                 summary = summarizer.summarize_content_item(
                     link_id=link_id,
                     transcript=data.get("transcript"),
                     comments=data.get("comments"),
                     metadata=data.get("metadata")
                 )
+                
+                api_elapsed = time.time() - api_start_time
+                self.logger.info(f"[TIMING] Summarization API call completed in {api_elapsed:.3f}s for {link_id}")
                 
                 # Add summary to data
                 data["summary"] = summary
@@ -171,6 +239,22 @@ class Phase0Prepare(BasePhase):
                     f"{comments_markers} comment markers"
                 )
                 
+                # Send completion update after item
+                if hasattr(self, 'ui') and self.ui:
+                    if hasattr(self.ui, 'display_summarization_progress'):
+                        self.ui.display_summarization_progress(
+                            current_item=idx,
+                            total_items=total_items,
+                            link_id=link_id,
+                            stage="completed",
+                            message=f"总结好了 [{idx}/{total_items}]: {link_id} ({transcript_markers + comments_markers} 标记)"
+                        )
+                    else:
+                        self.ui.display_message(
+                            f"摘要创建完成 [{idx}/{total_items}]: {link_id} ({transcript_markers + comments_markers} 标记)",
+                            "success"
+                        )
+                
             except Exception as e:
                 self.logger.error(f"Failed to create summary for {link_id}: {e}", exc_info=True)
                 # Add empty summary structure to maintain consistency
@@ -181,6 +265,32 @@ class Phase0Prepare(BasePhase):
                     "model_used": self.summarization_model,
                     "error": str(e)
                 }
+                # Send error update
+                if hasattr(self, 'ui') and self.ui:
+                    if hasattr(self.ui, 'display_summarization_progress'):
+                        self.ui.display_summarization_progress(
+                            current_item=idx,
+                            total_items=total_items,
+                            link_id=link_id,
+                            stage="error",
+                            message=f"摘要创建失败 [{idx}/{total_items}]: {link_id}"
+                        )
+        
+        # Send final completion update
+        if hasattr(self, 'ui') and self.ui:
+            if hasattr(self.ui, 'display_summarization_progress'):
+                self.ui.display_summarization_progress(
+                    current_item=total_items,
+                    total_items=total_items,
+                    link_id="",
+                    stage="all_completed",
+                    message=f"所有摘要创建完成 ({summaries_created} 新建, {summaries_reused} 重用)"
+                )
+            else:
+                self.ui.display_message(
+                    f"所有摘要创建完成 ({summaries_created} 新建, {summaries_reused} 重用)",
+                    "success"
+                )
         
         self.logger.info(
             f"Summarization complete: {summaries_created} created, "

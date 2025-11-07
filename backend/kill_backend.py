@@ -5,6 +5,7 @@ Kill hung backend processes on port 3001.
 import sys
 import subprocess
 import socket
+import time
 from pathlib import Path
 
 # Add project root to path
@@ -49,18 +50,99 @@ def kill_backend():
             
             print(f"   Found {len(pids)} process(es) using port {port}: {', '.join(pids)}")
             
-            # Kill each process
+            # Kill each process with retry logic
             for pid in pids:
                 print(f"   Killing process {pid}...")
+                killed = False
+                
+                # First, check if process exists
                 try:
-                    subprocess.run(['taskkill', '/F', '/PID', pid], check=True)
-                    print(f"   ✓ Killed process {pid}")
-                except subprocess.CalledProcessError as e:
-                    print(f"   ❌ Failed to kill process {pid}: {e}")
-                    return False
+                    check_result = subprocess.run(
+                        ['tasklist', '/FI', f'PID eq {pid}'],
+                        capture_output=True,
+                        text=True,
+                        timeout=5
+                    )
+                    if pid not in check_result.stdout:
+                        print(f"   ⚠ Process {pid} no longer exists (already terminated)")
+                        killed = True
+                except:
+                    pass
+                
+                # Try to kill the process (with retries)
+                if not killed:
+                    for attempt in range(3):
+                        try:
+                            result = subprocess.run(
+                                ['taskkill', '/F', '/PID', pid],
+                                capture_output=True,
+                                text=True,
+                                timeout=5,
+                                check=False  # Don't raise on error
+                            )
+                            
+                            if result.returncode == 0:
+                                print(f"   ✓ Killed process {pid}")
+                                killed = True
+                                break
+                            elif result.returncode == 128:
+                                # Process doesn't exist or already terminated
+                                print(f"   ⚠ Process {pid} doesn't exist (may already be terminated)")
+                                killed = True
+                                break
+                            else:
+                                if attempt < 2:
+                                    print(f"   ⚠ Attempt {attempt + 1} failed, retrying...")
+                                    time.sleep(1)
+                                else:
+                                    print(f"   ⚠ Failed to kill process {pid} after 3 attempts (exit code: {result.returncode})")
+                                    print(f"      Process may already be terminated or require admin privileges")
+                        except Exception as e:
+                            if attempt < 2:
+                                print(f"   ⚠ Attempt {attempt + 1} error: {e}, retrying...")
+                                time.sleep(1)
+                            else:
+                                print(f"   ⚠ Error killing process {pid}: {e}")
+                
+                # Verify process is actually killed
+                if killed:
+                    time.sleep(0.5)
+                    try:
+                        verify_result = subprocess.run(
+                            ['tasklist', '/FI', f'PID eq {pid}'],
+                            capture_output=True,
+                            text=True,
+                            timeout=5
+                        )
+                        if pid in verify_result.stdout:
+                            print(f"   ⚠ Warning: Process {pid} still appears to be running")
+                        else:
+                            print(f"   ✓ Verified: Process {pid} is terminated")
+                    except:
+                        pass
             
-            print(f"   ✓ All processes killed")
-            return True
+            # Final verification - check if port is still in use
+            time.sleep(1)
+            port_free = True
+            try:
+                verify_result = subprocess.run(
+                    ['netstat', '-ano'],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                if verify_result.returncode == 0:
+                    lines = verify_result.stdout.split('\n')
+                    still_running = [line for line in lines if f':{port}' in line and 'LISTENING' in line]
+                    if still_running:
+                        print(f"   ⚠ Warning: Port {port} may still be in use")
+                        port_free = False
+                    else:
+                        print(f"   ✓ All processes killed and port {port} is free")
+            except:
+                print(f"   ⚠ Could not verify port status, but processes were terminated")
+            
+            return port_free
             
         except subprocess.CalledProcessError as e:
             print(f"   ❌ Error running netstat: {e}")

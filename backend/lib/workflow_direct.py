@@ -7,11 +7,32 @@ can be passed to scrapers and work correctly.
 import sys
 import json
 import time
+import uuid
+import threading
+import os
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from loguru import logger
+
+# Debug mode flag
+DEBUG_MODE = os.environ.get('WORKFLOW_DEBUG', 'false').lower() == 'true'
+
+# Message validation schemas
+REQUIRED_FIELDS_BY_TYPE = {
+    'scraping:start': ['type', 'message'],
+    'scraping:discover': ['type', 'message', 'total_links'],
+    'scraping:start_type': ['type', 'scraper', 'link_type', 'count', 'message'],
+    'scraping:start_link': ['type', 'scraper', 'url', 'link_id', 'index', 'total'],
+    'scraping:complete_link': ['type', 'scraper', 'url', 'link_id', 'status'],
+    'scraping:complete': ['type', 'message', 'passed', 'total', 'batch_id'],
+    'scraping:verify_completion': ['type', 'batch_id', 'message']
+}
+
+# Track callback invocations per batch
+_callback_tracking: Dict[str, Dict[str, Any]] = {}
+_tracking_lock = threading.Lock()
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
@@ -25,6 +46,113 @@ from scrapers.bilibili_comments_scraper import BilibiliCommentsScraper
 from scrapers.article_scraper import ArticleScraper
 from scrapers.reddit_scraper import RedditScraper
 from tests.test_links_loader import TestLinksLoader
+
+
+def _validate_message(message: dict, message_type: str) -> tuple[bool, Optional[str]]:
+    """
+    Validate message format against schema.
+    
+    Returns:
+        (is_valid, error_message)
+    """
+    if message_type not in REQUIRED_FIELDS_BY_TYPE:
+        return True, None  # Unknown type, skip validation
+    
+    required_fields = REQUIRED_FIELDS_BY_TYPE[message_type]
+    missing_fields = [field for field in required_fields if field not in message]
+    
+    if missing_fields:
+        return False, f"Missing required fields: {missing_fields}"
+    
+    # Validate status values
+    if message_type == 'scraping:complete_link':
+        status = message.get('status')
+        if status not in ['success', 'failed', 'unknown']:
+            return False, f"Invalid status value: {status}"
+    
+    # Validate progress values
+    if 'progress' in message:
+        progress = message.get('progress', 0.0)
+        if not (0.0 <= progress <= 100.0):
+            return False, f"Invalid progress value: {progress} (must be 0.0-100.0)"
+    
+    return True, None
+
+
+def _safe_callback_invoke(
+    progress_callback: Optional[Callable[[dict], None]],
+    message: dict,
+    batch_id: str,
+    scraper_name: str
+) -> None:
+    """
+    Safely invoke progress callback with tracking and validation.
+    
+    Args:
+        progress_callback: Callback function
+        message: Message dictionary
+        batch_id: Batch ID
+        scraper_name: Scraper name for logging
+    """
+    if not progress_callback:
+        return
+    
+    message_type = message.get('type', 'unknown')
+    message_id = uuid.uuid4().hex[:8]
+    message['_debug_message_id'] = message_id
+    
+    # Track callback invocation
+    if DEBUG_MODE:
+        thread_id = threading.current_thread().ident
+        with _tracking_lock:
+            if batch_id not in _callback_tracking:
+                _callback_tracking[batch_id] = {
+                    'callback_count': 0,
+                    'messages': [],
+                    'threads': set()
+                }
+            tracking = _callback_tracking[batch_id]
+            tracking['callback_count'] += 1
+            tracking['threads'].add(thread_id)
+            tracking['messages'].append({
+                'message_id': message_id,
+                'type': message_type,
+                'scraper': scraper_name,
+                'thread_id': thread_id,
+                'timestamp': time.time()
+            })
+    
+    # Validate message format
+    is_valid, error_msg = _validate_message(message, message_type)
+    if not is_valid:
+        logger.warning(
+            f"[CALLBACK] Invalid message format (message_id={message_id}): {error_msg}. "
+            f"Message: {message}"
+        )
+    
+    # Log callback invocation
+    if DEBUG_MODE:
+        logger.debug(
+            f"[CALLBACK] Invoking callback (message_id={message_id}, type={message_type}, "
+            f"scraper={scraper_name}, batch_id={batch_id}, thread_id={threading.current_thread().ident})"
+        )
+    
+    # Invoke callback with error handling
+    try:
+        callback_start = time.time()
+        progress_callback(message)
+        callback_elapsed = time.time() - callback_start
+        
+        if DEBUG_MODE and callback_elapsed > 0.1:
+            logger.warning(
+                f"[CALLBACK] Slow callback execution: {callback_elapsed:.3f}s "
+                f"(message_id={message_id}, type={message_type})"
+            )
+    except Exception as e:
+        logger.error(
+            f"[CALLBACK] Error in callback execution (message_id={message_id}, type={message_type}): {e}",
+            exc_info=True
+        )
 
 
 def _run_scraper_for_link(
@@ -53,6 +181,7 @@ def _run_scraper_for_link(
     Returns:
         Extraction result dictionary
     """
+    operation_start = time.time()
     try:
         # Create scraper with progress callback and cancellation checker
         scraper = scraper_class(
@@ -62,17 +191,39 @@ def _run_scraper_for_link(
         )
         
         # Extract content
+        extract_start = time.time()
         result = scraper.extract(url, batch_id=batch_id, link_id=link_id)
+        extract_elapsed = time.time() - extract_start
+        
+        if DEBUG_MODE:
+            logger.debug(
+                f"[TIMING] [{scraper_name}] Extraction took {extract_elapsed:.2f}s "
+                f"for {url} (link_id={link_id})"
+            )
         
         # Close scraper
         try:
             scraper.close()
-        except:
-            pass
+            if DEBUG_MODE:
+                logger.debug(f"[CLEANUP] [{scraper_name}] Scraper closed for {url}")
+        except Exception as close_error:
+            logger.warning(f"[CLEANUP] [{scraper_name}] Error closing scraper for {url}: {close_error}")
+        
+        operation_elapsed = time.time() - operation_start
+        if DEBUG_MODE:
+            logger.debug(
+                f"[TIMING] [{scraper_name}] Total operation took {operation_elapsed:.2f}s "
+                f"for {url} (link_id={link_id})"
+            )
         
         return result
     except Exception as e:
-        logger.error(f"[{scraper_name}] Error extracting {url}: {e}")
+        operation_elapsed = time.time() - operation_start
+        logger.error(
+            f"[ERROR] [{scraper_name}] Error extracting {url} (link_id={link_id}, "
+            f"batch_id={batch_id}, elapsed={operation_elapsed:.2f}s): {e}",
+            exc_info=True
+        )
         return {
             'success': False,
             'url': url,
@@ -118,38 +269,48 @@ def _run_scraper_type(
     
     logger.info(f"[{scraper_name}] Processing {len(links)} {link_type} link(s)")
     
-    if progress_callback:
-        progress_callback({
-            'type': 'scraping:start_type',
-            'scraper': scraper_name,
-            'link_type': link_type,
-            'count': len(links),
-            'message': f'开始处理 {len(links)} 个{link_type}链接'
-        })
+    type_start_time = time.time()
     
-        # Create ONE scraper instance and reuse it for all links (fixes browser context lifecycle issues)
-        scraper = None
-        results = []
-        
+    if progress_callback:
+        _safe_callback_invoke(
+            progress_callback,
+            {
+                'type': 'scraping:start_type',
+                'scraper': scraper_name,
+                'link_type': link_type,
+                'count': len(links),
+                'message': f'开始处理 {len(links)} 个{link_type}链接',
+                'batch_id': batch_id
+            },
+            batch_id,
+            scraper_name
+        )
+    
+    # Create ONE scraper instance and reuse it for all links (fixes browser context lifecycle issues)
+    scraper = None
+    results = []
+    
+    try:
+        # Create scraper with progress callback and cancellation checker (reused for all links)
         try:
-            # Create scraper with progress callback and cancellation checker (reused for all links)
-            try:
-                logger.info(f"[{scraper_name}] Creating scraper instance...")
-                logger.debug(f"[{scraper_name}] Creating scraper instance with kwargs: {scraper_kwargs}")
-                scraper = scraper_class(
-                    progress_callback=progress_callback,
-                    cancellation_checker=cancellation_checker,
-                    **scraper_kwargs
-                )
-                logger.info(f"[{scraper_name}] Created scraper instance (will be reused for {len(links)} links)")
-            except Exception as e:
-                logger.error(f"[{scraper_name}] Failed to create scraper instance: {e}")
-                import traceback
-                logger.error(f"[{scraper_name}] Traceback: {traceback.format_exc()}")
-                # Report error via progress callback if available
-                if progress_callback:
-                    for i, link in enumerate(links, 1):
-                        progress_callback({
+            logger.info(f"[{scraper_name}] Creating scraper instance...")
+            logger.debug(f"[{scraper_name}] Creating scraper instance with kwargs: {scraper_kwargs}")
+            scraper = scraper_class(
+                progress_callback=progress_callback,
+                cancellation_checker=cancellation_checker,
+                **scraper_kwargs
+            )
+            logger.info(f"[{scraper_name}] Created scraper instance (will be reused for {len(links)} links)")
+        except Exception as e:
+            logger.error(f"[{scraper_name}] Failed to create scraper instance: {e}")
+            import traceback
+            logger.error(f"[{scraper_name}] Traceback: {traceback.format_exc()}")
+            # Report error via progress callback if available
+            if progress_callback:
+                for i, link in enumerate(links, 1):
+                    _safe_callback_invoke(
+                        progress_callback,
+                        {
                             'type': 'scraping:complete_link',
                             'scraper': scraper_name,
                             'link_type': link_type,
@@ -159,14 +320,20 @@ def _run_scraper_type(
                             'message': f'Scraper initialization failed: {str(e)}',
                             'error': f'Failed to create scraper: {str(e)}',
                             'batch_id': batch_id
-                        })
-                raise
+                        },
+                        batch_id,
+                        scraper_name
+                    )
+            raise
         
         # Process links sequentially (scrapers handle their own parallelization internally)
         for i, link in enumerate(links, 1):
             # Check for cancellation before processing each link
             if cancellation_checker and cancellation_checker():
-                logger.info(f"[{scraper_name}] Cancellation detected, stopping processing")
+                logger.info(
+                    f"[CANCEL] [{scraper_name}] Cancellation detected, stopping processing "
+                    f"(processed {i-1}/{len(links)} links)"
+                )
                 break
             
             url = link['url']
@@ -174,17 +341,25 @@ def _run_scraper_type(
             
             logger.info(f"[{scraper_name}] Processing {i}/{len(links)}: {url} (link_id={link_id})")
             
+            link_start_time = time.time()
+            
             if progress_callback:
-                progress_callback({
-                    'type': 'scraping:start_link',
-                    'scraper': scraper_name,
-                    'link_type': link_type,
-                    'url': url,
-                    'link_id': link_id,
-                    'index': i,
-                    'total': len(links),
-                    'message': f'处理链接 {i}/{len(links)}: {url}'
-                })
+                _safe_callback_invoke(
+                    progress_callback,
+                    {
+                        'type': 'scraping:start_link',
+                        'scraper': scraper_name,
+                        'link_type': link_type,
+                        'url': url,
+                        'link_id': link_id,
+                        'index': i,
+                        'total': len(links),
+                        'message': f'处理链接 {i}/{len(links)}: {url}',
+                        'batch_id': batch_id
+                    },
+                    batch_id,
+                    scraper_name
+                )
             
             # Extract content using the shared scraper instance
             try:
@@ -195,8 +370,18 @@ def _run_scraper_type(
                 
                 # Check for cancellation after extraction
                 if cancellation_checker and cancellation_checker():
-                    logger.info(f"[{scraper_name}] Cancellation detected after extraction, stopping processing")
+                    logger.info(
+                        f"[CANCEL] [{scraper_name}] Cancellation detected after extraction, "
+                        f"stopping processing (processed {i}/{len(links)} links)"
+                    )
                     break
+                
+                link_elapsed = time.time() - link_start_time
+                if DEBUG_MODE:
+                    logger.debug(
+                        f"[TIMING] [{scraper_name}] Link {i}/{len(links)} took {link_elapsed:.2f}s "
+                        f"(url={url}, link_id={link_id}, success={result.get('success')})"
+                    )
                 
                 if progress_callback:
                     status = 'success' if result.get('success') else 'failed'
@@ -206,20 +391,30 @@ def _run_scraper_type(
                     else:
                         message_text = f'链接 {i}/{len(links)} 完成: {status}'
                     
-                    progress_callback({
-                        'type': 'scraping:complete_link',
-                        'scraper': scraper_name,
-                        'link_type': link_type,
-                        'url': url,
-                        'link_id': link_id,
-                        'status': status,
-                        'message': message_text,
-                        'error': error_msg,
-                        'batch_id': batch_id
-                    })
+                    _safe_callback_invoke(
+                        progress_callback,
+                        {
+                            'type': 'scraping:complete_link',
+                            'scraper': scraper_name,
+                            'link_type': link_type,
+                            'url': url,
+                            'link_id': link_id,
+                            'status': status,
+                            'message': message_text,
+                            'error': error_msg,
+                            'batch_id': batch_id
+                        },
+                        batch_id,
+                        scraper_name
+                    )
             except Exception as e:
-                logger.error(f"[{scraper_name}] Error extracting {url}: {e}", exc_info=True)
+                link_elapsed = time.time() - link_start_time
                 error_str = str(e)
+                logger.error(
+                    f"[ERROR] [{scraper_name}] Error extracting {url} (link_id={link_id}, "
+                    f"batch_id={batch_id}, elapsed={link_elapsed:.2f}s): {e}",
+                    exc_info=True
+                )
                 result = {
                     'success': False,
                     'url': url,
@@ -231,29 +426,49 @@ def _run_scraper_type(
                 results.append(result)
                 
                 if progress_callback:
-                    progress_callback({
-                        'type': 'scraping:complete_link',
-                        'scraper': scraper_name,
-                        'link_type': link_type,
-                        'url': url,
-                        'link_id': link_id,
-                        'status': 'failed',
-                        'message': f'链接 {i}/{len(links)} 失败: {error_str}',
-                        'error': error_str,
-                        'batch_id': batch_id
-                    })
+                    _safe_callback_invoke(
+                        progress_callback,
+                        {
+                            'type': 'scraping:complete_link',
+                            'scraper': scraper_name,
+                            'link_type': link_type,
+                            'url': url,
+                            'link_id': link_id,
+                            'status': 'failed',
+                            'message': f'链接 {i}/{len(links)} 失败: {error_str}',
+                            'error': error_str,
+                            'batch_id': batch_id
+                        },
+                        batch_id,
+                        scraper_name
+                    )
     
     finally:
         # Close scraper instance after processing all links
         if scraper:
             try:
                 scraper.close()
-                logger.info(f"[{scraper_name}] Closed scraper instance")
+                logger.info(f"[CLEANUP] [{scraper_name}] Closed scraper instance")
+                if DEBUG_MODE:
+                    logger.debug(f"[CLEANUP] [{scraper_name}] Scraper cleanup successful")
             except Exception as e:
-                logger.warning(f"[{scraper_name}] Error closing scraper: {e}")
+                logger.warning(
+                    f"[CLEANUP] [{scraper_name}] Error closing scraper: {e}",
+                    exc_info=True
+                )
     
+    type_elapsed = time.time() - type_start_time
     success_count = sum(1 for r in results if r.get('success'))
-    logger.info(f"[{scraper_name}] Completed: {success_count}/{len(links)} succeeded")
+    logger.info(
+        f"[{scraper_name}] Completed: {success_count}/{len(links)} succeeded "
+        f"(elapsed={type_elapsed:.2f}s)"
+    )
+    
+    if DEBUG_MODE:
+        logger.debug(
+            f"[TIMING] [{scraper_name}] Total type processing took {type_elapsed:.2f}s "
+            f"for {len(links)} links"
+        )
     
     return results
 
@@ -392,11 +607,19 @@ def run_all_scrapers_direct(
     Returns:
         Dict with batch_id, success status, and results
     """
+    workflow_start_time = time.time()
+    
     if progress_callback:
-        progress_callback({
-            'type': 'scraping:start',
-            'message': '开始抓取内容...'
-        })
+        _safe_callback_invoke(
+            progress_callback,
+            {
+                'type': 'scraping:start',
+                'message': '开始抓取内容...',
+                'batch_id': batch_id
+            },
+            batch_id or 'unknown',
+            'workflow'
+        )
     else:
         logger.info("Starting all scrapers...")
     
@@ -424,11 +647,17 @@ def run_all_scrapers_direct(
     total_links = sum(len(links) for links in link_types.values())
     
     if progress_callback:
-        progress_callback({
-            'type': 'scraping:discover',
-            'message': f'发现 {total_links} 个链接',
-            'total_links': total_links
-        })
+        _safe_callback_invoke(
+            progress_callback,
+            {
+                'type': 'scraping:discover',
+                'message': f'发现 {total_links} 个链接',
+                'total_links': total_links,
+                'batch_id': batch_id
+            },
+            batch_id,
+            'workflow'
+        )
     
     if total_links == 0:
         logger.warning("No links found in test links file")
@@ -532,35 +761,58 @@ def run_all_scrapers_direct(
     passed = sum(1 for r in all_results if r.get('success'))
     total = len(all_results)
     
+    workflow_elapsed = time.time() - workflow_start_time
+    
     if progress_callback:
-        progress_callback({
-            'type': 'scraping:complete',
-            'message': f'抓取完成: {passed}/{total} 成功',
-            'passed': passed,
-            'total': total,
-            'batch_id': batch_id
-        })
+        _safe_callback_invoke(
+            progress_callback,
+            {
+                'type': 'scraping:complete',
+                'message': f'抓取完成: {passed}/{total} 成功',
+                'passed': passed,
+                'total': total,
+                'batch_id': batch_id
+            },
+            batch_id,
+            'workflow'
+        )
         
         # After sending scraping:complete, verify and send confirmation signal
         # The progress callback has access to check_completion function via closure
         # We'll check completion by calling it through the callback mechanism
         # Since we don't have direct access to ProgressService, we'll send a request
         # for the workflow service to verify and send confirmation
-        import time
-        import asyncio
         
         # Wait a bit for final status updates to be processed
+        logger.debug(f"[VERIFY] Waiting 0.5s for status updates to process before verification...")
         time.sleep(0.5)
         
         # Send request to verify completion (workflow service will handle verification)
         # We use a special message type that triggers verification
-        progress_callback({
-            'type': 'scraping:verify_completion',
-            'batch_id': batch_id,
-            'message': 'Verifying all scraping processes are complete...'
-        })
+        logger.info(f"[VERIFY] Sending verify_completion request for batch {batch_id}")
+        _safe_callback_invoke(
+            progress_callback,
+            {
+                'type': 'scraping:verify_completion',
+                'batch_id': batch_id,
+                'message': 'Verifying all scraping processes are complete...'
+            },
+            batch_id,
+            'workflow'
+        )
     else:
         logger.info(f"Scrapers Summary: {passed}/{total} passed")
+    
+    if DEBUG_MODE:
+        with _tracking_lock:
+            if batch_id in _callback_tracking:
+                tracking = _callback_tracking[batch_id]
+                logger.info(
+                    f"[DEBUG] Batch {batch_id} callback stats: "
+                    f"total_callbacks={tracking['callback_count']}, "
+                    f"unique_threads={len(tracking['threads'])}, "
+                    f"workflow_elapsed={workflow_elapsed:.2f}s"
+                )
     
     return {
         'batch_id': batch_id,

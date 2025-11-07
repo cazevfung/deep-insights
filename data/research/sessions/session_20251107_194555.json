@@ -1,0 +1,272 @@
+{
+  "metadata": {
+    "session_id": "20251107_194555",
+    "created_at": "2025-11-07T19:45:55.905117",
+    "batch_id": "20251107_114525",
+    "selected_goal": null,
+    "research_plan": null,
+    "status": "initialized",
+    "updated_at": "2025-11-07T19:52:37.479439",
+    "data_loaded": true,
+    "quality_assessment": {
+      "quality_flags": [
+        {
+          "type": "imbalance",
+          "message": "数据不平衡：5509/5642 字（97.6%）来自单一来源 (yt_req1)",
+          "severity": "warning"
+        },
+        {
+          "type": "comment_coverage",
+          "message": "评论覆盖率低：仅 1/3 个项目包含评论",
+          "severity": "info"
+        },
+        {
+          "type": "source_diversity",
+          "message": "来源单一：所有数据均来自 youtube",
+          "severity": "info"
+        }
+      ],
+      "quality_score": 0.7499999999999999,
+      "summary": "发现 3 个潜在问题: 数据不平衡, 评论覆盖率低, 来源单一",
+      "statistics": {
+        "total_items": 3,
+        "total_words": 5642,
+        "avg_words_per_item": 1880.6666666666667,
+        "items_with_comments": 1,
+        "comment_coverage": 0.3333333333333333,
+        "unique_sources": 0,
+        "sources": []
+      }
+    },
+    "research_role": {
+      "role": "游戏设计与玩家体验研究员",
+      "rationale": "该角色能深入分析AI NPC在游戏中的行为表现、玩家互动反馈及叙事沉浸感，契合转录文本与评论中展现的动态对话、角色扮演与情感共鸣等核心体验要素。"
+    },
+    "phase1_confirmed_goals": [
+      {
+        "id": 1,
+        "goal_text": "分析AI NPC在《上古卷轴5：天际》模组中如何通过动态对话生成幽默效果，并识别其语言模式与意外喜剧产生的机制。",
+        "rationale": "评论摘要中多次提及具体搞笑台词（如‘GET OUT OF MY WIFE'S HOUSE’、‘My rod needs tending’），并强调其‘非刻意但高效’的幽默特性，适合进行话语分析与喜剧生成机制建模。",
+        "uses": [
+          "transcript_with_comments"
+        ],
+        "sources": [
+          "youtube"
+        ]
+      },
+      {
+        "id": 2,
+        "goal_text": "评估AI驱动NPC在高压力情境（如角色面临死亡）下展现的情感深度是否能提升玩家的叙事沉浸感。",
+        "rationale": "多个关键事实和高参与度评论指出，如守卫说‘I'm doing my best’引发情感共鸣，表明AI能在危机场景中触发真实情绪反应，适合开展玩家体验实验或情感计算研究。",
+        "uses": [
+          "transcript_with_comments"
+        ],
+        "sources": [
+          "youtube"
+        ]
+      },
+      {
+        "id": 3,
+        "goal_text": "探究AI NPC对玩家非常规输入（如‘通过嗅觉交流的外星人’）的响应策略及其对游戏世界一致性的维护能力。",
+        "rationale": "转录与评论中反复出现‘sniffing’作为互动元素，且AI对此类荒诞设定作出连贯回应，可用于研究开放域对话系统在维持虚构逻辑中的适应性。",
+        "uses": [
+          "transcript",
+          "transcript_with_comments"
+        ],
+        "sources": [
+          "youtube"
+        ]
+      },
+      {
+        "id": 4,
+        "goal_text": "比较传统脚本化NPC与AI增强型NPC在玩家感知真实性、角色生命力及互动满意度上的差异。",
+        "rationale": "评论明确指出AI NPC‘感觉像活生生的角色而非脚本机器人’，且语音更自然，具备开展对照实验的基础条件。",
+        "uses": [
+          "transcript_with_comments"
+        ],
+        "sources": [
+          "youtube"
+        ]
+      },
+      {
+        "id": 5,
+        "goal_text": "识别AI NPC在游戏秀框架（如‘Wheel of Misfortune’）中如何协调叙事结构、玩家选择与即兴表演之间的张力。",
+        "rationale": "yt_req1详细描述了游戏秀机制与AI互动的结合，包括淘汰规则、歌唱求生等，为研究程序化叙事与生成式AI的协同提供案例。",
+        "uses": [
+          "transcript"
+        ],
+        "sources": [
+          "youtube"
+        ]
+      },
+      {
+        "id": 6,
+        "goal_text": "分析玩家对AI NPC表现出‘自我意识’或元叙事言论（如‘Plagiarize? I would never...’）的接受度与娱乐价值感知。",
+        "rationale": "评论将此类台词视为‘讽刺而滑稽’，反映玩家对AI元认知表达的特殊反应，适合进行话语修辞与玩家心理研究。",
+        "uses": [
+          "transcript_with_comments"
+        ],
+        "sources": [
+          "youtube"
+        ]
+      },
+      {
+        "id": 7,
+        "goal_text": "评估当前大型语言模型在实时游戏环境中的技术可行性，包括延迟、成本与内容可控性限制。",
+        "rationale": "多条评论直接指出‘运行大模型极其昂贵’且‘行业短期内不会采用’，可结合技术评论与开发者视角开展可行性分析。",
+        "uses": [
+          "transcript_with_comments"
+        ],
+        "sources": [
+          "youtube"
+        ]
+      },
+      {
+        "id": 8,
+        "goal_text": "研究AI NPC在道德模糊情境（如主持处决游戏）中如何构建角色动机与伦理立场，并影响玩家道德判断。",
+        "rationale": "yt_req1中主持人自视为‘正义执行者’却实施屠杀，形成强烈道德张力，适合探讨AI角色伦理建模与玩家共谋机制。",
+        "uses": [
+          "transcript"
+        ],
+        "sources": [
+          "youtube"
+        ]
+      },
+      {
+        "id": 9,
+        "goal_text": "考察AI生成对话在维持角色身份一致性（如Khajiit、吸血鬼、守卫）方面的表现及其对世界观可信度的影响。",
+        "rationale": "评论提到不同种族/职业NPC（如Khajiit说‘I have a song in me’）言行符合设定，可分析角色模板与语言风格绑定的有效性。",
+        "uses": [
+          "transcript_with_comments"
+        ],
+        "sources": [
+          "youtube"
+        ]
+      },
+      {
+        "id": 10,
+        "goal_text": "探索AI NPC在有限线性任务结构中实现‘动态响应’的实际边界，并评估其与真正开放世界交互的差距。",
+        "rationale": "有观点批评‘游戏线性结构削弱了AI潜力’，结合实际互动数据可界定当前技术在结构化vs开放环境中的效能阈值。",
+        "uses": [
+          "transcript_with_comments"
+        ],
+        "sources": [
+          "youtube"
+        ]
+      },
+      {
+        "id": 11,
+        "goal_text": "分析观众对AI NPC‘声音自然度’的感知与其整体沉浸感之间的相关性。",
+        "rationale": "高参与度评论特别称赞AI语音‘比以往更自然’，可设计听觉感知实验验证语音质量对角色可信度的影响权重。",
+        "uses": [
+          "transcript_with_comments"
+        ],
+        "sources": [
+          "youtube"
+        ]
+      },
+      {
+        "id": 12,
+        "goal_text": "研究AI NPC在多人直播或社区观看情境下（如Neurosama直播间）如何成为社交讨论焦点并放大娱乐效果。",
+        "rationale": "标记指出该模组在Neurosama直播中展示并引发热议，适合开展媒介传播与集体观看体验研究。",
+        "uses": [
+          "transcript_with_comments"
+        ],
+        "sources": [
+          "youtube"
+        ]
+      },
+      {
+        "id": 13,
+        "goal_text": "识别AI NPC在应对玩家即兴行为（如突然唱歌、变身蝙蝠侠反派）时的上下文理解与情节衔接能力。",
+        "rationale": "数据显示AI在7分钟内对‘蝙蝠侠反派’设定作出反应，且对‘哼歌求生’有适配回应，可用于评估上下文记忆与情节整合机制。",
+        "uses": [
+          "transcript_with_comments"
+        ],
+        "sources": [
+          "youtube"
+        ]
+      },
+      {
+        "id": 14,
+        "goal_text": "探讨玩家偏好‘人类+AI混合队伍’而非全AI控制的原因，及其对合作游戏设计的启示。",
+        "rationale": "评论明确表达‘不应完全取代人类玩家’，反映对AI社交替代的边界认知，适合开展人机协作偏好调研。",
+        "uses": [
+          "transcript_with_comments"
+        ],
+        "sources": [
+          "youtube"
+        ]
+      },
+      {
+        "id": 15,
+        "goal_text": "分析AI NPC在模拟‘情感支持’行为（如劝阻跳桥）时所使用的语言策略及其拟人化程度。",
+        "rationale": "守卫劝Kevin不要跳桥被赞‘出人意料的情感深度’，可提取对话模式研究虚拟共情表达的构建方式。",
+        "uses": [
+          "transcript_with_comments"
+        ],
+        "sources": [
+          "youtube"
+        ]
+      },
+      {
+        "id": 16,
+        "goal_text": "评估AI生成内容在维持长期叙事连贯性（如从游戏秀到称帝）方面的能力与局限。",
+        "rationale": "yt_req1包含从初始游戏秀到最终成为皇帝的完整弧光，可检验AI在跨场景叙事一致性上的表现。",
+        "uses": [
+          "transcript"
+        ],
+        "sources": [
+          "youtube"
+        ]
+      },
+      {
+        "id": 17,
+        "goal_text": "研究AI NPC对玩家身份声明（如‘我是外星人’‘我是蝙蝠侠反派’）的接纳与角色重构机制。",
+        "rationale": "玩家频繁提出非常规身份设定，而AI均作出合理回应，适合分析身份协商与角色适应算法。",
+        "uses": [
+          "transcript",
+          "transcript_with_comments"
+        ],
+        "sources": [
+          "youtube"
+        ]
+      },
+      {
+        "id": 18,
+        "goal_text": "对比AI NPC在紧急情境（如Gaia星球求救）与日常互动中对不当行为（如‘嗅探’）的处理策略差异。",
+        "rationale": "yt_req2聚焦紧急通讯中的边界违反，而其他内容涉及娱乐化互动，可比较AI在不同语境下的社交规范执行能力。注意：yt_req2信息较单薄，建议谨慎使用或仅作辅助。",
+        "uses": [
+          "transcript"
+        ],
+        "sources": [
+          "youtube"
+        ]
+      },
+      {
+        "id": 19,
+        "goal_text": "探究AI NPC在引用流行文化（如‘It's ya boi’）时如何增强角色个性并与玩家建立文化共鸣。",
+        "rationale": "Captain Aldis的‘Keep it real’被奉为经典时刻，显示文化指涉对角色魅力的加成作用，适合开展符号学与玩家认同研究。",
+        "uses": [
+          "transcript_with_comments"
+        ],
+        "sources": [
+          "youtube"
+        ]
+      },
+      {
+        "id": 20,
+        "goal_text": "分析AI NPC在缺乏明确目标的情境下（如渔夫说‘lead the way’却不移动）如何制造戏剧性张力或权力反转。",
+        "rationale": "该行为被观众解读为‘权力举动’，反映AI可通过被动抵抗创造叙事张力，值得研究非对抗性冲突生成机制。",
+        "uses": [
+          "transcript_with_comments"
+        ],
+        "sources": [
+          "youtube"
+        ]
+      }
+    ],
+    "phase1_user_input": ""
+  },
+  "scratchpad": {}
+}

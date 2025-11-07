@@ -1,6 +1,7 @@
 """Phase 3: Execute Research Plan."""
 
 import json
+import time
 from typing import Dict, Any, List, Optional
 from research.phases.base_phase import BasePhase
 from research.data_loader import ResearchDataLoader
@@ -102,6 +103,14 @@ class Phase3Execute(BasePhase):
             if self.progress_tracker:
                 self.progress_tracker.start_step(step_id, goal)
             
+            # Send progress update
+            total_steps = len(research_plan)
+            if hasattr(self, 'ui') and self.ui:
+                self.ui.display_message(
+                    f"正在执行步骤 {step_id}/{total_steps}: {goal[:50]}...",
+                    "info"
+                )
+            
             try:
                 chunk_size = step.get("chunk_size", self._window_words)
                 if chunk_strategy == "sequential":
@@ -110,6 +119,14 @@ class Phase3Execute(BasePhase):
                     # Complete step after paged processing
                     if self.progress_tracker:
                         self.progress_tracker.complete_step(step_id, findings)
+                    
+                    # Send completion update
+                    if hasattr(self, 'ui') and self.ui:
+                        self.ui.display_message(
+                            f"步骤 {step_id}/{total_steps} 执行完成",
+                            "success"
+                        )
+                    
                     all_findings.append({"step_id": step_id, "findings": findings})
                 else:
                     # Prepare data chunk with source tracking (enhancement #2)
@@ -163,6 +180,13 @@ class Phase3Execute(BasePhase):
                     
                     if self.progress_tracker:
                         self.progress_tracker.complete_step(step_id, findings)
+                    
+                    # Send completion update
+                    if hasattr(self, 'ui') and self.ui:
+                        self.ui.display_message(
+                            f"步骤 {step_id}/{len(research_plan)} 执行完成",
+                            "success"
+                        )
                 
             except Exception as e:
                 self.logger.error(f"Step {step_id} failed: {str(e)}")
@@ -234,8 +258,7 @@ class Phase3Execute(BasePhase):
         aggregated_findings: Dict[str, Any] = {"summary": "", "points_of_interest": {}, "sources": source_info.get("link_ids", [])}
         insights_parts: List[str] = []
         overall_confidence: float = 0.0
-        from time import time
-        step_t0 = time()
+        step_t0 = time.time()
 
         # Do not call progress_tracker per window; handle at the caller level
         while window_start < n and windows_processed < (max_windows or 8):
@@ -327,7 +350,7 @@ class Phase3Execute(BasePhase):
             window_start = min(next_window_start, n)
 
             # Enforce per-step time budget only if explicitly configured
-            elapsed = time() - step_t0
+            elapsed = time.time() - step_t0
             if isinstance(self._max_step_seconds, (int, float)) and self._max_step_seconds > 0 and elapsed > self._max_step_seconds:
                 try:
                     self.logger.warning(
@@ -833,7 +856,19 @@ class Phase3Execute(BasePhase):
         except Exception:
             pass
 
+        # Time the API call
+        api_start_time = time.time()
+        step_display_id = step_id  # Use for logging
+        self.logger.info(f"[TIMING] Starting API call for Step {step_display_id} at {api_start_time:.3f}")
+        
+        # Send progress update before API call
+        if hasattr(self, 'ui') and self.ui:
+            self.ui.display_message(f"正在调用AI分析数据 (步骤 {step_display_id})...", "info")
+        
         response1 = self._stream_with_callback(messages)
+        api_elapsed = time.time() - api_start_time
+        self.logger.info(f"[TIMING] API call completed in {api_elapsed:.3f}s for Step {step_display_id}")
+        
         parsed1 = self._parse_phase3_response_forgiving(response1, step_id)
 
         # If the model requests more context, run a follow-up turn with retrieved content
@@ -997,7 +1032,14 @@ class Phase3Execute(BasePhase):
                 },
             ]
 
+            # Time follow-up API call
+            followup_start = time.time()
+            self.logger.info(f"[TIMING] Starting follow-up API call for Step {step_id} at {followup_start:.3f}")
+            if hasattr(self, 'ui') and self.ui:
+                self.ui.display_message(f"正在获取补充数据 (步骤 {step_id})...", "info")
             last_response_text = self._stream_with_callback(followup_messages)
+            followup_elapsed = time.time() - followup_start
+            self.logger.info(f"[TIMING] Follow-up API call completed in {followup_elapsed:.3f}s for Step {step_id}")
             last_parsed = self._parse_phase3_response_forgiving(last_response_text, step_id)
 
             # Prepare next-turn requests, dedupe and detect churn

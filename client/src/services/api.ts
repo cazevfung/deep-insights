@@ -93,6 +93,14 @@ export const apiService = {
   },
 
   /**
+   * Get batch total processes count
+   */
+  getBatchTotal: async (batchId: string): Promise<any> => {
+    const response = await api.get(`/workflow/batch/${batchId}/total`)
+    return response.data
+  },
+
+  /**
    * Get final report
    */
   getFinalReport: async (batchId: string): Promise<FinalReportResponse> => {

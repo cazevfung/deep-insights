@@ -42,6 +42,76 @@ interface SessionStep {
   timestamp: string
 }
 
+export interface StreamState {
+  isStreaming: boolean
+  phase?: string | null
+  metadata?: Record<string, any> | null
+  startedAt?: string | null
+  lastTokenAt?: string | null
+  endedAt?: string | null
+}
+
+export interface StreamBufferState extends StreamState {
+  id: string
+  raw: string
+  status: 'active' | 'completed' | 'error'
+  tokenCount: number
+  error?: string | null
+  pinned?: boolean
+}
+
+interface StreamCollectionState {
+  activeStreamId: string | null
+  buffers: Record<string, StreamBufferState>
+  order: string[]
+  pinned: string[]
+}
+
+export interface LiveGoal {
+  id: number
+  goal_text?: string
+  rationale?: string
+  uses?: string[]
+  sources?: string[]
+  status: 'pending' | 'streaming' | 'ready' | 'error'
+  updatedAt?: string
+}
+
+export interface LivePlanStep {
+  step_id: number
+  goal?: string
+  required_data?: string
+  chunk_strategy?: string
+  notes?: string
+  status: 'pending' | 'streaming' | 'ready' | 'error'
+  updatedAt?: string
+}
+
+export interface LiveInsight {
+  id: string
+  title?: string
+  summary?: string
+  sources?: string[]
+  status: 'pending' | 'streaming' | 'ready' | 'error'
+  updatedAt?: string
+}
+
+export interface LiveAction {
+  id: string
+  description?: string
+  result?: string
+  status: 'pending' | 'streaming' | 'ready' | 'error'
+  updatedAt?: string
+}
+
+export interface LiveReportSection {
+  id: string
+  heading?: string
+  content?: string
+  status: 'pending' | 'streaming' | 'ready' | 'error'
+  updatedAt?: string
+}
+
 interface WorkflowState {
   currentPhase: 'input' | 'scraping' | 'research' | 'phase3' | 'phase4' | 'complete'
   batchId: string | null
@@ -55,11 +125,15 @@ interface WorkflowState {
   
   // Scraping phase
   scrapingStatus: {
-    total: number
+    total: number  // Total from started processes (for backward compatibility)
+    expectedTotal: number  // Expected total from batch:initialized (the actual target)
     completed: number
     failed: number
     inProgress: number
     items: ScrapingItem[]
+    completionRate: number  // 0.0 to 1.0 from backend
+    is100Percent: boolean  // Flag from backend
+    canProceedToResearch: boolean  // Flag from backend
   }
   
   // Cancellation state
@@ -72,7 +146,8 @@ interface WorkflowState {
   
   // Research agent phase
   researchAgentStatus: {
-    phase: '0.5' | '1' | '2'
+    streams: StreamCollectionState
+    phase: string
     currentAction: string | null
     waitingForUser: boolean
     userInputRequired: {
@@ -82,11 +157,16 @@ interface WorkflowState {
       data?: any
     } | null
     streamBuffer: string
+    streamingState: StreamState
+    liveGoals: Record<number, LiveGoal>
+    goalOrder: number[]
     goals: Array<{
       id: number
       goal_text: string
       uses?: string[]
     }> | null
+    livePlanSteps: Record<number, LivePlanStep>
+    planOrder: number[]
     plan: Array<{
       step_id: number
       goal: string
@@ -94,10 +174,21 @@ interface WorkflowState {
       chunk_strategy?: string
       notes?: string
     }> | null
+    liveInsights: Record<string, LiveInsight>
+    liveActions: Record<string, LiveAction>
+    liveReportSections: Record<string, LiveReportSection>
     synthesizedGoal: {
       comprehensive_topic: string
       component_questions: string[]
       unifying_theme?: string
+    } | null
+    summarizationProgress: {
+      currentItem: number
+      totalItems: number
+      linkId: string
+      stage: string
+      progress: number
+      message: string
     } | null
   }
   
@@ -132,8 +223,19 @@ interface WorkflowState {
   setGoals: (goals: WorkflowState['researchAgentStatus']['goals']) => void
   setPlan: (plan: WorkflowState['researchAgentStatus']['plan']) => void
   setSynthesizedGoal: (goal: WorkflowState['researchAgentStatus']['synthesizedGoal']) => void
-  appendStreamToken: (token: string) => void
-  clearStreamBuffer: () => void
+  startStream: (streamId: string, options: { phase?: string | null; metadata?: Record<string, any> | null; startedAt?: string | null }) => void
+  appendStreamToken: (streamId: string, token: string) => void
+  completeStream: (streamId: string, metadata?: Partial<StreamBufferState>) => void
+  setStreamError: (streamId: string, error: string) => void
+  setActiveStream: (streamId: string | null) => void
+  pinStream: (streamId: string) => void
+  unpinStream: (streamId: string) => void
+  clearStreamBuffer: (streamId?: string) => void
+  updateLiveGoal: (goal: Partial<LiveGoal> & { id: number }) => void
+  updateLivePlanStep: (step: Partial<LivePlanStep> & { step_id: number }) => void
+  updateLiveInsight: (insight: Partial<LiveInsight> & { id: string }) => void
+  updateLiveAction: (action: Partial<LiveAction> & { id: string }) => void
+  updateLiveReportSection: (section: Partial<LiveReportSection> & { id: string }) => void
   addPhase3Step: (step: SessionStep) => void
   setFinalReport: (report: WorkflowState['finalReport']) => void
   addError: (phase: string, message: string) => void
@@ -149,8 +251,19 @@ const initialState: Omit<WorkflowState, keyof {
   updateScrapingStatus: any
   updateScrapingItem: any
   updateResearchAgentStatus: any
+  startStream: any
   appendStreamToken: any
+  completeStream: any
+  setStreamError: any
+  setActiveStream: any
+  pinStream: any
+  unpinStream: any
   clearStreamBuffer: any
+  updateLiveGoal: any
+  updateLivePlanStep: any
+  updateLiveInsight: any
+  updateLiveAction: any
+  updateLiveReportSection: any
   addPhase3Step: any
   setFinalReport: any
   addError: any
@@ -166,20 +279,46 @@ const initialState: Omit<WorkflowState, keyof {
   stepProgress: 0,
   scrapingStatus: {
     total: 0,
+    expectedTotal: 0,  // Will be set from batch:initialized
     completed: 0,
     failed: 0,
     inProgress: 0,
     items: [],
+    completionRate: 0.0,
+    is100Percent: false,
+    canProceedToResearch: false,
   },
   researchAgentStatus: {
+    streams: {
+      activeStreamId: null,
+      buffers: {},
+      order: [],
+      pinned: [],
+    },
     phase: '0.5',
     currentAction: null,
     waitingForUser: false,
     userInputRequired: null,
     streamBuffer: '',
+    streamingState: {
+      isStreaming: false,
+      phase: null,
+      metadata: null,
+      startedAt: null,
+      lastTokenAt: null,
+      endedAt: null,
+    },
+    liveGoals: {},
+    goalOrder: [],
     goals: null,
+    livePlanSteps: {},
+    planOrder: [],
     plan: null,
+    liveInsights: {},
+    liveActions: {},
+    liveReportSections: {},
     synthesizedGoal: null,
+    summarizationProgress: null,
   },
   phase3Steps: [],
   currentStepId: null,
@@ -211,22 +350,48 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
         stepProgress: 0,
         scrapingStatus: {
           total: 0,
+          expectedTotal: 0,
           completed: 0,
           failed: 0,
           inProgress: 0,
           items: [],
+          completionRate: 0.0,
+          is100Percent: false,
+          canProceedToResearch: false,
         },
         cancelled: false,
         cancellationInfo: null,
         researchAgentStatus: {
+          streams: {
+            activeStreamId: null,
+            buffers: {},
+            order: [],
+            pinned: [],
+          },
           phase: '0.5',
           currentAction: null,
           waitingForUser: false,
           userInputRequired: null,
           streamBuffer: '',
+          streamingState: {
+            isStreaming: false,
+            phase: null,
+            metadata: null,
+            startedAt: null,
+            lastTokenAt: null,
+            endedAt: null,
+          },
+          liveGoals: {},
+          goalOrder: [],
           goals: null,
+          livePlanSteps: {},
+          planOrder: [],
           plan: null,
+          liveInsights: {},
+          liveActions: {},
+          liveReportSections: {},
           synthesizedGoal: null,
+          summarizationProgress: null,
         },
         phase3Steps: [],
         currentStepId: null,
@@ -239,9 +404,26 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
   setCurrentPhase: (phase) => set({ currentPhase: phase }),
   updateProgress: (progress) => set({ overallProgress: progress }),
   updateScrapingStatus: (status) =>
-    set((state) => ({
-      scrapingStatus: { ...state.scrapingStatus, ...status },
-    })),
+    set((state) => {
+      // CRITICAL: Only include expectedTotal in update if it's > 0
+      // Never overwrite with 0 or undefined - preserve existing value if new value is invalid
+      const updatedStatus = { ...status }
+      if (updatedStatus.expectedTotal !== undefined) {
+        if (updatedStatus.expectedTotal === 0 || updatedStatus.expectedTotal === null) {
+          // Don't overwrite with 0 - preserve existing value if we have one
+          if (state.scrapingStatus.expectedTotal > 0) {
+            delete updatedStatus.expectedTotal  // Don't overwrite existing value
+          } else {
+            // If we don't have a value yet, don't set it to 0 either - wait for valid value
+            delete updatedStatus.expectedTotal
+          }
+        }
+        // If expectedTotal > 0, keep it in the update (will overwrite existing)
+      }
+      return {
+        scrapingStatus: { ...state.scrapingStatus, ...updatedStatus },
+      }
+    }),
   updateScrapingItem: (url, status, error) =>
     set((state) => {
       const items = state.scrapingStatus.items.map((item) =>
@@ -304,31 +486,497 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
       researchAgentStatus: { ...state.researchAgentStatus, ...status },
     })),
   setGoals: (goals) =>
-    set((state) => ({
-      researchAgentStatus: { ...state.researchAgentStatus, goals },
-    })),
+    set((state) => {
+      const liveGoals = { ...state.researchAgentStatus.liveGoals }
+      const goalOrder: number[] = []
+      const timestamp = new Date().toISOString()
+
+      if (goals) {
+        goals.forEach((goal) => {
+          if (!goal) {
+            return
+          }
+          const id = goal.id ?? goalOrder.length + 1
+          goalOrder.push(id)
+          const existing = liveGoals[id] || { id, status: 'ready' as LiveGoal['status'] }
+          liveGoals[id] = {
+            ...existing,
+            ...goal,
+            id,
+            status: 'ready',
+            updatedAt: timestamp,
+          }
+        })
+      }
+
+      return {
+        researchAgentStatus: {
+          ...state.researchAgentStatus,
+          goals,
+          liveGoals,
+          goalOrder: goalOrder.length ? goalOrder : state.researchAgentStatus.goalOrder,
+        },
+      }
+    }),
   setPlan: (plan) =>
-    set((state) => ({
-      researchAgentStatus: { ...state.researchAgentStatus, plan },
-    })),
+    set((state) => {
+      const livePlanSteps = { ...state.researchAgentStatus.livePlanSteps }
+      const planOrder: number[] = []
+      const timestamp = new Date().toISOString()
+
+      if (plan) {
+        plan.forEach((step) => {
+          if (!step) {
+            return
+          }
+          const id = step.step_id
+          planOrder.push(id)
+          const existing = livePlanSteps[id] || { step_id: id, status: 'ready' as LivePlanStep['status'] }
+          livePlanSteps[id] = {
+            ...existing,
+            ...step,
+            step_id: id,
+            status: 'ready',
+            updatedAt: timestamp,
+          }
+        })
+      }
+
+      return {
+        researchAgentStatus: {
+          ...state.researchAgentStatus,
+          plan,
+          livePlanSteps,
+          planOrder: planOrder.length ? planOrder : state.researchAgentStatus.planOrder,
+        },
+      }
+    }),
   setSynthesizedGoal: (synthesizedGoal) =>
     set((state) => ({
       researchAgentStatus: { ...state.researchAgentStatus, synthesizedGoal },
     })),
-  appendStreamToken: (token) =>
-    set((state) => ({
-      researchAgentStatus: {
-        ...state.researchAgentStatus,
-        streamBuffer: state.researchAgentStatus.streamBuffer + token,
-      },
-    })),
-  clearStreamBuffer: () =>
-    set((state) => ({
-      researchAgentStatus: {
-        ...state.researchAgentStatus,
-        streamBuffer: '',
-      },
-    })),
+  startStream: (streamId, options) =>
+    set((state) => {
+      const now = options.startedAt || new Date().toISOString()
+      const buffers = { ...state.researchAgentStatus.streams.buffers }
+      buffers[streamId] = {
+        id: streamId,
+        raw: '',
+        status: 'active',
+        tokenCount: 0,
+        isStreaming: true,
+        phase: options.phase ?? null,
+        metadata: options.metadata ?? null,
+        startedAt: now,
+        lastTokenAt: null,
+        endedAt: null,
+      }
+
+      const order = [streamId, ...state.researchAgentStatus.streams.order.filter((id) => id !== streamId)]
+
+      return {
+        researchAgentStatus: {
+          ...state.researchAgentStatus,
+          streams: {
+            ...state.researchAgentStatus.streams,
+            activeStreamId: streamId,
+            buffers,
+            order,
+          },
+          streamBuffer: '',
+          streamingState: {
+            isStreaming: true,
+            phase: options.phase ?? null,
+            metadata: options.metadata ?? null,
+            startedAt: now,
+            lastTokenAt: null,
+            endedAt: null,
+          },
+        },
+      }
+    }),
+  appendStreamToken: (streamId, token) =>
+    set((state) => {
+      const buffers = { ...state.researchAgentStatus.streams.buffers }
+      const buffer = buffers[streamId] || {
+        id: streamId,
+        raw: '',
+        status: 'active' as const,
+        tokenCount: 0,
+        isStreaming: true,
+        phase: null,
+        metadata: null,
+        startedAt: new Date().toISOString(),
+        lastTokenAt: null,
+        endedAt: null,
+      }
+      const lastTokenAt = new Date().toISOString()
+      const updatedBuffer: StreamBufferState = {
+        ...buffer,
+        raw: buffer.raw + token,
+        tokenCount: buffer.tokenCount + 1,
+        lastTokenAt,
+        isStreaming: true,
+        status: 'active',
+      }
+      buffers[streamId] = updatedBuffer
+
+      const isActive = state.researchAgentStatus.streams.activeStreamId === streamId
+      const streamBufferValue = isActive ? updatedBuffer.raw : state.researchAgentStatus.streamBuffer
+      const streamingState = isActive
+        ? {
+            isStreaming: true,
+            phase: updatedBuffer.phase ?? state.researchAgentStatus.streamingState.phase ?? null,
+            metadata: updatedBuffer.metadata ?? state.researchAgentStatus.streamingState.metadata ?? null,
+            startedAt: updatedBuffer.startedAt ?? state.researchAgentStatus.streamingState.startedAt ?? null,
+            lastTokenAt,
+            endedAt: null,
+          }
+        : state.researchAgentStatus.streamingState
+
+      return {
+        researchAgentStatus: {
+          ...state.researchAgentStatus,
+          streams: {
+            ...state.researchAgentStatus.streams,
+            buffers,
+          },
+          streamBuffer: streamBufferValue,
+          streamingState,
+        },
+      }
+    }),
+  completeStream: (streamId, metadata) =>
+    set((state) => {
+      const buffers = { ...state.researchAgentStatus.streams.buffers }
+      const buffer = buffers[streamId]
+      if (!buffer) {
+        return {}
+      }
+      const endedAt = metadata?.endedAt ?? new Date().toISOString()
+      buffers[streamId] = {
+        ...buffer,
+        status: metadata?.status ?? 'completed',
+        metadata: metadata?.metadata ?? buffer.metadata,
+        isStreaming: false,
+        endedAt,
+        lastTokenAt: metadata?.lastTokenAt ?? buffer.lastTokenAt,
+      }
+
+      const isActive = state.researchAgentStatus.streams.activeStreamId === streamId
+      const streamingState = isActive
+        ? {
+            isStreaming: false,
+            phase: buffers[streamId].phase ?? state.researchAgentStatus.streamingState.phase ?? null,
+            metadata: buffers[streamId].metadata ?? state.researchAgentStatus.streamingState.metadata ?? null,
+            startedAt: buffers[streamId].startedAt ?? state.researchAgentStatus.streamingState.startedAt ?? null,
+            lastTokenAt: buffers[streamId].lastTokenAt ?? state.researchAgentStatus.streamingState.lastTokenAt ?? null,
+            endedAt,
+          }
+        : state.researchAgentStatus.streamingState
+
+      return {
+        researchAgentStatus: {
+          ...state.researchAgentStatus,
+          streams: {
+            ...state.researchAgentStatus.streams,
+            buffers,
+          },
+          streamingState,
+        },
+      }
+    }),
+  setStreamError: (streamId, error) =>
+    set((state) => {
+      const buffers = { ...state.researchAgentStatus.streams.buffers }
+      const buffer = buffers[streamId]
+      if (!buffer) {
+        return {}
+      }
+      buffers[streamId] = {
+        ...buffer,
+        status: 'error',
+        error,
+        isStreaming: false,
+        endedAt: new Date().toISOString(),
+      }
+      const isActive = state.researchAgentStatus.streams.activeStreamId === streamId
+      const streamingState = isActive
+        ? {
+            isStreaming: false,
+            phase: buffer.phase ?? null,
+            metadata: buffer.metadata ?? null,
+            startedAt: buffer.startedAt ?? null,
+            lastTokenAt: buffer.lastTokenAt ?? null,
+            endedAt: buffers[streamId].endedAt ?? null,
+          }
+        : state.researchAgentStatus.streamingState
+      return {
+        researchAgentStatus: {
+          ...state.researchAgentStatus,
+          streams: {
+            ...state.researchAgentStatus.streams,
+            buffers,
+          },
+          streamingState,
+        },
+      }
+    }),
+  setActiveStream: (streamId) =>
+    set((state) => {
+      if (streamId === state.researchAgentStatus.streams.activeStreamId) {
+        return {}
+      }
+      const buffers = state.researchAgentStatus.streams.buffers
+      const buffer = streamId ? buffers[streamId] : undefined
+      const streamBufferValue = buffer ? buffer.raw : ''
+      const streamingState = buffer
+        ? {
+            isStreaming: buffer.isStreaming,
+            phase: buffer.phase ?? null,
+            metadata: buffer.metadata ?? null,
+            startedAt: buffer.startedAt ?? null,
+            lastTokenAt: buffer.lastTokenAt ?? null,
+            endedAt: buffer.endedAt ?? null,
+          }
+        : {
+            isStreaming: false,
+            phase: null,
+            metadata: null,
+            startedAt: null,
+            lastTokenAt: null,
+            endedAt: null,
+          }
+      return {
+        researchAgentStatus: {
+          ...state.researchAgentStatus,
+          streams: {
+            ...state.researchAgentStatus.streams,
+            activeStreamId: streamId,
+          },
+          streamBuffer: streamBufferValue,
+          streamingState,
+        },
+      }
+    }),
+  pinStream: (streamId) =>
+    set((state) => {
+      const pinned = new Set(state.researchAgentStatus.streams.pinned)
+      pinned.add(streamId)
+      return {
+        researchAgentStatus: {
+          ...state.researchAgentStatus,
+          streams: {
+            ...state.researchAgentStatus.streams,
+            pinned: Array.from(pinned),
+          },
+        },
+      }
+    }),
+  unpinStream: (streamId) =>
+    set((state) => {
+      const pinned = state.researchAgentStatus.streams.pinned.filter((id) => id !== streamId)
+      return {
+        researchAgentStatus: {
+          ...state.researchAgentStatus,
+          streams: {
+            ...state.researchAgentStatus.streams,
+            pinned,
+          },
+        },
+      }
+    }),
+  clearStreamBuffer: (streamId) =>
+    set((state) => {
+      if (streamId) {
+        const buffers = { ...state.researchAgentStatus.streams.buffers }
+        const buffer = buffers[streamId]
+        if (buffer) {
+          buffers[streamId] = {
+            ...buffer,
+            raw: '',
+            tokenCount: 0,
+          }
+        }
+        const isActive = state.researchAgentStatus.streams.activeStreamId === streamId
+        return {
+          researchAgentStatus: {
+            ...state.researchAgentStatus,
+            streams: {
+              ...state.researchAgentStatus.streams,
+              buffers,
+            },
+            streamBuffer: isActive ? '' : state.researchAgentStatus.streamBuffer,
+          },
+        }
+      }
+      return {
+        researchAgentStatus: {
+          ...state.researchAgentStatus,
+          streams: {
+            activeStreamId: null,
+            buffers: {},
+            order: [],
+            pinned: [],
+          },
+          streamBuffer: '',
+          streamingState: {
+            isStreaming: false,
+            phase: null,
+            metadata: null,
+            startedAt: null,
+            lastTokenAt: null,
+            endedAt: null,
+          },
+        },
+      }
+    }),
+  updateLiveGoal: (goal) =>
+    set((state) => {
+      const id = goal.id
+      const previous = state.researchAgentStatus.liveGoals[id]
+      const merged: LiveGoal = {
+        id,
+        goal_text: previous?.goal_text,
+        rationale: previous?.rationale,
+        uses: previous?.uses,
+        sources: previous?.sources,
+        status: goal.status || previous?.status || 'streaming',
+        updatedAt: new Date().toISOString(),
+        ...goal,
+      }
+
+      const liveGoals = {
+        ...state.researchAgentStatus.liveGoals,
+        [id]: merged,
+      }
+
+      const existingGoals = state.researchAgentStatus.goals || []
+      const goals = existingGoals.length
+        ? existingGoals.map((g) => (g?.id === id ? { ...g, ...goal } : g))
+        : null
+
+      const goalOrder = state.researchAgentStatus.goalOrder.includes(id)
+        ? state.researchAgentStatus.goalOrder
+        : [...state.researchAgentStatus.goalOrder, id]
+
+      return {
+        researchAgentStatus: {
+          ...state.researchAgentStatus,
+          liveGoals,
+          goals,
+          goalOrder,
+        },
+      }
+    }),
+  updateLivePlanStep: (step) =>
+    set((state) => {
+      const id = step.step_id
+      const previous = state.researchAgentStatus.livePlanSteps[id]
+      const merged: LivePlanStep = {
+        step_id: id,
+        goal: previous?.goal,
+        required_data: previous?.required_data,
+        chunk_strategy: previous?.chunk_strategy,
+        notes: previous?.notes,
+        status: step.status || previous?.status || 'streaming',
+        updatedAt: new Date().toISOString(),
+        ...step,
+      }
+
+      const livePlanSteps = {
+        ...state.researchAgentStatus.livePlanSteps,
+        [id]: merged,
+      }
+
+      const existingPlan = state.researchAgentStatus.plan || []
+      const plan = existingPlan.length
+        ? existingPlan.map((p) => (p?.step_id === id ? { ...p, ...step } : p))
+        : null
+
+      const planOrder = state.researchAgentStatus.planOrder.includes(id)
+        ? state.researchAgentStatus.planOrder
+        : [...state.researchAgentStatus.planOrder, id]
+
+      return {
+        researchAgentStatus: {
+          ...state.researchAgentStatus,
+          livePlanSteps,
+          plan,
+          planOrder,
+        },
+      }
+    }),
+  updateLiveInsight: (insight) =>
+    set((state) => {
+      const id = insight.id
+      const previous = state.researchAgentStatus.liveInsights[id]
+      const merged: LiveInsight = {
+        id,
+        title: previous?.title,
+        summary: previous?.summary,
+        sources: previous?.sources,
+        status: insight.status || previous?.status || 'streaming',
+        updatedAt: new Date().toISOString(),
+        ...insight,
+      }
+
+      return {
+        researchAgentStatus: {
+          ...state.researchAgentStatus,
+          liveInsights: {
+            ...state.researchAgentStatus.liveInsights,
+            [id]: merged,
+          },
+        },
+      }
+    }),
+  updateLiveAction: (action) =>
+    set((state) => {
+      const id = action.id
+      const previous = state.researchAgentStatus.liveActions[id]
+      const merged: LiveAction = {
+        id,
+        description: previous?.description,
+        result: previous?.result,
+        status: action.status || previous?.status || 'streaming',
+        updatedAt: new Date().toISOString(),
+        ...action,
+      }
+
+      return {
+        researchAgentStatus: {
+          ...state.researchAgentStatus,
+          liveActions: {
+            ...state.researchAgentStatus.liveActions,
+            [id]: merged,
+          },
+        },
+      }
+    }),
+  updateLiveReportSection: (section) =>
+    set((state) => {
+      const id = section.id
+      const previous = state.researchAgentStatus.liveReportSections[id]
+      const merged: LiveReportSection = {
+        id,
+        heading: previous?.heading,
+        content: previous?.content,
+        status: section.status || previous?.status || 'streaming',
+        updatedAt: new Date().toISOString(),
+        ...section,
+      }
+
+      return {
+        researchAgentStatus: {
+          ...state.researchAgentStatus,
+          liveReportSections: {
+            ...state.researchAgentStatus.liveReportSections,
+            [id]: merged,
+          },
+        },
+      }
+    }),
   addPhase3Step: (step) =>
     set((state) => {
       // Use Set for O(1) lookup to check if step already exists

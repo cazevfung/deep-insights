@@ -10,7 +10,7 @@ class ConsoleInterface:
     
     def __init__(self):
         """Initialize console interface."""
-        self.current_stream_buffer = ""
+        self.stream_buffers: dict[str, str] = {}
         self.stream_callback = None
     
     def display_message(self, message: str, level: str = "info"):
@@ -45,7 +45,7 @@ class ConsoleInterface:
         if current_step:
             print(f"\r[进度: {progress:.1f}%] 步骤 {current_step}: {current_goal[:50]}...", end="", flush=True)
     
-    def display_stream(self, token: str):
+    def display_stream(self, token: str, stream_id: str):
         """
         Display streaming token.
         
@@ -54,15 +54,25 @@ class ConsoleInterface:
         """
         sys.stdout.write(token)
         sys.stdout.flush()
-        self.current_stream_buffer += token
+        if not stream_id:
+            stream_id = "default"
+        self.stream_buffers[stream_id] = self.stream_buffers.get(stream_id, "") + token
     
-    def clear_stream_buffer(self):
+    def clear_stream_buffer(self, stream_id: Optional[str] = None):
         """Clear the streaming buffer."""
-        self.current_stream_buffer = ""
+        if stream_id is None:
+            self.stream_buffers.clear()
+        else:
+            self.stream_buffers.pop(stream_id, None)
     
-    def get_stream_buffer(self) -> str:
+    def get_stream_buffer(self, stream_id: Optional[str] = None) -> str:
         """Get current stream buffer contents."""
-        return self.current_stream_buffer
+        if stream_id is None:
+            if not self.stream_buffers:
+                return ""
+            last_stream = next(reversed(self.stream_buffers))
+            return self.stream_buffers.get(last_stream, "")
+        return self.stream_buffers.get(stream_id, "")
     
     def prompt_user(self, prompt: str, choices: Optional[list] = None) -> str:
         """

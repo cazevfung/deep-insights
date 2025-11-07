@@ -4,6 +4,8 @@
 **当前章节标题：** {section_title}
 **建议字数目标：** {section_target_words}
 
+{user_amendment_context}
+
 **素材总览（你的记忆）**
 {scratchpad_contents}
 
@@ -15,6 +17,7 @@
 - 如证据不足，列出“缺口清单”（关键词、来源类型），供后续检索扩展。
 
 **输出：** 仅输出该章节的Markdown正文（不含全篇标题/结论/附录）。
+
 
 
 

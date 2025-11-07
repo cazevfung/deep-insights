@@ -251,6 +251,11 @@ class DeepResearchAgent:
                     goals = phase1_result.get("suggested_goals", [])
             # If amend was blank, proceed with original goals (already in phase1_result)
 
+            # Persist confirmed goals and user amendment context for downstream phases
+            session.set_metadata("phase1_confirmed_goals", goals)
+            session.set_metadata("phase1_user_input", amend or "")
+            session.save()
+
             # Phase 2: Synthesize goals AFTER user amendment/approval
             # Pass full phase1_output object - preserves Phase 1 questions directly
             # Also pass user input and topic to ensure Phase 2 considers user context

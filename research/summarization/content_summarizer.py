@@ -23,13 +23,14 @@ except ImportError:
 class ContentSummarizer:
     """Summarize content items using qwen-flash to extract marker lists."""
     
-    def __init__(self, client=None, config=None):
+    def __init__(self, client=None, config=None, ui=None):
         """
         Initialize content summarizer.
         
         Args:
             client: QwenStreamingClient instance (optional, will try to create if not provided)
             config: Config instance for getting API settings
+            ui: Optional UI interface for streaming updates
         """
         if client is None and QwenStreamingClient:
             # Try to create client if not provided
@@ -50,6 +51,7 @@ class ContentSummarizer:
         
         self.config = config
         self.model = "qwen-flash"  # Fast, cheap model for summarization
+        self.ui = ui
         
         # Load prompt files
         self.prompt_dir = Path(__file__).parent.parent / "prompts" / "content_summarization"
@@ -148,17 +150,52 @@ class ContentSummarizer:
             # Use stream_completion and collect all tokens
             messages = [{"role": "user", "content": full_prompt}]
             response_text = ""
+            stream_token_count = 0
             
             # Check if client has stream_completion (QwenStreamingClient)
             if hasattr(self.client, 'stream_completion'):
                 # Collect all streamed tokens
-                for token in self.client.stream_completion(
-                    messages=messages,
-                    model=self.model,
-                    temperature=0.3,  # Lower temperature for more consistent extraction
-                    max_tokens=2000
-                ):
-                    response_text += token
+                stream_id = None
+                if self.ui:
+                    metadata = {
+                        "component": "transcript",
+                        "word_count": word_count,
+                    }
+                    stream_id = f"summarization:{link_id}:transcript"
+                    self.ui.clear_stream_buffer(stream_id)
+                    self.ui.notify_stream_start(stream_id, "summarization", metadata)
+                    logger.debug(
+                        "Summarization stream started",
+                        stream_id=stream_id,
+                        link_id=link_id,
+                        component="transcript",
+                    )
+                try:
+                    for token in self.client.stream_completion(
+                        messages=messages,
+                        model=self.model,
+                        temperature=0.3,  # Lower temperature for more consistent extraction
+                        max_tokens=2000
+                    ):
+                        response_text += token
+                        stream_token_count += 1
+                        if self.ui and stream_id:
+                            self.ui.display_stream(token, stream_id)
+                finally:
+                    if self.ui and stream_id:
+                        metadata = {
+                            "component": "transcript",
+                            "word_count": word_count,
+                            "tokens": stream_token_count,
+                        }
+                        self.ui.notify_stream_end(stream_id, "summarization", metadata)
+                        logger.debug(
+                            "Summarization stream completed",
+                            stream_id=stream_id,
+                            link_id=link_id,
+                            component="transcript",
+                            tokens=stream_token_count,
+                        )
             elif hasattr(self.client, 'generate_completion'):
                 # Fallback: try generate_completion if it exists
                 response_text = self.client.generate_completion(
@@ -214,17 +251,52 @@ class ContentSummarizer:
         try:
             messages = [{"role": "user", "content": full_prompt}]
             response_text = ""
+            stream_token_count = 0
             
             # Check if client has stream_completion (QwenStreamingClient)
             if hasattr(self.client, 'stream_completion'):
                 # Collect all streamed tokens
-                for token in self.client.stream_completion(
-                    messages=messages,
-                    model=self.model,
-                    temperature=0.3,
-                    max_tokens=2000
-                ):
-                    response_text += token
+                stream_id = None
+                if self.ui:
+                    metadata = {
+                        "component": "comments",
+                        "total_comments": total_comments,
+                    }
+                    stream_id = f"summarization:{link_id}:comments"
+                    self.ui.clear_stream_buffer(stream_id)
+                    self.ui.notify_stream_start(stream_id, "summarization", metadata)
+                    logger.debug(
+                        "Summarization stream started",
+                        stream_id=stream_id,
+                        link_id=link_id,
+                        component="comments",
+                    )
+                try:
+                    for token in self.client.stream_completion(
+                        messages=messages,
+                        model=self.model,
+                        temperature=0.3,
+                        max_tokens=2000
+                    ):
+                        response_text += token
+                        stream_token_count += 1
+                        if self.ui and stream_id:
+                            self.ui.display_stream(token, stream_id)
+                finally:
+                    if self.ui and stream_id:
+                        metadata = {
+                            "component": "comments",
+                            "total_comments": total_comments,
+                            "tokens": stream_token_count,
+                        }
+                        self.ui.notify_stream_end(stream_id, "summarization", metadata)
+                        logger.debug(
+                            "Summarization stream completed",
+                            stream_id=stream_id,
+                            link_id=link_id,
+                            component="comments",
+                            tokens=stream_token_count,
+                        )
             elif hasattr(self.client, 'generate_completion'):
                 response_text = self.client.generate_completion(
                     prompt=full_prompt,

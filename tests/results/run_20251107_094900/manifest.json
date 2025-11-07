@@ -1,0 +1,34 @@
+{
+  "batch_id": "20251107_094900",
+  "items": [
+    {
+      "relative_path": "20251107_094900_YT_batch_cmts.json",
+      "batch_id": "20251107_094900",
+      "size_bytes": 12364,
+      "source_prefix": "YT",
+      "kind": "cmts",
+      "link_id": "batch"
+    },
+    {
+      "relative_path": "20251107_094900_YT_yt_req1_tsct.json",
+      "batch_id": "20251107_094900",
+      "size_bytes": 27725,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req1"
+    },
+    {
+      "relative_path": "20251107_094900_YT_yt_req2_tsct.json",
+      "batch_id": "20251107_094900",
+      "size_bytes": 1229,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req2"
+    },
+    {
+      "relative_path": "manifest.json",
+      "batch_id": "20251107_094900",
+      "size_bytes": 729
+    }
+  ]
+}

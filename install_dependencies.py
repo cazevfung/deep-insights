@@ -22,11 +22,15 @@ try:
     config = Config()
     backend_config = config.get_backend_config()
     frontend_config = config.get_frontend_config()
+    DEFAULT_BACKEND_HOST = backend_config['host']
     DEFAULT_BACKEND_PORT = backend_config['port']
+    DEFAULT_FRONTEND_HOST = frontend_config['host']
     DEFAULT_FRONTEND_PORT = frontend_config['port']
 except Exception:
     # Fallback to defaults if config can't be loaded
+    DEFAULT_BACKEND_HOST = '127.0.0.1'
     DEFAULT_BACKEND_PORT = 3001
+    DEFAULT_FRONTEND_HOST = '127.0.0.1'
     DEFAULT_FRONTEND_PORT = 3000
 
 # ANSI color codes for terminal output
@@ -499,16 +503,79 @@ def open_browser(url, delay=3):
     def _open():
         time.sleep(delay)
         try:
+            # On Windows, use start command directly for more reliability
+            if platform.system() == 'Windows':
+                try:
+                    # Use start command which is more reliable on Windows
+                    subprocess.Popen(
+                        ['cmd', '/c', 'start', '', url],
+                        shell=False,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+                    )
+                    print_info(f"Opened browser to: {url}")
+                    return
+                except:
+                    pass
+            
+            # Fallback to webbrowser module
             webbrowser.open(url)
             print_info(f"Opened browser to: {url}")
         except Exception as e:
             print_warning(f"Could not open browser automatically: {e}")
             print_info(f"Please open manually: {url}")
     
-    # Open in a separate thread so it doesn't block
+    # Open in a separate thread (non-daemon so it doesn't exit prematurely)
     import threading
-    thread = threading.Thread(target=_open, daemon=True)
+    thread = threading.Thread(target=_open, daemon=False)
     thread.start()
+    # Give thread time to start before script potentially exits
+    time.sleep(0.5)
+
+def check_port_in_use(port):
+    """Check if a port is currently in use via a non-blocking connect probe."""
+    import socket
+    import errno
+
+    hosts = ['127.0.0.1']
+    if socket.has_ipv6:
+        hosts.append('::1')
+
+    for host in hosts:
+        try:
+            with socket.socket(socket.AF_INET6 if ':' in host else socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.settimeout(0.3)
+                result = sock.connect_ex((host, port))
+                if result == 0:
+                    return True  # Connected successfully, port is occupied
+                if result in {
+                    errno.ECONNREFUSED,
+                    errno.EHOSTUNREACH,
+                    errno.ENETUNREACH,
+                } or getattr(socket, 'WSAECONNREFUSED', None) == result:
+                    continue  # No listener on this host
+                if result in {10049, 10047}:  # IPv6 unsupported/addr not available on Windows
+                    continue
+                if result in {errno.ETIMEDOUT} or result == getattr(socket, 'WSAETIMEDOUT', None):
+                    return True
+                if result == getattr(socket, 'WSAEWOULDBLOCK', None):
+                    return True
+        except OSError as e:
+            if e.errno in {errno.EAFNOSUPPORT, errno.EADDRNOTAVAIL} or getattr(e, 'winerror', None) in {10049, 10047}:
+                continue
+            # Any other socket error likely indicates the port is held
+            return True
+
+    return False
+
+def find_available_port(start_port, max_attempts=50):
+    """Find an available port starting from start_port."""
+    for i in range(max_attempts):
+        port = start_port + i
+        if not check_port_in_use(port):
+            return port
+    return None  # No available port found
 
 def wait_for_server(url, timeout=30, interval=2):
     """Wait for a server to become available."""
@@ -534,6 +601,7 @@ def stop_backend_server(port=None):
         if platform.system() == 'Windows':
             # Windows: Find and kill process using the port
             import socket
+            pids_found = []
             try:
                 # Try to find the process using netstat
                 result = subprocess.run(
@@ -549,31 +617,86 @@ def stop_backend_server(port=None):
                             parts = line.split()
                             if len(parts) > 4:
                                 pid = parts[-1]
-                                try:
-                                    subprocess.run(['taskkill', '/F', '/PID', pid], 
-                                                 capture_output=True, timeout=5)
-                                    print_info(f"Stopped backend server process (PID: {pid})")
-                                    time.sleep(1)  # Give it time to stop
-                                    return True
-                                except:
-                                    pass
+                                if pid.isdigit():
+                                    pids_found.append(pid)
             except:
                 pass
             
-            # Fallback: Try to kill Python processes that might be running the server
-            try:
-                result = subprocess.run(
-                    ['tasklist', '/FI', 'IMAGENAME eq python.exe'],
-                    capture_output=True,
-                    text=True,
-                    timeout=10
-                )
-                # Note: On Windows, we can't easily determine which Python process is the server
-                # So we'll just proceed with starting a new one
-                print_warning("Could not automatically stop existing backend server")
-                print_info("If you see a port conflict, manually stop the backend server first")
-            except:
-                pass
+            # Kill each process found with retry logic
+            killed_any = False
+            for pid in pids_found:
+                # Check if process exists first
+                try:
+                    check_result = subprocess.run(
+                        ['tasklist', '/FI', f'PID eq {pid}'],
+                        capture_output=True,
+                        text=True,
+                        timeout=5
+                    )
+                    if pid not in check_result.stdout:
+                        print_info(f"Process {pid} already terminated")
+                        killed_any = True
+                        continue
+                except:
+                    pass
+                
+                # Try to kill with retries
+                for attempt in range(3):
+                    try:
+                        kill_result = subprocess.run(
+                            ['taskkill', '/F', '/PID', pid],
+                            capture_output=True,
+                            text=True,
+                            timeout=5,
+                            check=False  # Don't raise on error
+                        )
+                        
+                        if kill_result.returncode == 0:
+                            print_info(f"Stopped backend server process (PID: {pid})")
+                            killed_any = True
+                            break
+                        elif kill_result.returncode == 128:
+                            # Process doesn't exist (already terminated)
+                            print_info(f"Process {pid} doesn't exist (already terminated)")
+                            killed_any = True
+                            break
+                        else:
+                            if attempt < 2:
+                                time.sleep(0.5)
+                            else:
+                                print_warning(f"Could not kill process {pid} (exit code: {kill_result.returncode})")
+                    except Exception as e:
+                        if attempt < 2:
+                            time.sleep(0.5)
+                        else:
+                            print_warning(f"Error killing process {pid}: {e}")
+            
+            # Verify port is free
+            if killed_any:
+                time.sleep(1)
+                try:
+                    verify_result = subprocess.run(
+                        ['netstat', '-ano'],
+                        capture_output=True,
+                        text=True,
+                        timeout=10
+                    )
+                    if verify_result.returncode == 0:
+                        lines = verify_result.stdout.split('\n')
+                        still_listening = [line for line in lines if f':{port}' in line and 'LISTENING' in line]
+                        if not still_listening:
+                            print_success(f"Port {port} is now free")
+                            return True
+                        else:
+                            print_warning(f"Port {port} may still be in use")
+                except:
+                    pass
+            
+            if pids_found:
+                return killed_any
+            else:
+                print_info(f"No processes found using port {port}")
+                return True  # Port is already free
         else:
             # Unix: Use lsof or fuser to find and kill process
             try:
@@ -586,29 +709,50 @@ def stop_backend_server(port=None):
                 )
                 if result.returncode == 0 and result.stdout.strip():
                     pids = result.stdout.strip().split('\n')
+                    killed_any = False
                     for pid in pids:
-                        try:
-                            subprocess.run(['kill', '-9', pid], 
-                                         capture_output=True, timeout=5)
-                            print_info(f"Stopped backend server process (PID: {pid})")
-                            time.sleep(1)
-                        except:
-                            pass
-                    return True
+                        for attempt in range(3):
+                            try:
+                                kill_result = subprocess.run(
+                                    ['kill', '-9', pid],
+                                    capture_output=True,
+                                    text=True,
+                                    timeout=5,
+                                    check=False
+                                )
+                                if kill_result.returncode == 0:
+                                    print_info(f"Stopped backend server process (PID: {pid})")
+                                    killed_any = True
+                                    break
+                            except Exception as e:
+                                if attempt < 2:
+                                    time.sleep(0.5)
+                                else:
+                                    print_warning(f"Error killing process {pid}: {e}")
+                    if killed_any:
+                        time.sleep(1)
+                    return killed_any
             except:
                 pass
             
             # Fallback: try fuser
             try:
-                subprocess.run(['fuser', '-k', f'{port}/tcp'], 
-                             capture_output=True, timeout=5)
+                result = subprocess.run(
+                    ['fuser', '-k', f'{port}/tcp'],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                    check=False
+                )
                 time.sleep(1)
                 return True
             except:
                 pass
+            
+            return False
     except Exception as e:
         print_warning(f"Error stopping backend server: {e}")
-    return False
+        return False
 
 def check_backend_health(port=None, timeout=30):
     """Check if backend server is running and LinkFormatterService is initialized."""
@@ -655,6 +799,8 @@ def start_servers(start_backend=True, start_frontend=True, auto_open_browser=Tru
     client_dir = project_root / 'client'
     
     processes = []
+    frontend_port = DEFAULT_FRONTEND_PORT  # Initialize frontend port
+    backend_port = DEFAULT_BACKEND_PORT  # Initialize backend port
     
     # Stop existing backend server if restart requested
     if start_backend and restart_backend:
@@ -664,22 +810,38 @@ def start_servers(start_backend=True, start_frontend=True, auto_open_browser=Tru
     
     # Start backend server
     if start_backend:
+        if check_port_in_use(backend_port):
+            print_warning(f"Port {backend_port} is already in use")
+            print_info("Finding an available backend port to use instead...")
+            available_backend_port = find_available_port(backend_port + 1, max_attempts=50)
+            if available_backend_port:
+                backend_port = available_backend_port
+                print_success(f"Found available backend port: {backend_port}")
+                print_info(f"Starting backend server on port {backend_port} instead of {DEFAULT_BACKEND_PORT}")
+            else:
+                print_error(f"Could not find an available backend port (tried ports {backend_port + 1}-{backend_port + 50})")
+                print_info("Please manually stop the process using the default backend port and try again")
+                return processes
         backend_script = backend_dir / 'run_server.py'
         if not backend_script.exists():
             print_error(f"Backend server script not found: {backend_script}")
         else:
             print_info("Starting backend server...")
-            print_info(f"Backend will be available at: http://localhost:{DEFAULT_BACKEND_PORT}")
+            print_info(f"Backend will be available at: http://localhost:{backend_port}")
             
             if platform.system() == 'Windows':
-                # Windows: Start in same terminal (background)
+                # Windows: Start in a dedicated console window so logs are visible
                 try:
+                    backend_env = os.environ.copy()
+                    backend_env['BACKEND_PORT_OVERRIDE'] = str(backend_port)
+                    creation_flags = 0
+                    if hasattr(subprocess, 'CREATE_NEW_CONSOLE'):
+                        creation_flags = subprocess.CREATE_NEW_CONSOLE
                     process = subprocess.Popen(
-                        [sys.executable, str(backend_script)],
+                        [sys.executable, str(backend_script), '--port', str(backend_port)],
                         cwd=str(backend_dir),
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+                        creationflags=creation_flags,
+                        env=backend_env
                     )
                     processes.append(process)
                     print_success("Backend server started")
@@ -690,7 +852,7 @@ def start_servers(start_backend=True, start_frontend=True, auto_open_browser=Tru
                     time.sleep(3)
                     
                     # Check backend health and LinkFormatterService initialization
-                    if check_backend_health(timeout=30):
+                    if check_backend_health(port=backend_port, timeout=30):
                         print_success("✓ Backend server is ready!")
                         print_success("✓ LinkFormatterService initialized successfully")
                     else:
@@ -703,12 +865,15 @@ def start_servers(start_backend=True, start_frontend=True, auto_open_browser=Tru
             else:
                 # Unix: Start in background
                 try:
+                    backend_env = os.environ.copy()
+                    backend_env['BACKEND_PORT_OVERRIDE'] = str(backend_port)
                     process = subprocess.Popen(
-                        [sys.executable, str(backend_script)],
+                        [sys.executable, str(backend_script), '--port', str(backend_port)],
                         cwd=str(backend_dir),
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
-                        start_new_session=True
+                        start_new_session=True,
+                        env=backend_env
                     )
                     processes.append(process)
                     print_success("Backend server started in background")
@@ -719,7 +884,7 @@ def start_servers(start_backend=True, start_frontend=True, auto_open_browser=Tru
                     time.sleep(3)
                     
                     # Check backend health and LinkFormatterService initialization
-                    if check_backend_health(timeout=15):
+                    if check_backend_health(port=backend_port, timeout=15):
                         print_success("✓ Backend server is ready!")
                         print_success("✓ LinkFormatterService initialized successfully")
                     else:
@@ -736,8 +901,24 @@ def start_servers(start_backend=True, start_frontend=True, auto_open_browser=Tru
         if not package_json.exists():
             print_error(f"Frontend package.json not found: {package_json}")
         else:
+            # Check if default port is in use - if so, immediately find alternative
+            port_in_use = check_port_in_use(DEFAULT_FRONTEND_PORT)
+            if port_in_use:
+                print_warning(f"Port {DEFAULT_FRONTEND_PORT} is already in use")
+                print_info("Finding an available port to use instead...")
+                # Find an available port starting from 3002
+                available_port = find_available_port(3002, max_attempts=50)
+                if available_port:
+                    frontend_port = available_port
+                    print_success(f"Found available port: {frontend_port}")
+                    print_info(f"Starting server on port {frontend_port} instead of {DEFAULT_FRONTEND_PORT}")
+                else:
+                    print_error("Could not find an available port (tried ports 3002-3051)")
+                    print_info("Please manually stop the process using port 3000 and try again")
+                    return processes
+            
             print_info("Starting frontend dev server...")
-            print_info(f"Frontend will be available at: http://localhost:{DEFAULT_FRONTEND_PORT}")
+            print_info(f"Frontend will be available at: http://localhost:{frontend_port}")
             
             if platform.system() == 'Windows':
                 # Windows: Start in new window so we can see output
@@ -750,10 +931,17 @@ def start_servers(start_backend=True, start_frontend=True, auto_open_browser=Tru
                         return processes
                     
                     # Start in a visible window so user can see output
+                    # Always pass port explicitly to ensure it uses the correct port
+                    dev_command = ['npm', 'run', 'dev', '--', '--port', str(frontend_port)]
+                    frontend_env = os.environ.copy()
+                    frontend_env['FRONTEND_PORT_OVERRIDE'] = str(frontend_port)
+                    frontend_env['BACKEND_PORT_OVERRIDE'] = str(backend_port)
+                    command_str = ' '.join(dev_command)
                     process = subprocess.Popen(
-                        ['npm', 'run', 'dev'],
+                        command_str,
                         cwd=str(client_dir),
-                        shell=True
+                        shell=True,
+                        env=frontend_env
                     )
                     processes.append(process)
                     print_success("Frontend server starting...")
@@ -764,12 +952,18 @@ def start_servers(start_backend=True, start_frontend=True, auto_open_browser=Tru
             else:
                 # Unix: Start in background
                 try:
+                    # Always pass port explicitly to ensure it uses the correct port
+                    dev_command = ['npm', 'run', 'dev', '--', '--port', str(frontend_port)]
+                    frontend_env = os.environ.copy()
+                    frontend_env['FRONTEND_PORT_OVERRIDE'] = str(frontend_port)
+                    frontend_env['BACKEND_PORT_OVERRIDE'] = str(backend_port)
                     process = subprocess.Popen(
-                        ['npm', 'run', 'dev'],
+                        dev_command,
                         cwd=str(client_dir),
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
-                        start_new_session=True
+                        start_new_session=True,
+                        env=frontend_env
                     )
                     processes.append(process)
                     print_success("Frontend server started in background")
@@ -777,24 +971,38 @@ def start_servers(start_backend=True, start_frontend=True, auto_open_browser=Tru
                     print_error(f"Failed to start frontend server: {e}")
     
     # Wait for frontend server to be ready if started
+    frontend_started = False
     if start_frontend:
-        frontend_url = f"http://localhost:{DEFAULT_FRONTEND_PORT}"
+        frontend_url = f"http://localhost:{frontend_port}"
         print_info(f"Waiting for frontend server to start at {frontend_url}...")
         print_info("This may take 10-30 seconds...")
         
         # Wait for server to be ready
         if wait_for_server(frontend_url, timeout=60):
             print_success("Frontend server is ready!")
+            frontend_started = True
         else:
             print_warning("Frontend server may not be ready yet.")
             print_info("Server may still be starting up in the background...")
+            # Check if port is in use (server might be running even if not responding yet)
+            if check_port_in_use(frontend_port):
+                print_info("Port is in use - server may be starting up")
+                frontend_started = True  # Assume it's starting
         
-        # Auto-open browser if requested
+        # Always open browser if frontend was attempted to start (even if cleanup failed)
         if auto_open_browser:
             print_info(f"Opening browser to {frontend_url}...")
-            open_browser(frontend_url, delay=1)
+            # Give it a bit more time if server wasn't ready
+            delay = 2 if not frontend_started else 0.5
+            # Open browser immediately (delay is handled inside the function)
+            open_browser(frontend_url, delay=delay)
+            print_info("Browser opened - if the page doesn't load, wait a few seconds and refresh")
+            if frontend_port != DEFAULT_FRONTEND_PORT:
+                print_warning(f"Note: Server is running on port {frontend_port} instead of the default port {DEFAULT_FRONTEND_PORT}")
+            # Give browser time to open
+            time.sleep(1)
     
-    return processes
+    return processes, backend_port, frontend_port
 
 def main():
     """Main installation function."""
@@ -921,7 +1129,7 @@ Examples:
         auto_open = not args.no_browser
         restart_backend = args.restart_backend
         
-        processes = start_servers(
+        processes, backend_port, frontend_port = start_servers(
             start_backend=start_backend,
             start_frontend=start_frontend,
             auto_open_browser=auto_open,
@@ -931,14 +1139,20 @@ Examples:
         print_header("Server Startup Complete")
         print_success("\nServers are running!")
         if start_backend:
-            print_info(f"Backend API: http://localhost:{DEFAULT_BACKEND_PORT}")
-            print_info(f"Backend Docs: http://localhost:{DEFAULT_BACKEND_PORT}/docs")
+            print_info(f"Backend API: http://localhost:{backend_port}")
+            print_info(f"Backend Docs: http://localhost:{backend_port}/docs")
+            if backend_port != DEFAULT_BACKEND_PORT:
+                print_warning(f"Backend is running on port {backend_port} instead of the default {DEFAULT_BACKEND_PORT}")
         if start_frontend:
-            print_info(f"Frontend: http://localhost:{DEFAULT_FRONTEND_PORT}")
+            print_info(f"Frontend: http://localhost:{frontend_port}")
             if auto_open:
                 print_info("Browser opened automatically")
+                # Give browser time to open before script exits
+                time.sleep(2)
             else:
-                print_info(f"Open browser manually to: http://localhost:{DEFAULT_FRONTEND_PORT}")
+                print_info(f"Open browser manually to: http://localhost:{frontend_port}")
+            if frontend_port != DEFAULT_FRONTEND_PORT:
+                print_warning(f"Frontend is running on port {frontend_port} instead of the default {DEFAULT_FRONTEND_PORT}")
         print_info("\nServers are running in the background. To stop servers, use Ctrl+C or close the terminal.")
     else:
         print_info("\nNext steps:")

@@ -20,6 +20,7 @@ const ScrapingProgressPage: React.FC = () => {
     cancelled,
     cancellationInfo,
     setWorkflowStarted,
+    updateScrapingStatus,
   } = useWorkflowStore()
   
   const [isCancelling, setIsCancelling] = useState(false)
@@ -263,11 +264,60 @@ const ScrapingProgressPage: React.FC = () => {
     setScrollPosition(0)
   }, [batchId])
 
-  // Calculate overall progress (use from status if available, otherwise calculate)
-  const overallProgress =
-    scrapingStatus.total > 0
-      ? ((scrapingStatus.completed + scrapingStatus.failed) / scrapingStatus.total) * 100
-      : 0
+  // Fetch expected total from API if not set (fallback if WebSocket message was missed)
+  useEffect(() => {
+    const fetchExpectedTotal = async () => {
+      // Only fetch if expectedTotal is 0 and we have a batchId
+      if (batchId && scrapingStatus.expectedTotal === 0 && !isCheckingStatus) {
+        try {
+          console.log('Fetching expected total from API (fallback if WebSocket message missed)...')
+          const data = await apiService.getBatchTotal(batchId)
+          // Use expected_total (standardized), fallback to total_processes (deprecated)
+          const expectedTotal = data?.expected_total || data?.total_processes
+          if (expectedTotal) {
+            console.log('Received expected total from API:', expectedTotal)
+            updateScrapingStatus({
+              expectedTotal: expectedTotal,
+            })
+          }
+        } catch (error) {
+          console.warn('Failed to fetch expected total from API:', error)
+          // Don't show error to user, just log it
+        }
+      }
+    }
+    
+    // Wait a bit for WebSocket to connect and receive batch:initialized
+    // If after 2 seconds expectedTotal is still 0, fetch from API
+    const timeoutId = setTimeout(() => {
+      fetchExpectedTotal()
+    }, 2000)
+    
+    return () => clearTimeout(timeoutId)
+  }, [batchId, scrapingStatus.expectedTotal, isCheckingStatus, updateScrapingStatus])
+
+  // Calculate overall progress using expectedTotal (from batch:initialized)
+  // Fallback to completionRate from backend if available, otherwise calculate
+  const overallProgress = scrapingStatus.expectedTotal > 0
+    ? scrapingStatus.completionRate > 0
+      ? scrapingStatus.completionRate * 100  // Use backend's completion_rate (calculated against expected_total)
+      : ((scrapingStatus.completed + scrapingStatus.failed) / scrapingStatus.expectedTotal) * 100
+    : scrapingStatus.total > 0
+    ? ((scrapingStatus.completed + scrapingStatus.failed) / scrapingStatus.total) * 100  // Fallback to started processes total
+    : 0
+
+  // Debug logging
+  useEffect(() => {
+    console.log('Progress calculation:', {
+      expectedTotal: scrapingStatus.expectedTotal,
+      total: scrapingStatus.total,
+      completed: scrapingStatus.completed,
+      failed: scrapingStatus.failed,
+      completionRate: scrapingStatus.completionRate,
+      is100Percent: scrapingStatus.is100Percent,
+      calculatedProgress: overallProgress,
+    })
+  }, [scrapingStatus, overallProgress])
 
   // Handle cancel button click
   const handleCancel = async () => {
@@ -291,14 +341,13 @@ const ScrapingProgressPage: React.FC = () => {
   useEffect(() => {
     if (cancelled) return // Don't update phase if cancelled
     
-    if (
-      scrapingStatus.total > 0 &&
-      scrapingStatus.completed + scrapingStatus.failed === scrapingStatus.total
-    ) {
+    // Use backend's is_100_percent flag (calculated against expected_total)
+    // This ensures we only transition when ALL expected processes are complete
+    if (scrapingStatus.is100Percent || scrapingStatus.canProceedToResearch) {
       // Update phase for tracking, navigation handled by useProgressNavigation
       setCurrentPhase('research')
     }
-  }, [scrapingStatus, setCurrentPhase, cancelled])
+  }, [scrapingStatus.is100Percent, scrapingStatus.canProceedToResearch, setCurrentPhase, cancelled])
 
   // Group items by status
   const groupedItems = groupItemsByStatus(scrapingStatus.items)
@@ -397,7 +446,21 @@ const ScrapingProgressPage: React.FC = () => {
               处理中: {scrapingStatus.inProgress}
             </StatusBadge>
             <StatusBadge status="info">
-              总计: {scrapingStatus.total}
+              总计: {(() => {
+                const displayValue = scrapingStatus.expectedTotal > 0 
+                  ? scrapingStatus.expectedTotal 
+                  : scrapingStatus.total
+                // Debug: Log what value is being displayed
+                if (scrapingStatus.expectedTotal === 0 && scrapingStatus.total > 0) {
+                  console.warn('⚠️ Using fallback total instead of expectedTotal:', {
+                    expectedTotal: scrapingStatus.expectedTotal,
+                    total: scrapingStatus.total,
+                    displayValue,
+                    reason: 'This means expectedTotal was never set from WebSocket or API',
+                  })
+                }
+                return displayValue
+              })()}
             </StatusBadge>
           </div>
 

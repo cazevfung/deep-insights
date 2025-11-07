@@ -39,9 +39,9 @@ export const useWorkflowSteps = (): WorkflowStep[] => {
     })
 
     // Step 2: Scraping
-    const scrapingComplete =
-      scrapingStatus.total > 0 &&
-      scrapingStatus.completed + scrapingStatus.failed === scrapingStatus.total
+    // Use backend's is_100_percent flag (calculated against expected_total)
+    // This ensures we only mark complete when ALL expected processes are done
+    const scrapingComplete = scrapingStatus.is100Percent || scrapingStatus.canProceedToResearch
     const scrapingInProgress =
       scrapingStatus.total > 0 &&
       scrapingStatus.inProgress > 0 &&

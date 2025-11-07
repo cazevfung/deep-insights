@@ -39,7 +39,12 @@ class Phase0_5RoleGeneration(BasePhase):
         messages = compose_messages("phase0_5_role_generation", context=context)
         
         # Progress marker: Calling AI (handled by _stream_with_callback)
+        import time
+        api_start_time = time.time()
+        self.logger.info(f"[TIMING] Starting API call for Phase 0.5 at {api_start_time:.3f}")
         response = self._stream_with_callback(messages)
+        api_elapsed = time.time() - api_start_time
+        self.logger.info(f"[TIMING] API call completed in {api_elapsed:.3f}s for Phase 0.5")
         
         # Progress marker: Parsing response
         if self.ui:

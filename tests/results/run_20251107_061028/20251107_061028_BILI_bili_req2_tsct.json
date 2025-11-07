@@ -1,0 +1,17 @@
+{
+  "success": true,
+  "bv_id": "BV1SkeuzLE1a",
+  "url": "https://www.bilibili.com/video/BV1SkeuzLE1a/",
+  "content": "在另一个世界有另一个你，它的故事因你而改变。智能体世界开启属于你们的文明旅程。新的冒险，从外貌到性格全由你来创造。Nti省时master精细，现在就让你的世界开始运转。智能体诞生后，你的一句话就能定方向、改路径。",
+  "title": "",
+  "author": "",
+  "publish_date": "",
+  "source": "Bilibili (via SnapAny + Paraformer)",
+  "language": "zh-CN",
+  "word_count": 106,
+  "extraction_method": "snapany_paraformer",
+  "extraction_timestamp": "2025-11-07T14:11:33.089892",
+  "batch_id": "20251107_061028",
+  "link_id": "bili_req2",
+  "error": null
+}

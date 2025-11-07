@@ -12,7 +12,7 @@ from app.services.workflow_service import WorkflowService
 from app.websocket.manager import WebSocketManager
 from loguru import logger
 
-router = APIRouter()
+router = APIRouter(tags=["workflow"])
 
 # Global WebSocket manager instance - will be set by main.py
 websocket_manager: Optional[WebSocketManager] = None
@@ -187,6 +187,52 @@ async def run_workflow_task(batch_id: str):
                 })
         except Exception as broadcast_error:
             logger.error(f"Failed to broadcast error: {broadcast_error}")
+
+
+@router.get("/batch/{batch_id}/total")
+async def get_batch_total(batch_id: str):
+    """
+    Get total processes count for a batch.
+    
+    This endpoint provides the total count that was calculated at the beginning
+    of the workflow. Useful if frontend missed the batch:initialized WebSocket message.
+    
+    Args:
+        batch_id: Batch ID
+        
+    Returns:
+        Dict with expected_total (primary), total_processes (deprecated), total_links, breakdown, etc.
+    """
+    try:
+        if workflow_service is None:
+            raise HTTPException(status_code=500, detail="Workflow service not initialized")
+        
+        # Check if batch totals exist
+        if batch_id not in workflow_service.batch_totals:
+            return {
+                'batch_id': batch_id,
+                'status': 'not_found',
+                'message': 'Batch totals not calculated yet'
+            }
+        
+        totals = workflow_service.batch_totals[batch_id]
+        
+        return {
+            'batch_id': batch_id,
+            'expected_total': totals.get('expected_total', totals.get('total_processes', 0)),  # Primary field
+            'total_processes': totals.get('expected_total', totals.get('total_processes', 0)),  # Deprecated - kept for backward compatibility
+            'total_links': totals.get('total_links', 0),
+            'breakdown': totals.get('breakdown', {}),
+            'link_breakdown': totals.get('link_breakdown', {}),
+            'calculated_at': totals.get('calculated_at'),
+            'source': totals.get('source', 'unknown'),
+            'status': 'calculated'
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get batch total: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get batch total: {str(e)}")
 
 
 @router.get("/status/{workflow_id}")

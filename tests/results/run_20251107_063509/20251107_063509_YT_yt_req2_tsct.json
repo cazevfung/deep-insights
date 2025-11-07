@@ -1,0 +1,57 @@
+{
+  "success": true,
+  "video_id": "1u6IfvGvx7Y",
+  "url": "https://www.youtube.com/watch?v=1u6IfvGvx7Y",
+  "content": "This is an emergency distress call broadcasting from the planet Gaia. If you're receiving this, please respond immediately. Hey, can I sniff you? Uh, that's definitely not possible or appropriate. This is a distress call, not whatever that was. I'm Stella. Who am I talking to? Yeah, sorry about that. Can I sniff you later? Seriously, that's not okay. Can we please stick to the basics here? I need to know who I'm actually talking to. So, what's your name? And how did you manage to pick up my distress signal? You're right. I didn't introduce myself. My name is Mustache. I accidentally stumbled upon this signal. Do you think this device can transmit smells? You know, for sniffing mustache, seriously, cut it out with the sniffing comments. That's not how this works.",
+  "title": "AI NPCs will change games",
+  "author": "MustacheAI",
+  "publish_date": "",
+  "source": "YouTube",
+  "language": "auto",
+  "word_count": 133,
+  "extraction_method": "youtube",
+  "extraction_timestamp": "2025-11-07T14:35:40.432915",
+  "batch_id": "20251107_063509",
+  "link_id": "yt_req2",
+  "error": null,
+  "summary": {
+    "transcript_summary": {
+      "key_facts": [
+        "FACT: A distress call is being broadcast from the planet Gaia.",
+        "FACT: The caller, Stella, is attempting to establish communication with an unknown recipient.",
+        "FACT: Mustache accidentally intercepted the distress signal.",
+        "FACT: Stella is requesting basic identification from the person who received the signal.",
+        "FACT: The distress signal was transmitted via a device capable of sending audio but not smell.",
+        "FACT: The device does not have the capability to transmit scents or odors.",
+        "FACT: Stella is frustrated by inappropriate comments about sniffing during the emergency.",
+        "FACT: The conversation is taking place in a high-stress situation due to the emergency nature of the call."
+      ],
+      "key_opinions": [
+        "OPINION: The distress call should be treated with seriousness and respect.",
+        "OPINION: Sniffing-related jokes are inappropriate during an emergency transmission.",
+        "OPINION: Mustache’s accidental discovery of the signal raises questions about signal security.",
+        "OPINION: The device’s inability to transmit smell undermines its functionality for sensory communication.",
+        "OPINION: Emotional reactions like frustration indicate the urgency of the situation."
+      ],
+      "key_datapoints": [
+        "DATA: The distress signal originated from the planet Gaia.",
+        "DATA: Mustache intercepted the signal by accident.",
+        "DATA: The communication device transmits only audio, not olfactory data.",
+        "DATA: The call is classified as an emergency distress transmission.",
+        "DATA: The conversation includes at least two participants: Stella and Mustache."
+      ],
+      "topic_areas": [
+        "Emergency communication",
+        "Interstellar distress signals",
+        "Unintended signal interception",
+        "Inappropriate behavior in crisis",
+        "Communication device limitations"
+      ],
+      "word_count": 133,
+      "total_markers": 18
+    },
+    "comments_summary": {},
+    "created_at": "2025-11-07T14:48:20.809055",
+    "model_used": "qwen-flash"
+  }
+}

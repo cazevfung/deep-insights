@@ -60,9 +60,29 @@ class ProgressService:
                 registered_count += 1
         
         # Store expected total count (this is the "goal" number, never changes)
-        self.expected_totals[batch_id] = registered_count
-        logger.info(f"Pre-registered {registered_count} expected links for batch {batch_id} (expected total: {registered_count})")
-        return registered_count
+        # If links were already registered, use the total count of all links (new + existing)
+        total_links_count = len(self.link_states[batch_id])
+        if registered_count == 0 and total_links_count > 0:
+            # All links were already registered - use total count as expected
+            logger.warning(
+                f"initialize_expected_links called for batch {batch_id} but all {total_links_count} links were already registered. "
+                f"Using total count as expected_total."
+            )
+            self.expected_totals[batch_id] = total_links_count
+            return total_links_count
+        elif registered_count == 0 and total_links_count == 0:
+            # Empty list provided - this is an error condition
+            logger.error(
+                f"initialize_expected_links called for batch {batch_id} with empty or invalid link list. "
+                f"This will cause expected_total to be 0, which may prevent research phase from starting."
+            )
+            self.expected_totals[batch_id] = 0
+            return 0
+        else:
+            # Normal case: new links registered
+            self.expected_totals[batch_id] = registered_count
+            logger.info(f"Pre-registered {registered_count} expected links for batch {batch_id} (expected total: {registered_count})")
+            return registered_count
     
     def _normalize_status(self, status: str) -> str:
         """
@@ -274,15 +294,25 @@ class ProgressService:
         
         links = self.link_states[batch_id]
         
-        # Use expected total if available, otherwise fall back to current count
-        # Expected total is set during initialization and represents the "goal" number
-        total = self.expected_totals.get(batch_id, len(links))
+        # Get expected total (set at initialization) - this is the actual target
+        expected_total = self.expected_totals.get(batch_id, 0)
+        total_registered = len(links)
+        
+        # Log if expected_total is not set (for debugging)
+        if expected_total == 0 and batch_id in self.expected_totals:
+            logger.warning(f"Expected total is 0 for batch {batch_id} (this should not happen if initialize_expected_links was called)")
+        elif expected_total == 0:
+            logger.debug(f"Expected total not set yet for batch {batch_id} (will use registered count as fallback)")
+        
+        # Use expected_total for completion rate calculation (the actual target)
+        # Fall back to registered count if expected_total not set yet
+        total_for_calculation = expected_total if expected_total > 0 else total_registered
         
         # CRITICAL: Do NOT overwrite expected total - if len(links) > expected_total, it indicates a bug
         # (e.g., link_id format mismatch causing duplicate registrations)
-        if total < len(links):
+        if expected_total > 0 and total_registered > expected_total:
             logger.error(
-                f"CRITICAL: Expected total ({total}) is less than registered links ({len(links)}) for batch '{batch_id}'. "
+                f"CRITICAL: Expected total ({expected_total}) is less than registered links ({total_registered}) for batch '{batch_id}'. "
                 f"This indicates a bug - likely link_id format mismatches causing duplicate registrations. "
                 f"NOT overwriting expected total. Please investigate link_id mapping."
             )
@@ -296,11 +326,15 @@ class ProgressService:
         failed = sum(1 for l in links.values() if self._normalize_status(l.get('status', 'pending')) == 'failed')
         in_progress = sum(1 for l in links.values() if self._normalize_status(l.get('status', 'pending')) == 'in-progress')
         
-        # Calculate overall progress
-        if total > 0:
-            overall_progress = ((completed + failed) / total) * 100.0
+        # Calculate overall progress and completion rate using expected_total
+        if total_for_calculation > 0:
+            overall_progress = ((completed + failed) / total_for_calculation) * 100.0
+            completion_rate = (completed + failed) / total_for_calculation
+            is_100_percent = completion_rate >= 1.0
         else:
             overall_progress = 0.0
+            completion_rate = 0.0
+            is_100_percent = False
         
         # Build items list with normalized status
         items = []
@@ -320,18 +354,61 @@ class ProgressService:
                 'completed_at': state.get('completed_at'),
             })
         
-        # Broadcast
-        await self.ws_manager.broadcast(batch_id, {
+        # Broadcast - ALWAYS include expected_total, even if 0 (frontend needs to know it's not set yet)
+        # Force expected_total to be an integer (not None) - use 0 if not set
+        expected_total_value = int(expected_total) if expected_total else 0
+        
+        status_message = {
             'type': 'scraping:status',
             'batch_id': batch_id,
-            'total': total,
+            'total': total_registered,  # Keep for backward compatibility (started processes count)
+            'expected_total': expected_total_value,  # ALWAYS include - even if 0 (frontend will handle it)
             'completed': completed,
             'failed': failed,
             'inProgress': in_progress,
             'overall_progress': overall_progress,
+            'completion_rate': completion_rate,  # 0.0 to 1.0 (calculated against expected_total)
+            'completion_percentage': overall_progress,  # Same as overall_progress, but explicit
+            'is_100_percent': is_100_percent,  # boolean flag
+            'can_proceed_to_research': is_100_percent,  # explicit flag for research phase
             'items': items,
             'timestamp': datetime.now().isoformat()
-        })
+        }
+        
+        # CRITICAL: Verify expected_total is actually in the message
+        if 'expected_total' not in status_message:
+            logger.error(f"CRITICAL ERROR: expected_total missing from status_message dict! Keys: {list(status_message.keys())}")
+        elif status_message['expected_total'] is None:
+            logger.error(f"CRITICAL ERROR: expected_total is None in status_message! Setting to 0.")
+            status_message['expected_total'] = 0
+        
+        # Debug log if expected_total is 0
+        if expected_total == 0:
+            logger.warning(
+                f"Sending scraping:status with expected_total=0 for batch {batch_id}. "
+                f"This means initialize_expected_links hasn't been called yet or failed. "
+                f"Registered links: {total_registered}"
+            )
+        
+        # CRITICAL DEBUG: Log the actual message being sent
+        logger.info(
+            f"[DEBUG] Broadcasting scraping:status for batch {batch_id}: "
+            f"expected_total={status_message.get('expected_total')}, "
+            f"total={status_message.get('total')}, "
+            f"message_keys={list(status_message.keys())}"
+        )
+        
+        # CRITICAL: Double-check expected_total is in the message before sending
+        if 'expected_total' not in status_message:
+            logger.error(f"❌ CRITICAL: expected_total MISSING from status_message! Adding it now. Keys: {list(status_message.keys())}")
+            status_message['expected_total'] = expected_total_value
+        
+        # Log the actual JSON that will be sent (first 500 chars)
+        import json
+        message_json = json.dumps(status_message, ensure_ascii=False)
+        logger.info(f"[DEBUG] Message JSON (first 500 chars): {message_json[:500]}")
+        
+        await self.ws_manager.broadcast(batch_id, status_message)
     
     def get_batch_status(self, batch_id: str) -> Optional[Dict]:
         """Get current batch status."""
@@ -620,30 +697,64 @@ class ProgressService:
             }
         
         links = self.link_states[batch_id]
-        expected_total = self.expected_totals.get(batch_id)
-        
-        if expected_total is None:
-            # No pre-registration happened - use current count as expected
-            logger.warning(f"No expected_total set for batch '{batch_id}', using registered count as expected")
-            expected_total = len(links)
-        
+        stored_expected_total = self.expected_totals.get(batch_id)
+        expected_total = stored_expected_total if stored_expected_total not in (None, 0) else 0
         registered_count = len(links)
-        
+
+        # Fallback: if we have registered links but no stored expected total, adopt the registered count
+        if expected_total == 0 and registered_count > 0:
+            if stored_expected_total in (None, 0):
+                logger.warning(
+                    f"expected_total is {stored_expected_total if stored_expected_total is not None else 'None'} for batch '{batch_id}', "
+                    f"but {registered_count} links are registered. Using registered count as expected total."
+                )
+            expected_total = registered_count
+
+        # Guard: if registered count somehow exceeds stored expected total, align totals to prevent false negatives
+        elif expected_total > 0 and registered_count > expected_total:
+            logger.warning(
+                f"Registered count {registered_count} exceeds expected total {expected_total} for batch '{batch_id}'. "
+                f"Adjusting expected total to registered count to maintain consistency."
+            )
+            expected_total = registered_count
+
         # Count statuses
         completed_count = sum(1 for l in links.values() if self._normalize_status(l.get('status', 'pending')) == 'completed')
         failed_count = sum(1 for l in links.values() if self._normalize_status(l.get('status', 'pending')) == 'failed')
         in_progress_count = sum(1 for l in links.values() if self._normalize_status(l.get('status', 'pending')) == 'in-progress')
         pending_count = sum(1 for l in links.values() if self._normalize_status(l.get('status', 'pending')) == 'pending')
-        
+
+        total_final = completed_count + failed_count
+
+        # Absolute fallback: if expected_total is still zero (or less) but we have real results,
+        # promote the larger of registered_count and total_final as the expected total.
+        if expected_total <= 0 and max(registered_count, total_final) > 0:
+            adjusted_total = max(registered_count, total_final)
+            logger.warning(
+                f"Expected total remained {expected_total} for batch '{batch_id}' despite {registered_count} registered links "
+                f"and {total_final} final entries. Adopting {adjusted_total} as expected total."
+            )
+            expected_total = adjusted_total
+        elif expected_total > 0 and total_final > expected_total:
+            logger.warning(
+                f"Final count {total_final} exceeds expected total {expected_total} for batch '{batch_id}'. "
+                f"Adjusting expected total to {total_final}."
+            )
+            expected_total = total_final
+
+        # Persist any new total so future checks stay consistent
+        if expected_total > 0 and expected_total != self.expected_totals.get(batch_id):
+            self.expected_totals[batch_id] = expected_total
+
         # Check if all expected processes are registered
         missing_processes = []
-        if registered_count < expected_total:
+        if expected_total > 0 and registered_count < expected_total:
             # Some expected processes haven't been registered yet
             # We can't identify which ones are missing without tracking expected link_ids
             # So we'll just report the count difference
             missing_count = expected_total - registered_count
             missing_processes = [f"missing_{i}" for i in range(missing_count)]
-        
+
         # Check if all registered processes have final status
         all_have_final_status = True
         non_final_statuses = []
@@ -662,15 +773,38 @@ class ProgressService:
                         'progress': overall_progress
                     })
         
-        # Confirmed if: all expected processes registered AND all have final status
-        confirmed = (registered_count >= expected_total) and all_have_final_status
+        # Calculate completion rate
+        completion_rate = (total_final / expected_total) if expected_total > 0 else 0.0
+        is_100_percent = completion_rate >= 1.0  # Allow for floating point precision
+        
+        # Enhanced confirmation check: all expected processes registered AND all have final status AND 100% completion
+        confirmed = (
+            registered_count >= expected_total and
+            all_have_final_status and
+            is_100_percent and
+            total_final == expected_total  # Explicit equality check
+        )
+        
+        # Detailed logging for debugging
+        logger.info(f"[CONFIRM] Checking completion for batch {batch_id}")
+        logger.info(
+            f"[CONFIRM] Expected total: {expected_total}, Registered: {registered_count}, "
+            f"Completed: {completed_count}, Failed: {failed_count}, "
+            f"In Progress: {in_progress_count}, Pending: {pending_count}"
+        )
+        if non_final_statuses:
+            logger.warning(f"[CONFIRM] Non-final statuses for batch {batch_id}: {non_final_statuses}")
         
         result = {
             'confirmed': confirmed,
+            'completion_rate': completion_rate,  # 0.0 to 1.0
+            'completion_percentage': completion_rate * 100.0,  # 0.0 to 100.0
+            'is_100_percent': is_100_percent,
             'expected_total': expected_total,
             'registered_count': registered_count,
             'completed_count': completed_count,
             'failed_count': failed_count,
+            'total_final': total_final,  # completed + failed
             'pending_count': pending_count,
             'in_progress_count': in_progress_count,
             'missing_processes': missing_processes,
@@ -678,14 +812,18 @@ class ProgressService:
             'timestamp': datetime.now().isoformat()
         }
         
+        completion_percentage = completion_rate * 100.0
+        
         if confirmed:
             logger.info(
-                f"Scraping completion CONFIRMED for batch '{batch_id}': "
-                f"{completed_count} completed, {failed_count} failed out of {expected_total} expected processes"
+                f"Scraping completion CONFIRMED (100%) for batch '{batch_id}': "
+                f"{completion_percentage:.1f}% ({total_final}/{expected_total}) - "
+                f"{completed_count} completed, {failed_count} failed"
             )
         else:
             logger.info(
                 f"Scraping completion NOT confirmed for batch '{batch_id}': "
+                f"{completion_percentage:.1f}% ({total_final}/{expected_total}), "
                 f"Expected {expected_total}, Registered {registered_count}, "
                 f"Completed {completed_count}, Failed {failed_count}, "
                 f"In Progress {in_progress_count}, Pending {pending_count}"

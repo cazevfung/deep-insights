@@ -1,0 +1,78 @@
+{
+  "success": true,
+  "bv_id": "BV1SkeuzLE1a",
+  "url": "https://www.bilibili.com/video/BV1SkeuzLE1a/",
+  "content": "在另一个世界有另一个你，它的故事因你而改变。智能体世界开启属于你们的文明旅程。新的冒险，从外貌到性格全由你来创造。Nti省时master精细，现在就让你的世界开始运转。智能体诞生后，你的一句话就能定方向、改路径。升级住所，推进职业，改变命运。想知道智能体在想什么？Game mode观察行为与心理。Data mode查看关系、价格和排名，帮他们做出更高收益的决策。每个智能体各自生活，与他们交谈，聆听内心的回响。翻开面板细读状态、行囊、职业与日记。在这片像素大陆，每个智能体的决定源自多层次的AI框架。从个体到世界，数据记录着文明的每一步成长。更多建筑等你和智能体一步步解锁。唤醒城市，迎接未知的冒险与故事。智能体世界不只是游戏，它是你与另一个自己共同创造文明的开始。",
+  "title": "",
+  "author": "",
+  "publish_date": "",
+  "source": "Bilibili (via SnapAny + Paraformer)",
+  "language": "zh-CN",
+  "word_count": 334,
+  "extraction_method": "snapany_paraformer",
+  "extraction_timestamp": "2025-11-07T12:10:56.177212",
+  "batch_id": "20251107_041025",
+  "link_id": "bili_req2",
+  "error": null,
+  "summary": {
+    "transcript_summary": {
+      "key_facts": [
+        "FACT: In another world, an alternate version of the user exists whose story is shaped by the user's choices.",
+        "FACT: The Agent World allows users to embark on a civilization-building journey with customizable avatars.",
+        "FACT: Users can create characters from appearance to personality traits in the Agent World.",
+        "FACT: The Nti省时master system enables efficient management and automation of the world's development.",
+        "FACT: After an agent is born, a single user command can alter its direction or life path.",
+        "FACT: Users can upgrade housing, advance careers, and change life outcomes for agents.",
+        "FACT: Game mode allows observation of agent behavior and psychological states.",
+        "FACT: Data mode provides insights into relationships, prices, and rankings to optimize decisions.",
+        "FACT: Each agent lives independently and interacts with the environment and other agents.",
+        "FACT: Users can communicate with agents and access their inner thoughts through dialogue.",
+        "FACT: The agent interface displays status, inventory, career, and personal diary entries.",
+        "FACT: The pixel-based world operates under a multi-layered AI framework governing agent decisions.",
+        "FACT: The system records data at both individual and societal levels to track civilizational progress.",
+        "FACT: New buildings are progressively unlocked as users and agents advance together.",
+        "FACT: The world evolves through player-driven actions, enabling dynamic storytelling and exploration."
+      ],
+      "key_opinions": [
+        "OPINION: The Agent World transforms gaming into a deeply personal experience of co-creating civilization.",
+        "OPINION: The ability to shape an alternate self’s destiny offers profound emotional engagement.",
+        "OPINION: The integration of psychology and data modes enhances strategic depth and immersion.",
+        "OPINION: The system’s automation features make long-term world-building accessible to casual players.",
+        "OPINION: The narrative potential of agent-driven stories surpasses traditional game structures.",
+        "OPINION: The pixel aesthetic enhances nostalgia while supporting complex AI interactions.",
+        "OPINION: The focus on individual agency empowers users to feel truly responsible for world outcomes.",
+        "OPINION: The blend of creativity and analytics creates a unique hybrid experience between simulation and storytelling.",
+        "OPINION: The world feels alive because agents react realistically to user input and environmental changes.",
+        "OPINION: The diary and state tracking systems deepen character connection and narrative continuity."
+      ],
+      "key_datapoints": [
+        "DATA: Agents operate under a multi-layered AI decision-making framework.",
+        "DATA: User commands can immediately redirect an agent’s life path after creation.",
+        "DATA: Housing upgrades and career progression are key milestones in agent development.",
+        "DATA: Game mode enables real-time behavioral and psychological observation of agents.",
+        "DATA: Data mode reveals relationship dynamics, market prices, and performance rankings.",
+        "DATA: The world evolves through incremental unlocking of new buildings and systems.",
+        "DATA: Each agent maintains independent life cycles with unique goals and behaviors.",
+        "DATA: Player interaction influences both individual agent trajectories and collective civilization growth.",
+        "DATA: The system tracks every decision and outcome across multiple levels of society.",
+        "DATA: The interface includes detailed panels for status, inventory, career, and personal diary."
+      ],
+      "topic_areas": [
+        "Agent-based worldbuilding",
+        "Player-driven civilization",
+        "AI-powered character behavior",
+        "Customizable avatars",
+        "Game and data mode mechanics",
+        "Narrative evolution",
+        "World progression systems",
+        "Emotional engagement in games",
+        "Multi-layered AI frameworks"
+      ],
+      "word_count": 3,
+      "total_markers": 35
+    },
+    "comments_summary": {},
+    "created_at": "2025-11-07T12:17:09.974634",
+    "model_used": "qwen-flash"
+  }
+}

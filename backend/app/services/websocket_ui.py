@@ -16,7 +16,7 @@ class WebSocketUI:
     def __init__(self, websocket_manager: WebSocketManager, batch_id: str, main_loop: Optional[asyncio.AbstractEventLoop] = None):
         self.ws_manager = websocket_manager
         self.batch_id = batch_id
-        self.current_stream_buffer = ""
+        self.stream_buffers: dict[str, str] = {}
         self.main_loop = main_loop
         self._loop_lock = threading.Lock()
         # User input response queue - maps prompt_id to response queue
@@ -188,29 +188,89 @@ class WebSocketUI:
         
         self.display_message(message, "info")
     
-    def display_stream(self, token: str):
+    def display_stream(self, token: str, stream_id: str):
         """Stream token via WebSocket."""
-        self.current_stream_buffer += token
-        coro = self._send_stream_token(token)
+        if not stream_id:
+            logger.warning("display_stream called without stream_id; defaulting to 'default'")
+            stream_id = "default"
+        existing = self.stream_buffers.get(stream_id, "")
+        self.stream_buffers[stream_id] = existing + token
+        coro = self._send_stream_token(token, stream_id)
         self._schedule_coroutine(coro)
     
-    async def _send_stream_token(self, token: str):
+    async def _send_stream_token(self, token: str, stream_id: str):
         """Async helper to send stream token."""
         try:
             await self.ws_manager.broadcast(self.batch_id, {
                 "type": "research:stream_token",
                 "token": token,
+                "stream_id": stream_id,
             })
         except Exception as e:
             logger.error(f"Failed to broadcast stream token: {e}")
-    
-    def clear_stream_buffer(self):
+
+    def notify_stream_start(self, stream_id: str, phase: Optional[str] = None, metadata: Optional[dict] = None):
+        """Notify frontend that a new token stream has started."""
+        if not stream_id:
+            logger.warning("notify_stream_start called without stream_id; defaulting to 'default'")
+            stream_id = "default"
+        # Reset buffer for this stream
+        self.stream_buffers[stream_id] = ""
+        coro = self._send_stream_start(stream_id, phase, metadata)
+        self._schedule_coroutine(coro)
+
+    async def _send_stream_start(self, stream_id: str, phase: Optional[str], metadata: Optional[dict]):
+        """Async helper to send stream start notification."""
+        try:
+            payload = {
+                "type": "research:stream_start",
+                "stream_id": stream_id,
+                "phase": phase,
+                "metadata": metadata or {},
+                "timestamp": datetime.now().isoformat(),
+            }
+            await self.ws_manager.broadcast(self.batch_id, payload)
+        except Exception as e:
+            logger.error(f"Failed to broadcast stream start: {e}")
+
+    def notify_stream_end(self, stream_id: str, phase: Optional[str] = None, metadata: Optional[dict] = None):
+        """Notify frontend that the current token stream has finished."""
+        if not stream_id:
+            logger.warning("notify_stream_end called without stream_id; defaulting to 'default'")
+            stream_id = "default"
+        coro = self._send_stream_end(stream_id, phase, metadata)
+        self._schedule_coroutine(coro)
+
+    async def _send_stream_end(self, stream_id: str, phase: Optional[str], metadata: Optional[dict]):
+        """Async helper to send stream end notification."""
+        try:
+            payload = {
+                "type": "research:stream_end",
+                "stream_id": stream_id,
+                "phase": phase,
+                "metadata": metadata or {},
+                "timestamp": datetime.now().isoformat(),
+            }
+            await self.ws_manager.broadcast(self.batch_id, payload)
+        except Exception as e:
+            logger.error(f"Failed to broadcast stream end: {e}")
+
+    def clear_stream_buffer(self, stream_id: Optional[str] = None):
         """Clear the streaming buffer."""
-        self.current_stream_buffer = ""
+        if stream_id is None:
+            self.stream_buffers.clear()
+        else:
+            self.stream_buffers.pop(stream_id, None)
     
-    def get_stream_buffer(self) -> str:
+    def get_stream_buffer(self, stream_id: Optional[str] = None) -> str:
         """Get current stream buffer contents."""
-        return self.current_stream_buffer
+        if stream_id is None:
+            # Return latest buffer if available (for backward compatibility)
+            if not self.stream_buffers:
+                return ""
+            last_stream_id = next(reversed(self.stream_buffers))
+            return self.stream_buffers.get(last_stream_id, "")
+        return self.stream_buffers.get(stream_id, "")
     
     def notify_phase_change(self, phase: str, phase_name: str = None):
         """Notify frontend of phase transition."""
@@ -316,17 +376,40 @@ class WebSocketUI:
                 except Exception as e:
                     logger.error(f"Failed to retry delivery for prompt_id: {prompt_id}, error: {e}")
         else:
-            logger.warning(f"No waiting prompt found for prompt_id: {prompt_id}. Available prompts: {list(self._user_input_queues.keys())}")
-            # Try to find a matching prompt by checking if any prompt_id starts with batch_id
-            # This helps handle cases where prompt_id format might have slight variations
-            matching_prompts = [pid for pid in self._user_input_queues.keys() if prompt_id in pid or pid in prompt_id]
+            available_prompts = list(self._user_input_queues.keys())
+            logger.warning(
+                f"No waiting prompt found for prompt_id: {prompt_id}. Available prompts: {available_prompts}"
+            )
+
+            # Try loose matching based on containing strings (legacy behaviour)
+            matching_prompts = [
+                pid for pid in available_prompts if prompt_id in pid or pid in prompt_id
+            ]
+
+            # If still no match, attempt prefix-based matching that ignores the timestamp suffix
+            if not matching_prompts and "_" in prompt_id:
+                prompt_prefix = prompt_id.rsplit("_", 1)[0]
+                matching_prompts = [
+                    pid for pid in available_prompts if pid.startswith(prompt_prefix)
+                ]
+
             if matching_prompts:
-                logger.info(f"Found {len(matching_prompts)} potentially matching prompts, trying first match")
+                # Prefer the most recent-looking prompt id (lexicographically highest)
+                target_prompt_id = sorted(matching_prompts)[-1]
+                logger.info(
+                    f"Found {len(matching_prompts)} potentially matching prompts, using {target_prompt_id}"
+                )
                 try:
-                    self._user_input_queues[matching_prompts[0]].put_nowait(response)
-                    logger.info(f"Delivered user input to matching prompt: {matching_prompts[0]}")
+                    self._user_input_queues[target_prompt_id].put_nowait(response)
+                    logger.info(
+                        f"Delivered user input to fallback prompt: {target_prompt_id} (original id: {prompt_id})"
+                    )
                 except Exception as e:
-                    logger.error(f"Failed to deliver to matching prompt: {e}")
+                    logger.error(f"Failed to deliver to matching prompt {target_prompt_id}: {e}")
+            else:
+                logger.error(
+                    f"Unable to deliver user input because no matching prompt_id was found for {prompt_id}"
+                )
     
     async def _send_user_prompt(self, prompt: str, choices: Optional[list], prompt_id: Optional[str] = None):
         """Async helper to send user prompt."""
@@ -443,4 +526,46 @@ class WebSocketUI:
             })
         except Exception as e:
             logger.error(f"Failed to broadcast step complete: {e}")
+    
+    def display_summarization_progress(
+        self,
+        current_item: int,
+        total_items: int,
+        link_id: str,
+        stage: str,
+        message: str
+    ):
+        """Send summarization progress update."""
+        progress = (current_item / total_items) * 100 if total_items > 0 else 0
+        coro = self._send_summarization_progress(
+            current_item, total_items, link_id, stage, message, progress
+        )
+        self._schedule_coroutine(coro)
+    
+    async def _send_summarization_progress(
+        self,
+        current_item: int,
+        total_items: int,
+        link_id: str,
+        stage: str,
+        message: str,
+        progress: float
+    ):
+        """Async helper to send summarization progress."""
+        try:
+            payload = {
+                "type": "summarization:progress",
+                "batch_id": self.batch_id,
+                "current_item": current_item,
+                "total_items": total_items,
+                "link_id": link_id,
+                "stage": stage,
+                "progress": progress,
+                "message": message,
+                "timestamp": datetime.now().isoformat()
+            }
+            logger.debug(f"Broadcasting summarization progress to batch {self.batch_id}: {message}")
+            await self.ws_manager.broadcast(self.batch_id, payload)
+        except Exception as e:
+            logger.error(f"Failed to broadcast summarization progress to batch {self.batch_id}: {e}", exc_info=True)
 

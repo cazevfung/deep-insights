@@ -30,7 +30,7 @@ class MockConsoleInterface:
         self.auto_role = auto_role
         self.verbose = verbose
         self.interactive = interactive
-        self.current_stream_buffer = ""
+        self.stream_buffers: dict[str, str] = {}
         self.messages = []
         self.selected_goal_id = None
         self.plan_confirmed = False
@@ -58,19 +58,29 @@ class MockConsoleInterface:
         if self.verbose and current_step:
             logger.debug(f"[进度: {progress:.1f}%] 步骤 {current_step}")
     
-    def display_stream(self, token: str):
+    def display_stream(self, token: str, stream_id: str):
         """Display streaming token."""
-        self.current_stream_buffer += token
+        if not stream_id:
+            stream_id = "default"
+        self.stream_buffers[stream_id] = self.stream_buffers.get(stream_id, "") + token
         if self.verbose:
             print(token, end="", flush=True)
     
-    def clear_stream_buffer(self):
+    def clear_stream_buffer(self, stream_id: Optional[str] = None):
         """Clear the streaming buffer."""
-        self.current_stream_buffer = ""
+        if stream_id is None:
+            self.stream_buffers.clear()
+        else:
+            self.stream_buffers.pop(stream_id, None)
     
-    def get_stream_buffer(self) -> str:
+    def get_stream_buffer(self, stream_id: Optional[str] = None) -> str:
         """Get current stream buffer contents."""
-        return self.current_stream_buffer
+        if stream_id is None:
+            if not self.stream_buffers:
+                return ""
+            last_key = next(reversed(self.stream_buffers))
+            return self.stream_buffers.get(last_key, "")
+        return self.stream_buffers.get(stream_id, "")
     
     def prompt_user(self, prompt: str, choices: Optional[list] = None) -> str:
         """

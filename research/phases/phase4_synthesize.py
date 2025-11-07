@@ -38,6 +38,17 @@ class Phase4Synthesize(BasePhase):
         # Get scratchpad
         scratchpad_contents = self.session.get_scratchpad_summary()
         
+        # Retrieve user amendment / priorities to ensure final report honors them
+        user_amendment = ""
+        if isinstance(phase1_5_output, dict):
+            user_amendment = phase1_5_output.get("user_input") or ""
+        if not user_amendment:
+            user_amendment = self.session.get_metadata("phase1_user_input", "")
+
+        user_amendment_context = ""
+        if user_amendment:
+            user_amendment_context = f"**用户优先事项：**\n{user_amendment}\n"
+
         # Format component questions context
         if component_questions:
             component_questions_context = "**需要涵盖的组成问题：**\n"
@@ -61,6 +72,7 @@ class Phase4Synthesize(BasePhase):
             # Include additional context from synthesized goal if available
             "unifying_theme": goal_context.get("unifying_theme", ""),
             "research_scope": goal_context.get("research_scope", ""),
+            "user_amendment_context": user_amendment_context.strip() if user_amendment_context else "",
         }
         messages = compose_messages("phase4_synthesize", context=context)
         
@@ -82,7 +94,15 @@ class Phase4Synthesize(BasePhase):
         except Exception:
             pass
 
+        # Time outline API call
+        import time
+        outline_start = time.time()
+        self.logger.info(f"[TIMING] Starting outline API call for Phase 4 at {outline_start:.3f}")
+        if hasattr(self, 'ui') and self.ui:
+            self.ui.display_message("正在生成报告大纲...", "info")
         outline_resp = self._stream_with_callback(outline_msgs)
+        outline_elapsed = time.time() - outline_start
+        self.logger.info(f"[TIMING] Outline API call completed in {outline_elapsed:.3f}s for Phase 4")
 
         # Parse outline JSON
         sections: List[dict] = []
@@ -107,17 +127,38 @@ class Phase4Synthesize(BasePhase):
         from research.prompts.loader import load_prompt, render_prompt
         section_tmpl = load_prompt("phase4_synthesize", role="section")
         section_outputs: List[str] = []
-        for sec in sections:
+        total_sections = len(sections)
+        for sec_idx, sec in enumerate(sections, 1):
+            sec_title = sec.get("title", "章节")
+            if hasattr(self, 'ui') and self.ui:
+                self.ui.display_message(
+                    f"正在生成章节 {sec_idx}/{total_sections}: {sec_title}",
+                    "info"
+                )
+            
             sec_ctx = {
                 **context,
-                "section_title": sec.get("title", "章节"),
+                "section_title": sec_title,
                 "section_target_words": sec.get("target_words", 600),
             }
             sec_msg = render_prompt(section_tmpl, sec_ctx)
+            
+            # Time section API call
+            section_start = time.time()
+            self.logger.info(f"[TIMING] Starting section {sec_idx}/{total_sections} API call for Phase 4 at {section_start:.3f}")
             sec_resp = self._stream_with_callback([
                 {"role": "system", "content": compose_messages("phase4_synthesize", context=context)[0]["content"] if compose_messages("phase4_synthesize", context=context) else ""},
                 {"role": "user", "content": sec_msg},
             ])
+            section_elapsed = time.time() - section_start
+            self.logger.info(f"[TIMING] Section {sec_idx}/{total_sections} API call completed in {section_elapsed:.3f}s for Phase 4")
+            
+            if hasattr(self, 'ui') and self.ui:
+                self.ui.display_message(
+                    f"章节 {sec_idx}/{total_sections} 生成完成: {sec_title}",
+                    "success"
+                )
+            
             section_outputs.append(sec_resp)
 
         # Step 3: Assemble final report with header and appendices placeholder

@@ -35,10 +35,16 @@ class Phase2Synthesize(BasePhase):
             self.ui.display_message("正在综合研究主题...", "info")
         
         # Extract goals from full phase1_output (backward compatible)
-        all_goals = phase1_output.get("suggested_goals", [])
+        all_goals = phase1_output.get("suggested_goals", []) if isinstance(phase1_output, dict) else []
         if not all_goals and isinstance(phase1_output, list):
             # Backward compatibility: accept list directly
             all_goals = phase1_output
+
+        if not all_goals:
+            # Final fallback to session metadata (e.g., from confirmation step)
+            metadata_goals = self.session.get_metadata("phase1_confirmed_goals")
+            if isinstance(metadata_goals, list):
+                all_goals = metadata_goals
         
         if len(all_goals) < 1:
             raise ValueError(f"Expected at least 1 goal, got {len(all_goals)}")
@@ -48,6 +54,10 @@ class Phase2Synthesize(BasePhase):
         
         # Extract goal_text directly from Phase 1 - DON'T regenerate
         component_questions = [goal.get("goal_text", "") for goal in all_goals]
+
+        # Ensure we didn't accidentally transform the confirmed goals
+        if any(not question for question in component_questions):
+            raise ValueError("Phase 2 received invalid goal entries without goal_text")
         
         # Format goals as numbered list dynamically (for prompt context only)
         goals_list = "\n".join([
@@ -56,6 +66,9 @@ class Phase2Synthesize(BasePhase):
         ])
         
         # Format user context for prompt
+        if not user_input:
+            user_input = self.session.get_metadata("phase1_user_input", "")
+
         user_context_section = ""
         if user_topic:
             user_context_section += f"**用户研究主题：**\n{user_topic}\n\n"
@@ -76,7 +89,12 @@ class Phase2Synthesize(BasePhase):
             self.ui.display_message("正在生成综合研究主题...", "info")
         
         # Stream and parse JSON response
+        import time
+        api_start_time = time.time()
+        self.logger.info(f"[TIMING] Starting API call for Phase 2 at {api_start_time:.3f}")
         response = self._stream_with_callback(messages)
+        api_elapsed = time.time() - api_start_time
+        self.logger.info(f"[TIMING] API call completed in {api_elapsed:.3f}s for Phase 2")
         
         # Parse JSON from response
         try:
@@ -110,12 +128,16 @@ class Phase2Synthesize(BasePhase):
         result = {
             "synthesized_goal": synthesized_goal,
             "component_goals": all_goals,  # Preserve original Phase 1 goals
-            "raw_response": response
+            "raw_response": response,
+            "user_input": user_input or "",
+            "user_topic": user_topic or ""
         }
         
         # Store in session
         self.session.set_metadata("synthesized_goal", synthesized_goal)
         self.session.set_metadata("component_goals", all_goals)
+        if user_input:
+            self.session.set_metadata("phase1_user_input", user_input)
         
         self.logger.info(f"Phase 2 complete: Created unified topic, preserved {len(component_questions)} questions")
         

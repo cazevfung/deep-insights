@@ -71,7 +71,12 @@ class Phase1Discover(BasePhase):
 
         # Progress marker: Calling AI (handled by _stream_with_callback)
         # Stream and parse JSON response (with one retry if overlap detected)
+        import time
+        api_start_time = time.time()
+        self.logger.info(f"[TIMING] Starting API call for Phase 1 at {api_start_time:.3f}")
         response = self._stream_with_callback(messages)
+        api_elapsed = time.time() - api_start_time
+        self.logger.info(f"[TIMING] API call completed in {api_elapsed:.3f}s for Phase 1")
 
         # Progress marker: Parsing response
         if self.ui:
@@ -135,7 +140,11 @@ class Phase1Discover(BasePhase):
             )
             context["avoid_list"] = avoid_text
             messages = compose_messages("phase1_discover", context=context)
+            api_retry_start = time.time()
+            self.logger.info(f"[TIMING] Starting retry API call for Phase 1 at {api_retry_start:.3f}")
             response_retry = self._stream_with_callback(messages)
+            api_retry_elapsed = time.time() - api_retry_start
+            self.logger.info(f"[TIMING] Retry API call completed in {api_retry_elapsed:.3f}s for Phase 1")
             try:
                 parsed_retry = self.client.parse_json_from_stream(iter([response_retry]))
                 goals_retry = parsed_retry.get("suggested_goals", [])

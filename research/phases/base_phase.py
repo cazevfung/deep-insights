@@ -2,6 +2,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
+from uuid import uuid4
 from loguru import logger
 
 from research.client import QwenStreamingClient
@@ -33,6 +34,81 @@ class BasePhase(ABC):
         self.progress_tracker = progress_tracker
         self.ui = ui
         self.logger = logger.bind(phase=self.__class__.__name__)
+        
+        # Load phase-specific model configuration
+        self._load_phase_config()
+    
+    def _get_phase_config_key(self) -> Optional[str]:
+        """
+        Map phase class name to config.yaml phase key.
+        
+        Returns:
+            Config key for this phase (e.g., "phase0", "phase1"), or None
+        """
+        class_name = self.__class__.__name__.lower()
+        phase_mapping = {
+            "phase0prepare": "phase0",
+            "phase0_5rolegeneration": "phase0_5",
+            "phase1discover": "phase1",
+            "phase2synthesize": "phase2",
+            "phase3execute": "phase3",
+            "phase4synthesize": "phase4",
+        }
+        return phase_mapping.get(class_name)
+    
+    def _get_stream_identifier(self) -> str:
+        """Return a consistent identifier for the current phase stream."""
+        phase_key = self._get_phase_config_key()
+        if phase_key:
+            return phase_key
+        return self.__class__.__name__.lower()
+
+    def _build_stream_metadata(self, **extra: Any) -> Dict[str, Any]:
+        """Build metadata payload for stream start/end notifications."""
+        metadata: Dict[str, Any] = {
+            "phase_class": self.__class__.__name__,
+        }
+        phase_key = self._get_phase_config_key()
+        if phase_key:
+            metadata["phase_key"] = phase_key
+        for key, value in extra.items():
+            if value is not None:
+                metadata[key] = value
+        return metadata
+    
+    def _load_phase_config(self):
+        """Load phase-specific model configuration from config.yaml."""
+        try:
+            from core.config import Config
+            config = Config()
+            phase_key = self._get_phase_config_key()
+            
+            if phase_key:
+                config_path = f"research.phases.{phase_key}"
+                self.phase_model = config.get(f"{config_path}.model")
+                self.phase_enable_thinking = config.get(f"{config_path}.enable_thinking", False)
+                self.phase_stream = config.get(f"{config_path}.stream", True)
+                
+                if self.phase_model:
+                    self.logger.info(
+                        f"Phase config loaded: model={self.phase_model}, "
+                        f"enable_thinking={self.phase_enable_thinking}, stream={self.phase_stream}"
+                    )
+                else:
+                    self.logger.warning(f"No phase config found for {phase_key}, using defaults")
+                    self.phase_model = None
+                    self.phase_enable_thinking = False
+                    self.phase_stream = True
+            else:
+                self.logger.warning(f"Unknown phase class: {self.__class__.__name__}, using defaults")
+                self.phase_model = None
+                self.phase_enable_thinking = False
+                self.phase_stream = True
+        except Exception as e:
+            self.logger.warning(f"Failed to load phase config: {e}, using defaults")
+            self.phase_model = None
+            self.phase_enable_thinking = False
+            self.phase_stream = True
     
     @abstractmethod
     def execute(self, *args, **kwargs) -> Dict[str, Any]:
@@ -56,39 +132,107 @@ class BasePhase(ABC):
             Full response text
         """
         import time
+        import threading
         
+        stream_phase = None
+        stream_id = None
+        stream_metadata: Dict[str, Any] = {}
+
         # Send "starting" update
         if self.ui:
+            stream_phase = self._get_stream_identifier()
+            stream_metadata = self._build_stream_metadata()
             self.ui.display_message("正在调用AI API...", "info")
+            stream_id = f"{stream_phase}:{uuid4().hex}"
+            self.ui.clear_stream_buffer(stream_id)
+            self.ui.notify_stream_start(stream_id, stream_phase, stream_metadata)
+            self.logger.debug(f"Stream started", stream_id=stream_id, phase=stream_phase, metadata=stream_metadata)
         
         token_count = 0
         last_update_time = time.time()
+        last_token_time = time.time()
         update_interval = 2.0  # Update every 2 seconds
+        heartbeat_interval = 15.0  # Send heartbeat every 15 seconds
+        heartbeat_active = True
+        
+        # Heartbeat thread to send periodic updates during long waits
+        def heartbeat_worker():
+            nonlocal last_token_time, heartbeat_active
+            iteration = 0
+            while heartbeat_active:
+                time.sleep(heartbeat_interval)
+                iteration += 1
+                # Check if we've received tokens recently (within 5 seconds)
+                if time.time() - last_token_time >= 5.0:
+                    # No tokens received recently, send heartbeat
+                    if self.ui and heartbeat_active:
+                        self.ui.display_message(f"仍在处理中，请稍候... ({iteration * heartbeat_interval:.0f}秒)", "info")
+        
+        heartbeat_thread = threading.Thread(target=heartbeat_worker, daemon=True)
+        heartbeat_thread.start()
         
         def callback(token: str):
-            nonlocal token_count, last_update_time
+            nonlocal token_count, last_update_time, last_token_time
             
             token_count += 1
             current_time = time.time()
+            last_token_time = current_time  # Update last token time
             
             # Update progress tracker
             if self.progress_tracker:
                 self.progress_tracker.stream_update(token)
+            
+            if self.ui and stream_id:
+                self.ui.display_stream(token, stream_id)
             
             # Send periodic progress updates to UI
             if self.ui and (token_count % 10 == 0 or current_time - last_update_time >= update_interval):
                 self.ui.display_message(f"正在接收响应... ({token_count} tokens)", "info")
                 last_update_time = current_time
         
-        response, usage = self.client.stream_and_collect(
-            messages,
-            callback=callback,
-            **kwargs
-        )
+        # Apply phase-specific model configuration if not overridden in kwargs
+        phase_kwargs = {}
+        if self.phase_model and "model" not in kwargs:
+            phase_kwargs["model"] = self.phase_model
+        if "enable_thinking" not in kwargs:
+            phase_kwargs["enable_thinking"] = self.phase_enable_thinking
+        # stream is always True by default in the client, so we don't need to set it
+        
+        # Merge phase config with any provided kwargs (kwargs take precedence)
+        final_kwargs = {**phase_kwargs, **kwargs}
+        stream_start_time = time.time()
+        
+        try:
+            response, usage = self.client.stream_and_collect(
+                messages,
+                callback=callback,
+                **final_kwargs
+            )
+        finally:
+            # Stop heartbeat thread
+            heartbeat_active = False
+            if self.ui and stream_phase and stream_id:
+                try:
+                    stream_meta_with_counts = {
+                        **stream_metadata,
+                        "tokens": token_count,
+                    }
+                    self.ui.notify_stream_end(stream_id, stream_phase, stream_meta_with_counts)
+                    elapsed = time.time() - stream_start_time
+                    self.logger.debug(
+                        "Stream completed",
+                        stream_id=stream_id,
+                        phase=stream_phase,
+                        tokens=token_count,
+                        elapsed=elapsed,
+                        metadata=stream_meta_with_counts,
+                    )
+                except Exception as e:
+                    self.logger.warning(f"Failed to notify stream end: {e}")
         
         # Send "parsing" update
         if self.ui:
-            self.ui.display_message("正在解析结果...", "info")
+            self.ui.display_message("AI响应已接收，正在解析结果...", "info")
         
         return response
 

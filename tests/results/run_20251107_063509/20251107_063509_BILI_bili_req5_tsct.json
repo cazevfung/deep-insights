@@ -1,0 +1,69 @@
+{
+  "success": true,
+  "bv_id": "BV1mJxCzUExK",
+  "url": "https://www.bilibili.com/video/BV1mJxCzUExK/",
+  "content": "在这款游戏中，一旦落单死亡玩家就会被AI替代，它会复制你的长相，甚至用你的声音和行为混入团队，继续和队友交流，并伺机而动刀掉所有玩家。这就是全新多人联机AI生存恐怖游戏，游戏支持中文，支持四人联机。你和小伙伴白天需要乘坐电车一路跑图，搜刮资源，维持电车的行驶，到了夜晚则要躲避怪物和诅咒之语，一旦下车落单就会遭遇恐怖袭击，这时雷亚就会取代你继续伺机而动，因此你们将会时刻陷入对队友真实身份的质疑，为了生存和取得彼此的信任，你们只有不断自证清白，才能和队友一起逃出生天活下去。游戏将于10月27日上线，快叫上你的小伙伴一起冲吧。关注熊喵，玩游戏不迷路。",
+  "title": "",
+  "author": "",
+  "publish_date": "",
+  "source": "Bilibili (via SnapAny + Paraformer)",
+  "language": "zh-CN",
+  "word_count": 275,
+  "extraction_method": "snapany_paraformer",
+  "extraction_timestamp": "2025-11-07T14:39:09.392861",
+  "batch_id": "20251107_063509",
+  "link_id": "bili_req5",
+  "error": null,
+  "summary": {
+    "transcript_summary": {
+      "key_facts": [
+        "FACT: In the game, a dead player is replaced by an AI that mimics their appearance and voice.",
+        "FACT: The AI-controlled replacement continues interacting with teammates and attempts to eliminate them.",
+        "FACT: The game is a multiplayer survival horror title with four-player online support.",
+        "FACT: Players must travel by train during the day to collect resources and keep the vehicle running.",
+        "FACT: At night, players must avoid monsters and dangerous 'cursed words' that trigger attacks.",
+        "FACT: Falling behind or becoming separated from the group results in immediate attack by supernatural forces.",
+        "FACT: The AI replacement can only activate when a player dies while isolated.",
+        "FACT: The game features psychological tension centered on distrust between teammates.",
+        "FACT: Players must constantly prove their identity to maintain trust within the group.",
+        "FACT: The game is set to launch on October 27th and supports Chinese language.",
+        "FACT: The core gameplay revolves around cooperation, deception, and survival under paranoia."
+      ],
+      "key_opinions": [
+        "OPINION: The AI replacement mechanic creates intense psychological horror through constant suspicion.",
+        "OPINION: The blend of teamwork and betrayal makes this game uniquely terrifying compared to others.",
+        "OPINION: The day-night cycle adds strategic depth and escalating tension throughout gameplay.",
+        "OPINION: The voice mimicry feature significantly enhances immersion and fear of deception.",
+        "OPINION: The need for self-verification may frustrate some players but strengthens narrative impact.",
+        "OPINION: The train-based resource management adds a unique layer of cooperative pressure.",
+        "OPINION: The game’s premise is more compelling than typical horror titles due to its social dynamics."
+      ],
+      "key_datapoints": [
+        "DATA: Game launches on October 27th.",
+        "DATA: Supports up to four-player online co-op gameplay.",
+        "DATA: Players must maintain train operation by gathering resources during daytime.",
+        "DATA: Nighttime introduces monsters and cursed speech triggers that cause instant danger.",
+        "DATA: AI replacement activates only after a solo death event.",
+        "DATA: The game includes full Chinese language support.",
+        "DATA: Survival depends on both physical evasion and social trust-building."
+      ],
+      "topic_areas": [
+        "AI deception mechanics",
+        "Multiplayer survival horror",
+        "Day-night cycle gameplay",
+        "Team trust dynamics",
+        "Voice and appearance mimicry",
+        "Resource management",
+        "Psychological tension",
+        "Cooperative escape",
+        "Cursed entities",
+        "Chinese language support"
+      ],
+      "word_count": 1,
+      "total_markers": 25
+    },
+    "comments_summary": {},
+    "created_at": "2025-11-07T14:45:33.161252",
+    "model_used": "qwen-flash"
+  }
+}

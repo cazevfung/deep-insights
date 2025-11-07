@@ -1,0 +1,68 @@
+{
+  "success": true,
+  "bv_id": "BV1SkeuzLE1a",
+  "url": "https://www.bilibili.com/video/BV1SkeuzLE1a/",
+  "content": "在另一个世界有另一个你，它的故事因你而改变。智能体世界开启属于你们的文明旅程。新的冒险，从外貌到性格全由你来创造。Nti省时master精细，现在就让你的世界开始运转。智能体诞生后，你的一句话就能定方向、改路径。升级住所，推进职业，改变命运。想知道智能体在想什么？Game mode观察行为与心理。Data mode查看关系、价格和排名，帮他们做出更高收益的决策。每个智能体各自生活，与他们交谈，聆听内心的回响。翻开面板细读状态、行囊、职业与日记。在这片像素大陆，每个智能体的决定源自多层次的AI框架。从个体到世界，数据记录着文明的每一步成长。更多建筑等你和智能体一步步解锁。唤醒城市，迎接未知的冒险与故事。智能体世界不只是游戏，它是你与另一个自己共同创造文明的开始。",
+  "title": "",
+  "author": "",
+  "publish_date": "",
+  "source": "Bilibili (via SnapAny + Paraformer)",
+  "language": "zh-CN",
+  "word_count": 334,
+  "extraction_method": "snapany_paraformer",
+  "extraction_timestamp": "2025-11-07T17:53:42.697354",
+  "batch_id": "20251107_095239",
+  "link_id": "bili_req2",
+  "error": null,
+  "summary": {
+    "transcript_summary": {
+      "key_facts": [
+        "FACT: In another world, an alternate version of you exists whose story is shaped by your choices.",
+        "FACT: The Agent World allows players to embark on a civilization-building journey together with their digital counterpart.",
+        "FACT: Players can fully customize both appearance and personality of their intelligent agents.",
+        "FACT: After creation, a single player command can redirect the agent's path or determine its direction.",
+        "FACT: Players can upgrade housing, advance careers, and alter life trajectories for their agents.",
+        "FACT: Game Mode enables observation of agent behavior and internal psychological states.",
+        "FACT: Data Mode provides visibility into relationships, prices, rankings, and decision-making data.",
+        "FACT: Each agent lives independently and interacts with the environment based on AI-driven logic.",
+        "FACT: Players can communicate with agents and listen to their inner thoughts and reflections.",
+        "FACT: The agent's status, inventory, profession, and diary are accessible via a detailed panel interface.",
+        "FACT: The world operates on a multi-layered AI framework governing individual and collective decisions.",
+        "FACT: All actions and developments are recorded as data, tracking the evolution of civilization."
+      ],
+      "key_opinions": [
+        "OPINION: The ability to shape another version of oneself creates a deeply personal gaming experience.",
+        "OPINION: The freedom to influence agent destiny through simple commands enhances immersion.",
+        "OPINION: The dual-mode system (Game Mode and Data Mode) offers a unique blend of emotional and analytical engagement.",
+        "OPINION: The emphasis on individual agency within a shared world fosters meaningful player investment.",
+        "OPINION: The pixel-art aesthetic complements the narrative depth and long-term progression.",
+        "OPINION: The integration of psychology and economics in agent behavior makes the simulation feel authentic."
+      ],
+      "key_datapoints": [
+        "DATA: Agents operate under a multi-layered AI framework governing individual and collective decisions.",
+        "DATA: Player actions are tracked as data points that contribute to civilization-wide growth metrics.",
+        "DATA: The game supports incremental unlocking of buildings through player-agent collaboration.",
+        "DATA: Agent behaviors and choices are influenced by internal state, environment, and external data.",
+        "DATA: The system records daily activities, career progress, and relationship dynamics across agents.",
+        "DATA: Player interactions with agents include dialogue, observation, and strategic guidance."
+      ],
+      "topic_areas": [
+        "Agent-based simulation",
+        "Civilization building",
+        "Player-agent interaction",
+        "AI-driven decision-making",
+        "Personalized character creation",
+        "Game and data mode duality",
+        "Narrative-driven gameplay",
+        "Progression systems",
+        "World state tracking",
+        "Pixel art universe"
+      ],
+      "word_count": 3,
+      "total_markers": 24
+    },
+    "comments_summary": {},
+    "created_at": "2025-11-07T17:59:28.976295",
+    "model_used": "qwen-flash"
+  }
+}

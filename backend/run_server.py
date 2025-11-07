@@ -2,10 +2,13 @@
 """
 Run the FastAPI server with startup validation.
 """
+import argparse
+import os
 import uvicorn
 import socket
 import sys
 from pathlib import Path
+from typing import Optional
 from loguru import logger
 
 # Add project root to path
@@ -27,7 +30,7 @@ def check_port_available(host: str, port: int) -> bool:
         return True  # Assume available if we can't check
 
 
-def validate_startup():
+def validate_startup(override_host: Optional[str] = None, override_port: Optional[int] = None):
     """Validate that required services can be initialized."""
     try:
         logger.info("Validating backend startup...")
@@ -38,6 +41,10 @@ def validate_startup():
         
         # Test backend config
         backend_config = config.get_backend_config()
+        if override_host is not None:
+            backend_config['host'] = override_host
+        if override_port is not None:
+            backend_config['port'] = override_port
         logger.info(f"✓ Backend config loaded: host={backend_config['host']}, port={backend_config['port']}")
         
         # Test importing main app (this will initialize services)
@@ -64,6 +71,23 @@ def validate_startup():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run Research Tool backend server")
+    parser.add_argument("--host", type=str, help="Override host to bind")
+    parser.add_argument("--port", type=int, help="Override port to bind")
+    args = parser.parse_args()
+
+    env_host = os.environ.get("BACKEND_HOST_OVERRIDE")
+    env_port = os.environ.get("BACKEND_PORT_OVERRIDE")
+    env_port_int = None
+    if env_port:
+        try:
+            env_port_int = int(env_port)
+        except ValueError:
+            env_port_int = None
+
+    override_host = args.host or env_host
+    override_port = args.port if args.port is not None else env_port_int
+
     # Configure logging
     logger.remove()  # Remove default handler
     
@@ -91,13 +115,21 @@ if __name__ == "__main__":
     logger.info("=" * 60)
     
     # Validate startup before running
-    if not validate_startup():
+    if not validate_startup(override_host=override_host, override_port=override_port):
         logger.error("Startup validation failed. Exiting.")
         sys.exit(1)
     
     try:
         config = Config()
         backend_config = config.get_backend_config()
+        if override_host is not None:
+            backend_config['host'] = override_host
+        if override_port is not None:
+            backend_config['port'] = override_port
+        if override_port is not None:
+            logger.info(f"Using overridden backend port: {backend_config['port']}")
+        if override_host is not None:
+            logger.info(f"Using overridden backend host: {backend_config['host']}")
         
         logger.info(f"Starting server on {backend_config['host']}:{backend_config['port']}")
         logger.info(f"Reload mode: {backend_config['reload']}")

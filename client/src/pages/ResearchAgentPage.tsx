@@ -1,16 +1,205 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import Card from '../components/common/Card'
 import Button from '../components/common/Button'
 import Textarea from '../components/common/Textarea'
-import { useWorkflowStore } from '../stores/workflowStore'
+import { useWorkflowStore, LiveGoal, LivePlanStep } from '../stores/workflowStore'
 import { useWebSocket } from '../hooks/useWebSocket'
+import StreamDisplay from '../components/streaming/StreamDisplay'
+import StreamStructuredView from '../components/streaming/StreamStructuredView'
+import { useStreamState } from '../hooks/useStreamState'
+import ResearchGoalList from '../components/research/ResearchGoalList'
+
+const classNames = (...classes: Array<string | false | null | undefined>) => classes.filter(Boolean).join(' ')
 
 const ResearchAgentPage: React.FC = () => {
-  const { researchAgentStatus, batchId } = useWorkflowStore()
+  const researchAgentStatus = useWorkflowStore((state) => state.researchAgentStatus)
+  const batchId = useWorkflowStore((state) => state.batchId)
+  const setActiveStream = useWorkflowStore((state) => state.setActiveStream)
+  const pinStream = useWorkflowStore((state) => state.pinStream)
+  const unpinStream = useWorkflowStore((state) => state.unpinStream)
   const { sendMessage } = useWebSocket(batchId || '')
   const [userInput, setUserInput] = useState('')
-  const [currentGoalIndex, setCurrentGoalIndex] = useState(0)
   const [currentPlanIndex, setCurrentPlanIndex] = useState(0)
+  const streamState = useStreamState({ inactivityTimeout: 4000 })
+  const activeStreamBuffer = streamState.streamId ? researchAgentStatus.streams.buffers[streamState.streamId] : undefined
+
+  const streamMetadata = useMemo(() => {
+    const base: Record<string, any> = streamState.metadata ? { ...streamState.metadata } : {}
+    if (streamState.startedAt) {
+      base.startedAt = streamState.startedAt
+    }
+    if (streamState.lastTokenAt) {
+      base.lastTokenAt = streamState.lastTokenAt
+    }
+    if (streamState.endedAt && !streamState.isStreaming) {
+      base.endedAt = streamState.endedAt
+    }
+    if (activeStreamBuffer?.tokenCount) {
+      base.tokens = activeStreamBuffer.tokenCount
+    }
+    if (activeStreamBuffer?.status) {
+      base.status = activeStreamBuffer.status
+    }
+    return Object.keys(base).length > 0 ? base : null
+  }, [streamState.metadata, streamState.startedAt, streamState.lastTokenAt, streamState.endedAt, streamState.isStreaming, activeStreamBuffer?.tokenCount, activeStreamBuffer?.status])
+
+  const goalItems = useMemo(() => {
+    const orderedIds = researchAgentStatus.goalOrder
+    if (orderedIds.length > 0) {
+      const liveGoals = orderedIds
+        .map((id) => researchAgentStatus.liveGoals[id])
+        .filter((goal): goal is NonNullable<typeof goal> => Boolean(goal))
+      if (liveGoals.length > 0) {
+        return liveGoals
+      }
+    }
+
+    if (researchAgentStatus.goals && researchAgentStatus.goals.length > 0) {
+      return researchAgentStatus.goals.map((goal, index) => ({
+        id: goal.id ?? index + 1,
+        goal_text: goal.goal_text,
+        uses: goal.uses,
+        status: 'ready' as LiveGoal['status'],
+      }))
+    }
+
+    return []
+  }, [researchAgentStatus.goalOrder, researchAgentStatus.liveGoals, researchAgentStatus.goals])
+
+  const displayGoals = useMemo(() => {
+    if (goalItems.length > 0) {
+      return goalItems
+    }
+
+    const phaseKey = streamState.phase || activeStreamBuffer?.phase || activeStreamBuffer?.metadata?.phase_key
+    if (streamState.isStreaming && phaseKey && phaseKey.toLowerCase().includes('phase1')) {
+      return Array.from({ length: 3 }, (_, idx) => ({
+        id: idx + 1,
+        goal_text: '',
+        status: 'streaming' as LiveGoal['status'],
+      } as LiveGoal))
+    }
+
+    return []
+  }, [goalItems, streamState.isStreaming, streamState.phase, activeStreamBuffer?.phase, activeStreamBuffer?.metadata?.phase_key])
+
+  const planEntries = useMemo(() => {
+    const orderedIds = researchAgentStatus.planOrder
+    if (orderedIds.length > 0) {
+      const liveSteps = orderedIds
+        .map((id) => researchAgentStatus.livePlanSteps[id])
+        .filter((step): step is NonNullable<typeof step> => Boolean(step))
+      if (liveSteps.length > 0) {
+        return liveSteps
+      }
+    }
+
+    if (researchAgentStatus.plan && researchAgentStatus.plan.length > 0) {
+      return researchAgentStatus.plan.map((step) => ({
+        step_id: step.step_id,
+        goal: step.goal,
+        required_data: step.required_data,
+        chunk_strategy: step.chunk_strategy,
+        notes: step.notes,
+        status: 'ready' as LivePlanStep['status'],
+      }))
+    }
+
+    return []
+  }, [researchAgentStatus.planOrder, researchAgentStatus.livePlanSteps, researchAgentStatus.plan])
+
+  const displayPlanEntries = useMemo(() => {
+    if (planEntries.length > 0) {
+      return planEntries
+    }
+
+    const phaseKey = streamState.phase || activeStreamBuffer?.phase || activeStreamBuffer?.metadata?.phase_key
+    if (streamState.isStreaming && phaseKey && phaseKey.toLowerCase().includes('phase2')) {
+      return Array.from({ length: 3 }, (_, idx) => ({
+        step_id: idx + 1,
+        goal: '',
+        status: 'streaming' as LivePlanStep['status'],
+      } as LivePlanStep))
+    }
+
+    return []
+  }, [planEntries, streamState.isStreaming, streamState.phase, activeStreamBuffer?.phase, activeStreamBuffer?.metadata?.phase_key])
+
+  const streamToolbar = useMemo(() => {
+    const { order, buffers, pinned } = researchAgentStatus.streams
+    if (!order || order.length === 0) {
+      return null
+    }
+    const pinnedSet = new Set(pinned)
+    const sortedIds = [
+      ...order.filter((id) => pinnedSet.has(id)),
+      ...order.filter((id) => !pinnedSet.has(id)),
+    ]
+
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        {sortedIds.map((id) => {
+          const buffer = buffers[id]
+          if (!buffer) {
+            return null
+          }
+          const label =
+            buffer.metadata?.title ||
+            buffer.metadata?.component ||
+            buffer.metadata?.link_id ||
+            buffer.phase ||
+            id.split(':').slice(-2).join(':')
+          const isActive = streamState.streamId === id
+          const isPinned = pinnedSet.has(id)
+          const statusClass =
+            buffer.status === 'error'
+              ? 'bg-red-500'
+              : buffer.status === 'completed'
+              ? 'bg-neutral-400'
+              : 'bg-primary-500 animate-pulse'
+
+          return (
+            <button
+              key={id}
+              type="button"
+              className={classNames(
+                'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs transition',
+                isActive ? 'border-primary-300 bg-primary-50 text-primary-700' : 'border-neutral-200 bg-white text-neutral-600 hover:border-primary-200 hover:text-primary-600'
+              )}
+              onClick={() => setActiveStream(id)}
+            >
+              <span className={classNames('h-2 w-2 rounded-full', statusClass)} aria-hidden="true" />
+              <span className="truncate max-w-[120px]" title={label}>
+                {label}
+              </span>
+              {typeof buffer.tokenCount === 'number' && buffer.tokenCount > 0 && (
+                <span className="text-[10px] text-neutral-400">{buffer.tokenCount}</span>
+              )}
+              <button
+                type="button"
+                className={classNames(
+                  'ml-1 text-xs transition',
+                  isPinned ? 'text-amber-500 hover:text-amber-600' : 'text-neutral-300 hover:text-neutral-500'
+                )}
+                onClick={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  if (isPinned) {
+                    unpinStream(id)
+                  } else {
+                    pinStream(id)
+                  }
+                }}
+                aria-label={isPinned ? '取消固定' : '固定流'}
+              >
+                {isPinned ? '★' : '☆'}
+              </button>
+            </button>
+          )
+        })}
+      </div>
+    )
+  }, [researchAgentStatus.streams, pinStream, unpinStream, setActiveStream, streamState.streamId])
 
   const handleSendInput = () => {
     // Debug logging
@@ -78,58 +267,18 @@ const ResearchAgentPage: React.FC = () => {
     })
   }
 
-  // Reset indices when goals/plan change
   useEffect(() => {
-    if (researchAgentStatus.goals && researchAgentStatus.goals.length > 0) {
-      setCurrentGoalIndex((prev) => {
-        // Only reset if current index is out of bounds
-        return prev >= researchAgentStatus.goals!.length ? 0 : prev
-      })
-    } else {
-      setCurrentGoalIndex(0)
-    }
-  }, [researchAgentStatus.goals])
-
-  useEffect(() => {
-    if (researchAgentStatus.plan && researchAgentStatus.plan.length > 0) {
-      setCurrentPlanIndex((prev) => {
-        // Only reset if current index is out of bounds
-        return prev >= researchAgentStatus.plan!.length ? 0 : prev
-      })
+    if (displayPlanEntries.length > 0) {
+      setCurrentPlanIndex((prev) => (prev >= displayPlanEntries.length ? 0 : prev))
     } else {
       setCurrentPlanIndex(0)
     }
-  }, [researchAgentStatus.plan])
-
-  // Navigation functions for goals
-  const goToNextGoal = () => {
-    if (researchAgentStatus.goals) {
-      setCurrentGoalIndex((prev) =>
-        prev < researchAgentStatus.goals!.length - 1 ? prev + 1 : prev
-      )
-    }
-  }
-
-  const goToPreviousGoal = () => {
-    setCurrentGoalIndex((prev) => (prev > 0 ? prev - 1 : 0))
-  }
-
-  const goToGoal = (index: number) => {
-    if (
-      researchAgentStatus.goals &&
-      index >= 0 &&
-      index < researchAgentStatus.goals.length
-    ) {
-      setCurrentGoalIndex(index)
-    }
-  }
+  }, [displayPlanEntries.length])
 
   // Navigation functions for plan
   const goToNextPlan = () => {
-    if (researchAgentStatus.plan) {
-      setCurrentPlanIndex((prev) =>
-        prev < researchAgentStatus.plan!.length - 1 ? prev + 1 : prev
-      )
+    if (displayPlanEntries.length > 0) {
+      setCurrentPlanIndex((prev) => (prev < displayPlanEntries.length - 1 ? prev + 1 : prev))
     }
   }
 
@@ -138,11 +287,7 @@ const ResearchAgentPage: React.FC = () => {
   }
 
   const goToPlan = (index: number) => {
-    if (
-      researchAgentStatus.plan &&
-      index >= 0 &&
-      index < researchAgentStatus.plan.length
-    ) {
+    if (index >= 0 && index < displayPlanEntries.length) {
       setCurrentPlanIndex(index)
     }
   }
@@ -156,19 +301,6 @@ const ResearchAgentPage: React.FC = () => {
         e.target instanceof HTMLTextAreaElement
       ) {
         return
-      }
-
-      // Goals navigation (Ctrl + Arrow keys)
-      if (researchAgentStatus.goals && researchAgentStatus.goals.length > 0) {
-        if (e.key === 'ArrowRight' && e.ctrlKey) {
-          e.preventDefault()
-          setCurrentGoalIndex((prev) =>
-            prev < researchAgentStatus.goals!.length - 1 ? prev + 1 : prev
-          )
-        } else if (e.key === 'ArrowLeft' && e.ctrlKey) {
-          e.preventDefault()
-          setCurrentGoalIndex((prev) => (prev > 0 ? prev - 1 : 0))
-        }
       }
 
       // Plan navigation (Shift + Arrow keys)
@@ -187,7 +319,7 @@ const ResearchAgentPage: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [researchAgentStatus.goals, researchAgentStatus.plan])
+  }, [researchAgentStatus.plan])
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -233,90 +365,20 @@ const ResearchAgentPage: React.FC = () => {
             </div>
           )}
 
-          {/* Goals Display - Single View with Navigation */}
+          {/* Goals Display - List View */}
           {researchAgentStatus.goals && researchAgentStatus.goals.length > 0 && (
             <div className="bg-neutral-light-bg p-6 rounded-lg border border-neutral-300">
-              <h3 className="text-lg font-semibold text-neutral-900 mb-3 shiny-text-hover">
-                研究目标
-              </h3>
-              
-              {/* Navigation Controls */}
               <div className="flex items-center justify-between mb-4">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={goToPreviousGoal}
-                  disabled={currentGoalIndex === 0}
-                  aria-label="上一个目标"
-                >
-                  ← 上一个
-                </Button>
-                
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-neutral-700 shiny-text-pulse">
-                    目标 {currentGoalIndex + 1} / {researchAgentStatus.goals.length}
-                  </span>
-                  {researchAgentStatus.goals.length > 1 && (
-                    <select
-                      value={currentGoalIndex}
-                      onChange={(e) => goToGoal(Number(e.target.value))}
-                      className="text-sm border border-neutral-300 rounded px-2 py-1 bg-neutral-white text-neutral-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      aria-label="选择目标"
-                    >
-                      {researchAgentStatus.goals.map((_, index) => (
-                        <option key={index} value={index}>
-                          目标 {index + 1}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-                
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={goToNextGoal}
-                  disabled={currentGoalIndex === researchAgentStatus.goals.length - 1}
-                  aria-label="下一个目标"
-                >
-                  下一个 →
-                </Button>
+                <h3 className="text-lg font-semibold text-neutral-900 shiny-text-hover">研究目标</h3>
+                <span className="text-sm text-neutral-500">一次性浏览所有目标，提升审阅效率</span>
               </div>
 
-              {/* Current Goal Display */}
-              {researchAgentStatus.goals[currentGoalIndex] && (
-                <div className="bg-neutral-white rounded-lg border border-neutral-200 p-4">
-                  <div className="flex items-start gap-3">
-                    <span className="text-primary-500 font-medium text-lg">
-                      {researchAgentStatus.goals[currentGoalIndex].id}.
-                    </span>
-                    <div className="flex-1">
-                      <p className="text-neutral-800 text-base leading-relaxed">
-                        {researchAgentStatus.goals[currentGoalIndex].goal_text}
-                      </p>
-                      {researchAgentStatus.goals[currentGoalIndex].uses &&
-                        researchAgentStatus.goals[currentGoalIndex].uses!.length > 0 && (
-                          <p className="text-sm text-neutral-500 mt-2">
-                            <span className="font-medium">用途:</span>{' '}
-                            {researchAgentStatus.goals[currentGoalIndex].uses!.join(', ')}
-                          </p>
-                        )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Keyboard hint */}
-              {researchAgentStatus.goals.length > 1 && (
-                <p className="text-xs text-neutral-400 mt-2 text-center">
-                  提示: 使用 Ctrl + ←/→ 键快速导航
-                </p>
-              )}
+              <ResearchGoalList goals={displayGoals} />
             </div>
           )}
 
           {/* Plan Display - Single View with Navigation */}
-          {researchAgentStatus.plan && researchAgentStatus.plan.length > 0 && (
+          {displayPlanEntries.length > 0 && (
             <div className="bg-neutral-light-bg p-6 rounded-lg border border-neutral-300">
               <h3 className="text-lg font-semibold text-neutral-900 mb-3 shiny-text-hover">
                 研究计划
@@ -336,16 +398,16 @@ const ResearchAgentPage: React.FC = () => {
                 
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-neutral-700 shiny-text-pulse">
-                    步骤 {currentPlanIndex + 1} / {researchAgentStatus.plan.length}
+                    步骤 {currentPlanIndex + 1} / {displayPlanEntries.length}
                   </span>
-                  {researchAgentStatus.plan.length > 1 && (
+                  {displayPlanEntries.length > 1 && (
                     <select
                       value={currentPlanIndex}
                       onChange={(e) => goToPlan(Number(e.target.value))}
                       className="text-sm border border-neutral-300 rounded px-2 py-1 bg-neutral-white text-neutral-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
                       aria-label="选择步骤"
                     >
-                      {researchAgentStatus.plan.map((step, index) => (
+                      {displayPlanEntries.map((step, index) => (
                         <option key={step.step_id} value={index}>
                           步骤 {step.step_id}
                         </option>
@@ -358,7 +420,7 @@ const ResearchAgentPage: React.FC = () => {
                   variant="secondary"
                   size="sm"
                   onClick={goToNextPlan}
-                  disabled={currentPlanIndex === researchAgentStatus.plan.length - 1}
+                  disabled={currentPlanIndex === displayPlanEntries.length - 1}
                   aria-label="下一个步骤"
                 >
                   下一个 →
@@ -366,40 +428,44 @@ const ResearchAgentPage: React.FC = () => {
               </div>
 
               {/* Current Step Display */}
-              {researchAgentStatus.plan[currentPlanIndex] && (
+              {displayPlanEntries[currentPlanIndex] && (() => {
+                const currentPlan = displayPlanEntries[currentPlanIndex]
+                if (!currentPlan) return null
+                return (
                 <div className="bg-neutral-white rounded-lg border border-neutral-200 p-4">
                   <div className="flex items-start gap-3">
                     <span className="text-primary-500 font-semibold text-lg">
-                      步骤 {researchAgentStatus.plan[currentPlanIndex].step_id}
+                      步骤 {currentPlan.step_id}
                     </span>
                     <div className="flex-1">
                       <p className="font-medium text-neutral-900 text-base leading-relaxed">
-                        {researchAgentStatus.plan[currentPlanIndex].goal}
+                        {currentPlan.goal || '正在生成研究步骤…'}
                       </p>
-                      {researchAgentStatus.plan[currentPlanIndex].required_data && (
+                      {currentPlan.required_data && (
                         <p className="text-sm text-neutral-600 mt-2">
                           <span className="font-medium">需要数据:</span>{' '}
-                          {researchAgentStatus.plan[currentPlanIndex].required_data}
+                          {currentPlan.required_data}
                         </p>
                       )}
-                      {researchAgentStatus.plan[currentPlanIndex].chunk_strategy && (
+                      {currentPlan.chunk_strategy && (
                         <p className="text-sm text-neutral-600 mt-1">
                           <span className="font-medium">处理方式:</span>{' '}
-                          {researchAgentStatus.plan[currentPlanIndex].chunk_strategy}
+                          {currentPlan.chunk_strategy}
                         </p>
                       )}
-                      {researchAgentStatus.plan[currentPlanIndex].notes && (
+                      {currentPlan.notes && (
                         <p className="text-sm text-neutral-500 mt-2 italic border-l-2 border-neutral-300 pl-3">
-                          {researchAgentStatus.plan[currentPlanIndex].notes}
+                          {currentPlan.notes}
                         </p>
                       )}
                     </div>
                   </div>
                 </div>
-              )}
+                )
+              })()}
 
               {/* Keyboard hint */}
-              {researchAgentStatus.plan.length > 1 && (
+              {displayPlanEntries.length > 1 && (
                 <p className="text-xs text-neutral-400 mt-2 text-center">
                   提示: 使用 Shift + ←/→ 键快速导航
                 </p>
@@ -407,14 +473,17 @@ const ResearchAgentPage: React.FC = () => {
             </div>
           )}
 
-          {/* AI Response Display - Only show when there's content */}
-          {researchAgentStatus.streamBuffer && (
-            <div className="bg-neutral-white p-6 rounded-lg border border-neutral-300 min-h-64">
-              <div className="font-mono text-sm whitespace-pre-wrap">
-                {researchAgentStatus.streamBuffer}
-              </div>
-            </div>
-          )}
+          <StreamDisplay
+            content={streamState.content}
+            phase={streamState.phase}
+            metadata={streamMetadata}
+            isStreaming={streamState.isStreaming}
+            subtitle={researchAgentStatus.currentAction || undefined}
+            secondaryView={<StreamStructuredView streamId={streamState.streamId ?? undefined} />}
+            viewMode="tabs"
+            collapsible
+            toolbar={streamToolbar}
+          />
 
           {/* Current Action */}
           {researchAgentStatus.currentAction && (
@@ -445,7 +514,7 @@ const ResearchAgentPage: React.FC = () => {
                       </p>
                       <div className="flex flex-wrap gap-2">
                         {researchAgentStatus.userInputRequired.data.choices.map(
-                          (choice, idx) => (
+                          (choice: string, idx: number) => (
                             <Button
                               key={idx}
                               variant="secondary"

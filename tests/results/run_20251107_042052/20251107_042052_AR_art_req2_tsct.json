@@ -1,0 +1,66 @@
+{
+  "success": true,
+  "url": "https://arxiv.org/abs/2312.04547",
+  "content": "Computer Science > Computer Vision and Pattern Recognition\n[Submitted on 7 Dec 2023]\nDigital Life Project: Autonomous 3D Characters with Social Intelligence\nZhongang Cai, Jianping Jiang, Zhongfei Qing, Xinying Guo, Mingyuan Zhang, Zhengyu Lin, Haiyi Mei, Chen Wei, Ruisi Wang, Wanqi Yin, Xiangyu Fan, Han Du, Liang Pan, Peng Gao, Zhitao Yang, Yang Gao, Jiaqi Li, Tianxiang Ren, Yukun Wei, Xiaogang Wang, Chen Change Loy, Lei Yang, Ziwei Liu\nIn this work, we present Digital Life Project, a framework utilizing language as the universal medium to build autonomous 3D characters, who are capable of engaging in social interactions and expressing with articulated body motions, thereby simulating life in a digital environment. Our framework comprises two primary components: 1) SocioMind: a meticulously crafted digital brain that models personalities with systematic few-shot exemplars, incorporates a reflection process based on psychology principles, and emulates autonomy by initiating dialogue topics; 2) MoMat-MoGen: a text-driven motion synthesis paradigm for controlling the character's digital body. It integrates motion matching, a proven industry technique to ensure motion quality, with cutting-edge advancements in motion generation for diversity. Extensive experiments demonstrate that each module achieves state-of-the-art performance in its respective domain. Collectively, they enable virtual characters to initiate and sustain dialogues autonomously, while evolving their socio-psychological states. Concurrently, these characters can perform contextually relevant bodily movements. Additionally, a motion captioning module further allows the virtual character to recognize and appropriately respond to human players' actions. Homepage: this https URL\nComments:\tHomepage: this https URL\nSubjects:\tComputer Vision and Pattern Recognition (cs.CV); Artificial Intelligence (cs.AI); Graphics (cs.GR); Human-Computer Interaction (cs.HC)\nCite as:\tarXiv:2312.04547 [cs.CV]\n(or arXiv:2312.04547v1 [cs.CV] for this version)\nhttps://doi.org/10.48550/arXiv.2312.04547\nFocus to learn more\nSubmission history\nFrom: Zhongang Cai [view email]\n[v1] Thu, 7 Dec 2023 18:58:59 UTC (31,208 KB)\nAccess Paper:\nView PDF\nHTML (experimental)\nTeX Source\nview license\nCurrent browse context:\ncs.CV\n< prev   |   next >\nnew | recent | 2023-12\nChange to browse by:\ncs\ncs.AI\ncs.GR\ncs.HC\nReferences & Citations\nNASA ADS\nGoogle Scholar\nSemantic Scholar\nExport BibTeX Citation\nBookmark\nBibliographic Tools\nBibliographic and Citation Tools\nBibliographic Explorer Toggle\nBibliographic Explorer (What is the Explorer?)\nConnected Papers Toggle\nConnected Papers (What is Connected Papers?)\nLitmaps Toggle\nLitmaps (What is Litmaps?)\nscite.ai Toggle\nscite Smart Citations (What are Smart Citations?)\nCode, Data, Media\nDemos\nRelated Papers\nAbout arXivLabs\nWhich authors of this paper are endorsers? | Disable MathJax (What is MathJax?)",
+  "title": "Computer Science > Computer Vision and Pattern Recognition",
+  "author": "Zhongang Cai, Jianping Jiang, Zhongfei Qing, Xinying Guo, Mingyuan Zhang, Zhengyu Lin, Haiyi Mei, Chen Wei, Ruisi Wang, Wanqi Yin, Xiangyu Fan, Han Du, Liang Pan, Peng Gao, Zhitao Yang, Yang Gao, Jiaqi Li, Tianxiang Ren, Yukun Wei, Xiaogang Wang, Chen Change Loy, Lei Yang, Ziwei Liu",
+  "publish_date": "[Submitted on 7 Dec 2023]",
+  "source": "arxiv.org",
+  "language": "auto",
+  "word_count": 396,
+  "extraction_method": "article_playwright",
+  "extraction_timestamp": "2025-11-07T12:21:15.544732",
+  "batch_id": "20251107_042052",
+  "link_id": "art_req2",
+  "error": null,
+  "article_id": "16917ac57908",
+  "summary": {
+    "transcript_summary": {
+      "key_facts": [
+        "FACT: The Digital Life Project introduces a framework for creating autonomous 3D characters using language as a universal medium.",
+        "FACT: SocioMind is a digital brain that models personalities using few-shot exemplars and incorporates psychological reflection processes.",
+        "FACT: SocioMind enables characters to initiate dialogue topics, simulating autonomy in social interactions.",
+        "FACT: MoMat-MoGen is a text-driven motion synthesis system combining motion matching and advanced motion generation techniques.",
+        "FACT: Motion matching ensures high-quality body movements, while motion generation adds diversity to character actions.",
+        "FACT: The framework allows virtual characters to sustain autonomous dialogues while evolving their socio-psychological states.",
+        "FACT: Characters perform contextually relevant bodily movements in response to social interactions.",
+        "FACT: A motion captioning module enables characters to recognize and respond to human players' actions.",
+        "FACT: Extensive experiments show both SocioMind and MoMat-MoGen achieve state-of-the-art performance in their domains.",
+        "FACT: The project integrates artificial intelligence, computer vision, graphics, and human-computer interaction research areas."
+      ],
+      "key_opinions": [
+        "OPINION: Language should serve as the primary interface for enabling rich social behavior in digital characters.",
+        "OPINION: Psychological principles are essential for modeling believable personality dynamics in AI agents.",
+        "OPINION: Autonomy in virtual characters must go beyond reactive responses to include proactive social engagement.",
+        "OPINION: Motion quality and diversity are equally critical for creating immersive and lifelike digital beings.",
+        "OPINION: The integration of dialogue and physical expression is key to achieving believable social intelligence in avatars.",
+        "OPINION: Current virtual agents lack true emotional and social depth, which this framework aims to address."
+      ],
+      "key_datapoints": [
+        "DATA: The framework was submitted on December 7, 2023, under arXiv ID 2312.04547 [cs.CV].",
+        "DATA: The paper has been published with a file size of 31,208 KB in its initial version.",
+        "DATA: The project spans multiple domains: Computer Vision (cs.CV), Artificial Intelligence (cs.AI), Graphics (cs.GR), and Human-Computer Interaction (cs.HC).",
+        "DATA: The DOI assigned is 10.48550/arXiv.2312.04547.",
+        "DATA: The framework includes two main modules: SocioMind and MoMat-MoGen.",
+        "DATA: The motion captioning module enables recognition of human player actions and appropriate responses.",
+        "DATA: The system demonstrates state-of-the-art performance in both dialogue autonomy and motion synthesis tasks."
+      ],
+      "topic_areas": [
+        "Autonomous 3D characters",
+        "Social intelligence in AI",
+        "Text-driven motion synthesis",
+        "Personality modeling in agents",
+        "Human-AI interaction",
+        "Motion captioning",
+        "Dialogue initiation by AI",
+        "Psychology-based AI design",
+        "Cross-domain AI integration"
+      ],
+      "word_count": 396,
+      "total_markers": 23
+    },
+    "comments_summary": {},
+    "created_at": "2025-11-07T12:27:10.566534",
+    "model_used": "qwen-flash"
+  }
+}

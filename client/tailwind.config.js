@@ -1,3 +1,5 @@
+import plugin from 'tailwindcss/plugin'
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
@@ -86,10 +88,93 @@ export default {
         'semibold': '600',
         'bold': '700',
       },
+      keyframes: {
+        'stream-pulse': {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.45' },
+        },
+        'stream-fade-in': {
+          '0%': { opacity: '0', transform: 'translateY(-4px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+      },
+      animation: {
+        'stream-pulse': 'stream-pulse 1.8s ease-in-out infinite',
+        'stream-fade-in': 'stream-fade-in 0.2s ease-out',
+      },
     },
   },
   plugins: [
     require('@tailwindcss/typography'),
+    plugin(({ addComponents, theme }) => {
+      addComponents({
+        '.stream-display-container': {
+          backgroundColor: theme('colors.neutral.white'),
+          borderRadius: theme('borderRadius.lg'),
+          border: `1px solid ${theme('colors.neutral.300')}`,
+          boxShadow: theme('boxShadow.sm'),
+          padding: theme('spacing.6'),
+        },
+        '.stream-content': {
+          position: 'relative',
+          backgroundColor: theme('colors.neutral.light-bg'),
+          borderRadius: theme('borderRadius.lg'),
+          padding: theme('spacing.4'),
+        },
+        '.stream-content-text': {
+          fontFamily: Array.isArray(theme('fontFamily.mono'))
+            ? theme('fontFamily.mono').join(',')
+            : theme('fontFamily.mono'),
+          fontSize: theme('fontSize.sm'),
+          lineHeight: theme('lineHeight.relaxed'),
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          color: theme('colors.neutral.800'),
+        },
+        '.stream-content-preview': {
+          fontFamily: Array.isArray(theme('fontFamily.mono'))
+            ? theme('fontFamily.mono').join(',')
+            : theme('fontFamily.mono'),
+          fontSize: theme('fontSize.sm'),
+          lineHeight: theme('lineHeight.relaxed'),
+          color: theme('colors.neutral.500'),
+        },
+        '.stream-structured': {
+          backgroundColor: theme('colors.neutral.light-bg'),
+          borderRadius: theme('borderRadius.lg'),
+          padding: theme('spacing.4'),
+          overflow: 'auto',
+        },
+        '.stream-structured-view': {
+          fontSize: theme('fontSize.sm'),
+          lineHeight: theme('lineHeight.relaxed'),
+          color: theme('colors.neutral.700'),
+        },
+        '.stream-tab': {
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: theme('spacing.1'),
+          padding: `${theme('spacing.1')} ${theme('spacing.3')}`,
+          borderRadius: theme('borderRadius.full'),
+          backgroundColor: 'transparent',
+          color: theme('colors.neutral.500'),
+          fontSize: theme('fontSize.sm'),
+          transitionProperty: 'background-color, color',
+          transitionDuration: theme('transitionDuration.150'),
+          cursor: 'pointer',
+          fontWeight: theme('fontWeight.medium'),
+          '&:hover': {
+            backgroundColor: theme('colors.neutral.300'),
+            color: theme('colors.neutral.600'),
+          },
+        },
+        '.stream-tab-active': {
+          backgroundColor: theme('colors.primary.100'),
+          color: theme('colors.primary.500'),
+          cursor: 'pointer',
+        },
+      })
+    }),
   ],
 }
 
