@@ -434,6 +434,14 @@ class YouTubeScraper(BaseScraper):
             
         except Exception as e:
             logger.error(f"[YouTube] Extraction failed: {e}")
+            error_message = str(e)
+            if "ERR_CONNECTION_TIMED_OUT" in error_message:
+                hint = (
+                    "Unable to reach YouTube. Check your network connectivity or configure a proxy "
+                    "under browser.proxy in config.yaml."
+                )
+                logger.error(f"[YouTube] Network hint: {hint}")
+                error_message = f"{error_message} ({hint})"
             # Try to extract video_id for error result if not already extracted
             if video_id is None:
                 try:
@@ -456,6 +464,6 @@ class YouTubeScraper(BaseScraper):
                 'extraction_timestamp': datetime.now().isoformat(),
                 'batch_id': batch_id,
                 'link_id': link_id,
-                'error': str(e)
+                'error': error_message
             }
 

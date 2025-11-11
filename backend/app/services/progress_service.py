@@ -84,6 +84,53 @@ class ProgressService:
             logger.info(f"Pre-registered {registered_count} expected links for batch {batch_id} (expected total: {registered_count})")
             return registered_count
     
+    def _get_or_recover_expected_total(self, batch_id: str, *, minimum: int = 0) -> int:
+        """
+        Retrieve expected_total for a batch, recovering from registered data when needed.
+
+        Args:
+            batch_id: Batch identifier
+            minimum: Optional lower bound to enforce (e.g., completed_count)
+
+        Returns:
+            Expected total for the batch (may be recovered from registered links)
+        """
+        stored = self.expected_totals.get(batch_id)
+
+        if stored is not None and stored > 0 and stored >= minimum:
+            return stored
+
+        links = self.link_states.get(batch_id, {})
+        recovered = max(len(links), minimum)
+
+        if recovered > 0:
+            if stored in (None, 0):
+                logger.warning(
+                    f"[RECOVER] expected_total missing or zero for batch '{batch_id}'. "
+                    f"Recovering value from registered links (count={recovered})."
+                )
+            elif recovered > stored:
+                logger.warning(
+                    f"[RECOVER] expected_total {stored} too low for batch '{batch_id}'. "
+                    f"Adjusting to {recovered} based on registered links."
+                )
+
+            self.expected_totals[batch_id] = recovered
+            return recovered
+
+        # No registered data to recover from; keep stored value (0 or None)
+        if minimum > 0 and stored not in (None, 0):
+            adjusted = max(stored, minimum)
+            if adjusted != stored:
+                logger.warning(
+                    f"[RECOVER] Raising expected_total for batch '{batch_id}' from {stored} to {adjusted} "
+                    f"to satisfy minimum requirement ({minimum})."
+                )
+                self.expected_totals[batch_id] = adjusted
+            return adjusted
+
+        return stored or 0
+
     def _normalize_status(self, status: str) -> str:
         """
         Normalize status format to kebab-case for frontend compatibility.
@@ -295,7 +342,7 @@ class ProgressService:
         links = self.link_states[batch_id]
         
         # Get expected total (set at initialization) - this is the actual target
-        expected_total = self.expected_totals.get(batch_id, 0)
+        expected_total = self._get_or_recover_expected_total(batch_id)
         total_registered = len(links)
         
         # Log if expected_total is not set (for debugging)
@@ -356,7 +403,15 @@ class ProgressService:
         
         # Broadcast - ALWAYS include expected_total, even if 0 (frontend needs to know it's not set yet)
         # Force expected_total to be an integer (not None) - use 0 if not set
-        expected_total_value = int(expected_total) if expected_total else 0
+        # Never broadcast 0 if we have registered links - fall back to registered count
+        fallback_total = total_registered if total_registered > 0 else 0
+        expected_total_value = int(expected_total) if expected_total and expected_total > 0 else fallback_total
+        if expected_total_value > 0 and self.expected_totals.get(batch_id) != expected_total_value:
+            logger.debug(
+                f"[RECOVER] Syncing expected_total for batch {batch_id}: "
+                f"stored={self.expected_totals.get(batch_id)}, broadcast={expected_total_value}"
+            )
+            self.expected_totals[batch_id] = expected_total_value
         
         status_message = {
             'type': 'scraping:status',
@@ -728,13 +783,18 @@ class ProgressService:
 
         # Absolute fallback: if expected_total is still zero (or less) but we have real results,
         # promote the larger of registered_count and total_final as the expected total.
-        if expected_total <= 0 and max(registered_count, total_final) > 0:
-            adjusted_total = max(registered_count, total_final)
+        fallback_floor = max(registered_count, total_final)
+        if expected_total <= 0 and fallback_floor > 0:
+            adjusted_total = fallback_floor
             logger.warning(
                 f"Expected total remained {expected_total} for batch '{batch_id}' despite {registered_count} registered links "
                 f"and {total_final} final entries. Adopting {adjusted_total} as expected total."
             )
             expected_total = adjusted_total
+        elif expected_total < fallback_floor:
+            expected_total = self._get_or_recover_expected_total(
+                batch_id, minimum=fallback_floor
+            )
         elif expected_total > 0 and total_final > expected_total:
             logger.warning(
                 f"Final count {total_final} exceeds expected total {expected_total} for batch '{batch_id}'. "
@@ -773,34 +833,53 @@ class ProgressService:
                         'progress': overall_progress
                     })
         
-        # Calculate completion rate
-        completion_rate = (total_final / expected_total) if expected_total > 0 else 0.0
+        # Calculate completion rate (always use non-zero denominator when data exists)
+        effective_expected_total = expected_total if expected_total > 0 else fallback_floor
+        completion_rate = (total_final / effective_expected_total) if effective_expected_total > 0 else 0.0
         is_100_percent = completion_rate >= 1.0  # Allow for floating point precision
+
+        if effective_expected_total == 0:
+            logger.error(
+                f"[CONFIRM] expected_total remains {expected_total} for batch '{batch_id}' "
+                f"after reconciliation. registered_count={registered_count}, total_final={total_final}, "
+                f"completed={completed_count}, failed={failed_count}, pending={pending_count}, "
+                f"stored_expected_total={stored_expected_total}"
+            )
+            if links:
+                logger.error(
+                    f"[CONFIRM] Link states snapshot for batch '{batch_id}': "
+                    f"{ {link_id: { 'status': self._normalize_status(state.get('status', 'pending')), 'overall_progress': state.get('overall_progress'), 'current_stage': state.get('current_stage') } for link_id, state in list(links.items())[:10]} }"
+                )
+        
+        # Determine the final expected_total to use in result and confirmation logic
+        result_expected_total = expected_total if expected_total > 0 else effective_expected_total
         
         # Enhanced confirmation check: all expected processes registered AND all have final status AND 100% completion
+        expected_goal = result_expected_total
         confirmed = (
-            registered_count >= expected_total and
+            expected_goal > 0 and
+            registered_count >= expected_goal and
             all_have_final_status and
             is_100_percent and
-            total_final == expected_total  # Explicit equality check
+            total_final == expected_goal  # Explicit equality check
         )
         
         # Detailed logging for debugging
         logger.info(f"[CONFIRM] Checking completion for batch {batch_id}")
         logger.info(
-            f"[CONFIRM] Expected total: {expected_total}, Registered: {registered_count}, "
+            f"[CONFIRM] Expected total: {result_expected_total}, Registered: {registered_count}, "
             f"Completed: {completed_count}, Failed: {failed_count}, "
             f"In Progress: {in_progress_count}, Pending: {pending_count}"
         )
         if non_final_statuses:
             logger.warning(f"[CONFIRM] Non-final statuses for batch {batch_id}: {non_final_statuses}")
-        
+
         result = {
             'confirmed': confirmed,
             'completion_rate': completion_rate,  # 0.0 to 1.0
             'completion_percentage': completion_rate * 100.0,  # 0.0 to 100.0
             'is_100_percent': is_100_percent,
-            'expected_total': expected_total,
+            'expected_total': result_expected_total,
             'registered_count': registered_count,
             'completed_count': completed_count,
             'failed_count': failed_count,
@@ -817,14 +896,14 @@ class ProgressService:
         if confirmed:
             logger.info(
                 f"Scraping completion CONFIRMED (100%) for batch '{batch_id}': "
-                f"{completion_percentage:.1f}% ({total_final}/{expected_total}) - "
+                f"{completion_percentage:.1f}% ({total_final}/{result_expected_total}) - "
                 f"{completed_count} completed, {failed_count} failed"
             )
         else:
             logger.info(
                 f"Scraping completion NOT confirmed for batch '{batch_id}': "
-                f"{completion_percentage:.1f}% ({total_final}/{expected_total}), "
-                f"Expected {expected_total}, Registered {registered_count}, "
+                f"{completion_percentage:.1f}% ({total_final}/{result_expected_total}), "
+                f"Expected {result_expected_total}, Registered {registered_count}, "
                 f"Completed {completed_count}, Failed {failed_count}, "
                 f"In Progress {in_progress_count}, Pending {pending_count}"
             )

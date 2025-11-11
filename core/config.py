@@ -52,7 +52,10 @@ class Config:
         for key in keys:
             if value is None:
                 return default
-            value = value.get(key, default)
+            if isinstance(value, dict):
+                value = value.get(key, default)
+            else:
+                return default
         
         return value
 
@@ -140,5 +143,38 @@ class Config:
             'allow_credentials': self.get_bool('servers.cors.allow_credentials', True),
             'allow_methods': self.get('servers.cors.allow_methods', ['*']),
             'allow_headers': self.get('servers.cors.allow_headers', ['*']),
+        }
+
+    def get_browser_proxy_config(self) -> dict:
+        """
+        Get browser proxy configuration.
+
+        Returns:
+            Dict containing proxy settings suitable for Playwright
+        """
+        enabled = self.get('browser.proxy.enabled', False)
+        server = self.get('browser.proxy.server', '')
+        username = self.get('browser.proxy.username', '')
+        password = self.get('browser.proxy.password', '')
+        bypass = self.get('browser.proxy.bypass', [])
+
+        # Normalise inputs
+        server = (server or '').strip()
+        username = (username or '').strip()
+        password = (password or '').strip()
+
+        if isinstance(bypass, str):
+            bypass_list = [bypass.strip()] if bypass.strip() else []
+        elif isinstance(bypass, list):
+            bypass_list = [str(item).strip() for item in bypass if str(item).strip()]
+        else:
+            bypass_list = []
+
+        return {
+            'enabled': bool(enabled) and bool(server),
+            'server': server,
+            'username': username,
+            'password': password,
+            'bypass': bypass_list,
         }
 

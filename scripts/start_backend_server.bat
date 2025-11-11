@@ -9,7 +9,7 @@ set PROJECT_ROOT=%SCRIPT_DIR%..
 REM Open a new terminal window and run the server
 REM /k keeps the window open after the command completes (for errors)
 REM /t:0A sets the color scheme (green background, black text for better visibility)
-start "Research Tool Backend Server" /t:0F cmd /k "cd /d %PROJECT_ROOT% && python backend/run_server.py"
+start "Research Tool Backend Server" /t:0F cmd /k "cd /d %PROJECT_ROOT% && python backend/run_server.py --reuse-window"
 
 echo.
 echo Backend server is starting in a new terminal window...

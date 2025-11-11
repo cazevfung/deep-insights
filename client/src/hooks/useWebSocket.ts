@@ -34,6 +34,11 @@ export const useWebSocket = (batchId: string) => {
     setFinalReport,
     addError,
     setCancelled,
+    setSessionId,
+    setReportStale,
+    setPhaseRerunState,
+    setStepRerunState,
+    upsertConversationMessage,
   } = useWorkflowStore()
 
   const { addNotification } = useUiStore()
@@ -442,6 +447,12 @@ export const useWebSocket = (batchId: string) => {
 
         case 'research:stream_start': {
           const streamId = data.stream_id || `stream:${Date.now()}`
+          if (process.env.NODE_ENV !== 'production') {
+            console.debug('[stream_start]', streamId, {
+              phase: data.phase,
+              metadata: data.metadata,
+            })
+          }
           startStream(streamId, {
             phase: data.phase ?? null,
             metadata: data.metadata ?? null,
@@ -465,6 +476,12 @@ export const useWebSocket = (batchId: string) => {
 
         case 'research:stream_end': {
           if (data.stream_id) {
+            if (process.env.NODE_ENV !== 'production') {
+              console.debug('[stream_end]', data.stream_id, {
+                phase: data.phase,
+                metadata: data.metadata,
+              })
+            }
             completeStream(data.stream_id, {
               metadata: data.metadata,
               endedAt: data.timestamp,
@@ -523,6 +540,8 @@ export const useWebSocket = (batchId: string) => {
             currentAction: '工作流完成',
           })
           addNotification('研究已完成！', 'success')
+          setSessionId(data.result?.session_id ?? null)
+          setReportStale(false)
           break
 
         case 'phase3:step_complete':
@@ -544,6 +563,118 @@ export const useWebSocket = (batchId: string) => {
           addNotification('最终报告已生成', 'success')
           break
 
+        case 'conversation:message': {
+          const payload = data.message
+          if (payload && typeof payload.id === 'string') {
+            upsertConversationMessage({
+              id: payload.id,
+              role: payload.role ?? 'assistant',
+              content: payload.content ?? '',
+              status: payload.status ?? 'completed',
+              timestamp:
+                payload.created_at ??
+                payload.updated_at ??
+                payload.timestamp ??
+                new Date().toISOString(),
+              metadata: payload.metadata ?? {},
+            })
+          }
+          break
+        }
+
+        case 'research:phase_rerun_started':
+          if (data.session_id) {
+            setSessionId(data.session_id)
+          }
+          setPhaseRerunState({
+            inProgress: true,
+            phase: data.phase || null,
+            phases: data.phases || [],
+            lastError: null,
+          })
+          addNotification(`开始重新运行阶段 ${data.phase || ''}`, 'info')
+          break
+
+        case 'research:phase_rerun_complete':
+          if (data.session_id) {
+            setSessionId(data.session_id)
+          }
+          setPhaseRerunState({
+            inProgress: false,
+            phase: data.phase || null,
+            phases: data.phases || [],
+            lastError: null,
+          })
+          if (data.plan) {
+            setPlan(data.plan)
+          }
+          if (typeof data.report_stale === 'boolean') {
+            setReportStale(data.report_stale)
+          }
+          addNotification('阶段重新运行完成', 'success')
+          break
+
+        case 'research:phase_rerun_error':
+          if (data.session_id) {
+            setSessionId(data.session_id)
+          }
+          setPhaseRerunState({
+            inProgress: false,
+            phase: data.phase || null,
+            phases: data.phases || [],
+            lastError: data.message || '阶段重新运行失败',
+          })
+          addError('research', data.message || '阶段重新运行失败')
+          addNotification(data.message || '阶段重新运行失败', 'error')
+          break
+
+        case 'research:step_rerun_started':
+          if (data.session_id) {
+            setSessionId(data.session_id)
+          }
+          setStepRerunState({
+            inProgress: true,
+            stepId: data.step_id ?? null,
+            regenerateReport: data.regenerate_report ?? true,
+            lastError: null,
+          })
+          setReportStale(true)
+          addNotification(`正在重新执行步骤 ${data.step_id ?? ''}`, 'info')
+          break
+
+        case 'research:step_rerun_complete':
+          if (data.session_id) {
+            setSessionId(data.session_id)
+          }
+          setStepRerunState({
+            inProgress: false,
+            stepId: data.step_id ?? null,
+            regenerateReport: data.regenerate_report ?? true,
+            lastError: null,
+          })
+          if (typeof data.report_stale === 'boolean') {
+            setReportStale(data.report_stale)
+          }
+          if (data.report_path) {
+            addNotification('步骤重新执行完成并生成新报告', 'success')
+          } else {
+            addNotification('步骤重新执行完成', 'success')
+          }
+          break
+
+        case 'research:step_rerun_error':
+          if (data.session_id) {
+            setSessionId(data.session_id)
+          }
+          setStepRerunState({
+            inProgress: false,
+            stepId: data.step_id ?? null,
+            lastError: data.message || '步骤重新执行失败',
+          })
+          addError('phase3', data.message || '步骤重新执行失败')
+          addNotification(data.message || '步骤重新执行失败', 'error')
+          break
+
         case 'scraping:cancelled':
           setCancelled(true, {
             cancelled_at: data.timestamp,
@@ -551,6 +682,27 @@ export const useWebSocket = (batchId: string) => {
             state_at_cancellation: data.state,
           })
           addNotification(`已取消: ${data.reason}`, 'warning')
+          break
+
+        case 'scraping:already_complete':
+          // Scraping was skipped because it was already complete
+          console.log('Scraping already complete, skipping to research phase')
+          // Mark scraping as 100% complete so navigation logic works correctly
+          updateScrapingStatus({
+            canProceedToResearch: true,
+            is100Percent: true,
+          })
+          updateResearchAgentStatus({
+            currentAction: data.message || '抓取已完成，进入研究阶段',
+          })
+          addNotification(data.message || '抓取已完成', 'success')
+          break
+
+        case 'research:start':
+          // Research phase is starting
+          updateResearchAgentStatus({
+            currentAction: data.message || '开始研究阶段',
+          })
           break
 
         case 'error':
@@ -569,17 +721,25 @@ export const useWebSocket = (batchId: string) => {
     return cleanup
   }, [stableBatchId])
 
-  const sendMessage = (type: string, data: any) => {
+  const sendMessage = (type: string, data: any): boolean => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       try {
-        wsRef.current.send(JSON.stringify({ type, ...data }))
+        const message = JSON.stringify({ type, ...data })
+        wsRef.current.send(message)
+        console.log(`✅ WebSocket message sent successfully: type=${type}`, data)
+        return true
       } catch (error) {
-        console.error('Failed to send WebSocket message:', error)
+        console.error('❌ Failed to send WebSocket message:', error)
         addNotification('无法发送消息，请重试', 'error')
+        return false
       }
     } else {
-      console.warn('WebSocket is not connected. Cannot send message:', type)
+      const state = wsRef.current?.readyState ?? 'null'
+      const stateNames = ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED']
+      const stateName = typeof state === 'number' ? stateNames[state] : state
+      console.error(`❌ WebSocket is not connected. State: ${stateName}, Cannot send message:`, type)
       addNotification('WebSocket未连接，无法发送消息', 'warning')
+      return false
     }
   }
 

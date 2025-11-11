@@ -11,21 +11,21 @@ $processes = Get-NetTCPConnection -LocalPort 3001 -ErrorAction SilentlyContinue 
 
 if ($processes) {
     Write-Host "Found $($processes.Count) process(es) using port 3001:" -ForegroundColor Yellow
-    foreach ($pid in $processes) {
-        $proc = Get-Process -Id $pid -ErrorAction SilentlyContinue
+    foreach ($processId in $processes) {
+        $proc = Get-Process -Id $processId -ErrorAction SilentlyContinue
         if ($proc) {
-            Write-Host "  - PID $pid : $($proc.ProcessName) (Started: $($proc.StartTime))" -ForegroundColor Yellow
+            Write-Host "  - PID $processId : $($proc.ProcessName) (Started: $($proc.StartTime))" -ForegroundColor Yellow
         }
     }
     
     Write-Host ""
     Write-Host "Killing processes..." -ForegroundColor Yellow
-    foreach ($pid in $processes) {
+    foreach ($processId in $processes) {
         try {
-            Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
-            Write-Host "  - Killed PID $pid" -ForegroundColor Green
+            Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+            Write-Host "  - Killed PID $processId" -ForegroundColor Green
         } catch {
-            Write-Host "  - Failed to kill PID $pid : $_" -ForegroundColor Red
+            Write-Host "  - Failed to kill PID $processId : $_" -ForegroundColor Red
         }
     }
     

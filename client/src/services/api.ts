@@ -48,6 +48,16 @@ export interface FinalReportResponse {
   status: 'ready' | 'generating' | 'error'
 }
 
+export interface ConversationMessageResponse {
+  status: 'ok' | 'queued'
+  user_message_id: string
+  assistant_message_id?: string | null
+  reply?: string | null
+  metadata?: Record<string, unknown> | null
+  context_bundle?: Record<string, unknown> | null
+  queued_reason?: string | null
+}
+
 export const apiService = {
   /**
    * Format links and create batch
@@ -143,6 +153,55 @@ export const apiService = {
    */
   deleteSession: async (batchId: string): Promise<any> => {
     const response = await api.delete(`/history/${batchId}`)
+    return response.data
+  },
+
+  /**
+   * Export phase report PDF
+   */
+  exportPhaseReportPdf: async (sessionId: string): Promise<Blob> => {
+    const response = await api.get(`/exports/phase-report/${sessionId}`, {
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
+  /**
+   * Rerun specific phase(s)
+   */
+  rerunPhase: async (payload: {
+    batch_id: string
+    session_id: string
+    phase: string
+    rerun_downstream?: boolean
+    user_topic?: string | null
+  }): Promise<any> => {
+    const response = await api.post('/workflow/restart/phase', payload)
+    return response.data
+  },
+
+  /**
+   * Rerun a single Phase 3 step
+   */
+  rerunPhase3Step: async (payload: {
+    batch_id: string
+    session_id: string
+    step_id: number
+    regenerate_report?: boolean
+  }): Promise<any> => {
+    const response = await api.post('/workflow/restart/phase3-step', payload)
+    return response.data
+  },
+
+  /**
+   * Send conversation message for right column feedback
+   */
+  sendConversationMessage: async (payload: {
+    batch_id: string
+    message: string
+    session_id?: string | null
+  }): Promise<ConversationMessageResponse> => {
+    const response = await api.post('/research/conversation', payload)
     return response.data
   },
 }

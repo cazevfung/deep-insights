@@ -1,7 +1,7 @@
 """
 WebSocket UI adapter for DeepResearchAgent.
 """
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 import asyncio
 import threading
 import queue
@@ -9,15 +9,25 @@ from datetime import datetime
 from app.websocket.manager import WebSocketManager
 from loguru import logger
 
+if TYPE_CHECKING:
+    from app.services.conversation_service import ConversationContextService
+
 
 class WebSocketUI:
     """Adapter to convert DeepResearchAgent UI calls to WebSocket events."""
     
-    def __init__(self, websocket_manager: WebSocketManager, batch_id: str, main_loop: Optional[asyncio.AbstractEventLoop] = None):
+    def __init__(
+        self,
+        websocket_manager: WebSocketManager,
+        batch_id: str,
+        main_loop: Optional[asyncio.AbstractEventLoop] = None,
+        conversation_service: Optional["ConversationContextService"] = None,
+    ):
         self.ws_manager = websocket_manager
         self.batch_id = batch_id
         self.stream_buffers: dict[str, str] = {}
         self.main_loop = main_loop
+        self.conversation_service = conversation_service
         self._loop_lock = threading.Lock()
         # User input response queue - maps prompt_id to response queue
         self._user_input_queues: dict[str, queue.Queue] = {}
@@ -27,6 +37,8 @@ class WebSocketUI:
         self._pending_messages: queue.Queue = queue.Queue()
         self._retry_thread: Optional[threading.Thread] = None
         self._retry_thread_lock = threading.Lock()
+        if self.conversation_service:
+            self.conversation_service.ensure_batch(batch_id)
     
     def _get_main_loop(self) -> Optional[asyncio.AbstractEventLoop]:
         """
@@ -197,6 +209,8 @@ class WebSocketUI:
         self.stream_buffers[stream_id] = existing + token
         coro = self._send_stream_token(token, stream_id)
         self._schedule_coroutine(coro)
+        if self.conversation_service:
+            self.conversation_service.append_stream_token(self.batch_id, stream_id, token)
     
     async def _send_stream_token(self, token: str, stream_id: str):
         """Async helper to send stream token."""
@@ -218,6 +232,8 @@ class WebSocketUI:
         self.stream_buffers[stream_id] = ""
         coro = self._send_stream_start(stream_id, phase, metadata)
         self._schedule_coroutine(coro)
+        if self.conversation_service:
+            self.conversation_service.start_stream(self.batch_id, stream_id, phase, metadata)
 
     async def _send_stream_start(self, stream_id: str, phase: Optional[str], metadata: Optional[dict]):
         """Async helper to send stream start notification."""
@@ -240,6 +256,8 @@ class WebSocketUI:
             stream_id = "default"
         coro = self._send_stream_end(stream_id, phase, metadata)
         self._schedule_coroutine(coro)
+        if self.conversation_service:
+            self.conversation_service.end_stream(self.batch_id, stream_id)
 
     async def _send_stream_end(self, stream_id: str, phase: Optional[str], metadata: Optional[dict]):
         """Async helper to send stream end notification."""
@@ -289,6 +307,8 @@ class WebSocketUI:
         
         coro = self._send_phase_change(phase, display_name)
         self._schedule_coroutine(coro)
+        if self.conversation_service:
+            self.conversation_service.record_phase_change(self.batch_id, phase, display_name)
     
     async def _send_phase_change(self, phase: str, phase_name: str):
         """Async helper to send phase change notification."""
@@ -320,6 +340,8 @@ class WebSocketUI:
         # Create response queue for this prompt
         response_queue = queue.Queue(maxsize=1)  # Limit queue size to prevent buildup
         self._user_input_queues[prompt_id] = response_queue
+        if self.conversation_service:
+            self.conversation_service.record_procedural_prompt(self.batch_id, prompt_id, prompt, choices or [])
         
         # Send prompt to frontend with retry logic
         coro = self._send_user_prompt(prompt, choices, prompt_id)
@@ -329,18 +351,15 @@ class WebSocketUI:
         import time
         time.sleep(0.1)  # Small delay to ensure prompt is sent
         
-        # Wait for response (with timeout)
+        # Wait for response indefinitely - research should pause until user responds
         try:
-            # Wait up to 5 minutes for user response
-            logger.debug(f"Waiting for user response for prompt_id: {prompt_id}")
-            response = response_queue.get(timeout=300)
-            logger.info(f"Received user response for prompt_id: {prompt_id}, response: {response[:50]}")
+            logger.info(f"Waiting for user response for prompt_id: {prompt_id} (will wait indefinitely)")
+            response = response_queue.get()  # No timeout - wait indefinitely for user input
+            logger.info(f"Received user response for prompt_id: {prompt_id}, response: {response[:50] if response else '(empty)'}")
             return response
         except queue.Empty:
-            logger.warning(f"User input timeout for prompt_id: {prompt_id} after 300 seconds")
-            # Check if prompt was actually sent
-            if future and not future.done():
-                logger.error(f"Prompt send future still pending for prompt_id: {prompt_id}")
+            # This should never happen without a timeout, but handle it gracefully
+            logger.error(f"Unexpected queue.Empty for prompt_id: {prompt_id}")
             return ""
         except Exception as e:
             logger.error(f"Error waiting for user input for prompt_id: {prompt_id}: {e}", exc_info=True)
@@ -427,6 +446,8 @@ class WebSocketUI:
         """Display research goals for user selection."""
         coro = self._send_goals(goals)
         self._schedule_coroutine(coro)
+        if self.conversation_service:
+            self.conversation_service.record_goals(self.batch_id, goals)
     
     async def _send_goals(self, goals: list):
         """Async helper to send goals."""
@@ -461,6 +482,8 @@ class WebSocketUI:
         """Display the synthesized comprehensive topic."""
         coro = self._send_synthesized_goal(synthesized_goal)
         self._schedule_coroutine(coro)
+        if self.conversation_service:
+            self.conversation_service.record_synthesized_goal(self.batch_id, synthesized_goal)
     
     async def _send_synthesized_goal(self, synthesized_goal: dict):
         """Async helper to send synthesized goal."""
@@ -478,6 +501,8 @@ class WebSocketUI:
         # But we also add a separate display method for clarity
         coro = self._send_plan(plan)
         self._schedule_coroutine(coro)
+        if self.conversation_service:
+            self.conversation_service.record_plan(self.batch_id, plan)
     
     async def _send_plan(self, plan: list):
         """Async helper to send plan."""

@@ -54,14 +54,16 @@ const StreamDisplay: React.FC<StreamDisplayProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(true)
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle')
-  const [activeTab, setActiveTab] = useState<'raw' | 'structured'>('raw')
+  const [activeTab, setActiveTab] = useState<'raw' | 'structured'>(() => (secondaryView ? 'structured' : 'raw'))
   const streamRef = useRef<HTMLDivElement>(null)
 
   const hasSecondaryView = Boolean(secondaryView)
   const viewMode: StreamViewMode = hasSecondaryView ? providedViewMode || 'tabs' : providedViewMode || 'stacked'
 
   useEffect(() => {
-    if (!hasSecondaryView) {
+    if (hasSecondaryView) {
+      setActiveTab('structured')
+    } else {
       setActiveTab('raw')
     }
   }, [hasSecondaryView])
@@ -143,17 +145,17 @@ const StreamDisplay: React.FC<StreamDisplayProps> = ({
         <div className="flex items-center gap-3 text-sm">
           <button
             type="button"
-            className={`stream-tab ${activeTab === 'raw' ? 'stream-tab-active' : ''}`}
-            onClick={() => setActiveTab('raw')}
-          >
-            原始流
-          </button>
-          <button
-            type="button"
             className={`stream-tab ${activeTab === 'structured' ? 'stream-tab-active' : ''}`}
             onClick={() => setActiveTab('structured')}
           >
             结构化
+          </button>
+          <button
+            type="button"
+            className={`stream-tab ${activeTab === 'raw' ? 'stream-tab-active' : ''}`}
+            onClick={() => setActiveTab('raw')}
+          >
+            原始流
           </button>
         </div>
       )}
@@ -161,23 +163,33 @@ const StreamDisplay: React.FC<StreamDisplayProps> = ({
   )
 
   const rawContent = (
-    <div
-      ref={streamRef}
-      className={`stream-content ${minHeight} ${isExpanded ? maxHeight : ''} ${
-        isExpanded ? 'overflow-auto' : 'overflow-hidden'
-      }`}
-    >
-      {content ? (
-        isExpanded ? (
-          <pre className="stream-content-text">{content}</pre>
+    <div className="stream-raw-container">
+      <div className="stream-raw-header">
+        <div className="stream-raw-header-controls" aria-hidden="true">
+          <span className="stream-raw-dot stream-raw-dot-red" />
+          <span className="stream-raw-dot stream-raw-dot-yellow" />
+          <span className="stream-raw-dot stream-raw-dot-green" />
+        </div>
+        <span className="stream-raw-title">原始流</span>
+      </div>
+      <div
+        ref={streamRef}
+        className={`stream-content stream-raw-body ${minHeight} ${isExpanded ? maxHeight : ''} ${
+          isExpanded ? 'overflow-auto' : 'overflow-hidden'
+        }`}
+      >
+        {content ? (
+          isExpanded ? (
+            <pre className="stream-content-text">{content}</pre>
+          ) : (
+            <p className="stream-content-preview">
+              {content.length > 160 ? `${content.slice(0, 160)}…` : content}
+            </p>
+          )
         ) : (
-          <p className="stream-content-preview">
-            {content.length > 160 ? `${content.slice(0, 160)}…` : content}
-          </p>
-        )
-      ) : (
-        <p className="text-sm text-neutral-400">暂无内容</p>
-      )}
+          <p className="text-sm text-neutral-400">暂无内容</p>
+        )}
+      </div>
     </div>
   )
 

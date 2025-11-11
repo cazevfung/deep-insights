@@ -120,7 +120,16 @@ class BasePhase(ABC):
         """
         pass
     
-    def _stream_with_callback(self, messages: List[Dict[str, str]], **kwargs) -> str:
+    def _stream_with_callback(
+        self,
+        messages: List[Dict[str, str]],
+        *,
+        usage_tag: Optional[str] = None,
+        log_payload: bool = True,
+        payload_label: Optional[str] = None,
+        stream_metadata: Optional[Dict[str, Any]] = None,
+        **kwargs,
+    ) -> str:
         """
         Stream API call with progress callback.
         
@@ -136,17 +145,27 @@ class BasePhase(ABC):
         
         stream_phase = None
         stream_id = None
-        stream_metadata: Dict[str, Any] = {}
+        stream_metadata_payload: Dict[str, Any] = {}
 
         # Send "starting" update
         if self.ui:
             stream_phase = self._get_stream_identifier()
-            stream_metadata = self._build_stream_metadata()
+            stream_metadata_payload = self._build_stream_metadata()
+            if stream_metadata:
+                try:
+                    stream_metadata_payload.update(stream_metadata)
+                except Exception as exc:
+                    self.logger.warning("Failed to merge custom stream metadata: %s", exc)
             self.ui.display_message("正在调用AI API...", "info")
             stream_id = f"{stream_phase}:{uuid4().hex}"
             self.ui.clear_stream_buffer(stream_id)
-            self.ui.notify_stream_start(stream_id, stream_phase, stream_metadata)
-            self.logger.debug(f"Stream started", stream_id=stream_id, phase=stream_phase, metadata=stream_metadata)
+            self.ui.notify_stream_start(stream_id, stream_phase, stream_metadata_payload)
+            self.logger.debug(
+                "Stream started",
+                stream_id=stream_id,
+                phase=stream_phase,
+                metadata=stream_metadata_payload,
+            )
         
         token_count = 0
         last_update_time = time.time()
@@ -202,6 +221,24 @@ class BasePhase(ABC):
         final_kwargs = {**phase_kwargs, **kwargs}
         stream_start_time = time.time()
         
+        if log_payload:
+            try:
+                prompt_lines = []
+                for msg in messages:
+                    role = msg.get("role", "unknown")
+                    content = msg.get("content", "")
+                    prompt_lines.append(f"[{role}] {content}")
+                prompt_preview = "\n".join(prompt_lines)
+                label = payload_label or usage_tag or stream_phase or self.__class__.__name__
+                self.logger.info(
+                    "[LLM-PROMPT] tag=%s length=%s\n%s",
+                    label,
+                    len(prompt_preview),
+                    prompt_preview,
+                )
+            except Exception as e:
+                self.logger.warning(f"Failed to log prompt payload: {e}")
+
         try:
             response, usage = self.client.stream_and_collect(
                 messages,
@@ -214,7 +251,7 @@ class BasePhase(ABC):
             if self.ui and stream_phase and stream_id:
                 try:
                     stream_meta_with_counts = {
-                        **stream_metadata,
+                        **stream_metadata_payload,
                         "tokens": token_count,
                     }
                     self.ui.notify_stream_end(stream_id, stream_phase, stream_meta_with_counts)
@@ -233,6 +270,55 @@ class BasePhase(ABC):
         # Send "parsing" update
         if self.ui:
             self.ui.display_message("AI响应已接收，正在解析结果...", "info")
+
+        call_meta = getattr(self.client, "last_call_metadata", {}) if hasattr(self.client, "last_call_metadata") else {}
+        if call_meta:
+            if self.ui and call_meta.get("sanitized_retry") and not call_meta.get("fallback_used"):
+                self.ui.display_message("提示已自动净化以通过模型安全审查。", "warning")
+            if self.ui and call_meta.get("fallback_used"):
+                provider_label = call_meta.get("fallback_provider") or "备用模型"
+                self.ui.display_message(
+                    f"主模型未通过安全审查，已切换至 {provider_label} 返回结果。",
+                    "warning",
+                )
+                self.logger.warning(
+                    "LLM fallback invoked provider=%s reason=%s request_id=%s",
+                    call_meta.get("fallback_provider"),
+                    call_meta.get("fallback_reason"),
+                    call_meta.get("request_id"),
+                )
+        
+        if usage:
+            try:
+                input_tokens = usage.get("input_tokens", 0)
+                output_tokens = usage.get("output_tokens", 0)
+                total_tokens = usage.get("total_tokens", input_tokens + output_tokens)
+                elapsed = time.time() - stream_start_time
+                tag = usage_tag or stream_phase or self.__class__.__name__
+                model_name = final_kwargs.get("model") or self.phase_model or getattr(self.client, "model", None)
+                self.logger.info(
+                    "[LLM-TOKENS] tag=%s model=%s input=%s output=%s total=%s elapsed=%.3fs",
+                    tag,
+                    model_name,
+                    input_tokens,
+                    output_tokens,
+                    total_tokens,
+                    elapsed,
+                )
+            except Exception as e:
+                self.logger.warning(f"Failed to log token usage: {e}")
+        
+        if log_payload:
+            try:
+                label = payload_label or usage_tag or stream_phase or self.__class__.__name__
+                self.logger.info(
+                    "[LLM-RESPONSE] tag=%s length=%s\n%s",
+                    label,
+                    len(response),
+                    response,
+                )
+            except Exception as e:
+                self.logger.warning(f"Failed to log response payload: {e}")
         
         return response
 

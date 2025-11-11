@@ -44,16 +44,33 @@ class Phase1Synthesize(BasePhase):
             for i, goal in enumerate(all_goals)
         ])
         
+        # Get research role from session metadata
+        research_role = self.session.get_metadata("research_role") if self.session else None
+        role_display = ""
+        if research_role:
+            if isinstance(research_role, dict):
+                role_display = research_role.get("role", "")
+            else:
+                role_display = str(research_role)
+        
         # Compose messages from externalized prompt templates
         context = {
             "goals_list": goals_list,
             "goals_count": len(all_goals),
             "data_abstract": data_abstract,
+            "system_role_description": role_display or "资深数据分析专家",
         }
         messages = compose_messages("phase1_synthesize", context=context)
         
         # Stream and parse JSON response
-        response = self._stream_with_callback(messages)
+        response = self._stream_with_callback(
+            messages,
+            stream_metadata={
+                "component": "phase1_5_synthesis",
+                "phase_label": "1.5",
+                "goals_count": len(all_goals),
+            },
+        )
         
         # Parse JSON from response
         try:

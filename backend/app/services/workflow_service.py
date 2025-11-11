@@ -4,15 +4,24 @@ Simplified workflow service using proven test functions.
 This service uses the working code from tests/ folder directly,
 with WebSocket progress callbacks for real-time updates.
 """
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, List
 from pathlib import Path
 import sys
 import asyncio
 import queue
 import time
 import os
+import json
 from collections import defaultdict
 from loguru import logger
+
+# Ensure Playwright can spawn subprocesses on Windows by defaulting to Proactor policy.
+if os.name == "nt":
+    try:
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+        logger.debug("Set WindowsProactorEventLoopPolicy for Playwright compatibility")
+    except Exception as policy_err:  # pragma: no cover - defensive
+        logger.warning(f"Could not set WindowsProactorEventLoopPolicy: {policy_err}")
 
 # Debug mode flag
 DEBUG_MODE = os.environ.get('WORKFLOW_DEBUG', 'false').lower() == 'true'
@@ -28,8 +37,11 @@ from backend.lib import (
     verify_scraper_results,
     run_research_agent,
 )
+from research.agent import DeepResearchAgent
+from research.session import ResearchSession
 from app.websocket.manager import WebSocketManager
 from app.services.progress_service import ProgressService
+from app.services.conversation_service import ConversationContextService
 from app.services.websocket_ui import WebSocketUI
 from datetime import datetime
 
@@ -146,6 +158,34 @@ def _run_scrapers_in_thread(progress_callback, batch_id, cancellation_checker=No
         logger.debug(f"Current working directory: {os.getcwd()}")
         logger.debug(f"Python executable: {sys.executable}")
         logger.debug(f"Thread name: {current_thread.name}")
+
+        # On Windows, ensure we use a Proactor event loop so Playwright can spawn subprocesses.
+        # Uvicorn's reload mode switches the global policy to WindowsSelectorEventLoopPolicy,
+        # which breaks asyncio.create_subprocess_exec used by Playwright.
+        if os.name == "nt":
+            try:
+                from asyncio import windows_events  # type: ignore
+                current_loop: Optional[asyncio.AbstractEventLoop] = None
+                try:
+                    current_loop = asyncio.get_event_loop()
+                except RuntimeError:
+                    current_loop = None
+
+                if current_loop and current_loop.is_running():
+                    logger.debug("Existing event loop already running; skipping loop swap")
+                elif current_loop and isinstance(current_loop, windows_events.ProactorEventLoop):
+                    logger.debug("ProactorEventLoop already configured for this thread")
+                else:
+                    if current_loop is not None:
+                        try:
+                            current_loop.close()
+                        except Exception:
+                            pass
+                    proactor_loop = windows_events.ProactorEventLoop()
+                    asyncio.set_event_loop(proactor_loop)
+                    logger.debug("Configured ProactorEventLoop for Playwright compatibility on Windows")
+            except Exception as loop_err:  # pragma: no cover - best effort safeguard
+                logger.warning(f"Could not configure ProactorEventLoop on Windows: {loop_err}")
         
         # Ensure Playwright can find its browser
         # Check if PLAYWRIGHT_BROWSERS_PATH is set
@@ -184,6 +224,8 @@ class WorkflowService:
     def __init__(self, websocket_manager: WebSocketManager):
         self.ws_manager = websocket_manager
         self.progress_service = ProgressService(websocket_manager)
+        self.conversation_service = ConversationContextService()
+        self.ws_manager.set_conversation_service(self.conversation_service)
         # Track link context for progress callbacks
         # Maps batch_id -> scraper_type -> list of {link_id, url}
         self.link_context: Dict[str, Dict[str, list]] = {}
@@ -210,6 +252,321 @@ class WorkflowService:
             })
             self._link_id_transformations: Dict[str, list] = defaultdict(list)
             self._message_sequence: Dict[str, int] = defaultdict(int)
+
+    def _normalize_phase_key(self, phase: str) -> str:
+        phase = (phase or "").lower()
+        mapping = {
+            "phase0.5": "phase0_5",
+            "phase0-5": "phase0_5",
+            "phase0_5": "phase0_5",
+        }
+        normalized = mapping.get(phase, phase)
+        valid = {"phase0", "phase0_5", "phase1", "phase2", "phase3", "phase4"}
+        if normalized not in valid:
+            raise ValueError(f"Unsupported phase '{phase}'")
+        return normalized
+
+    def _resolve_phase_sequence(self, phase: str, rerun_downstream: bool = True) -> List[str]:
+        order = ["phase0", "phase0_5", "phase1", "phase2", "phase3", "phase4"]
+        phase_key = self._normalize_phase_key(phase)
+        if phase_key not in order:
+            raise ValueError(f"Unsupported phase '{phase}'")
+        if not rerun_downstream:
+            return [phase_key]
+        start_index = order.index(phase_key)
+        return order[start_index:]
+
+    def _load_artifact(self, session: ResearchSession, cache: Dict[str, Dict[str, Any]], key: str) -> Optional[Dict[str, Any]]:
+        if key in cache:
+            return cache[key]
+        cached = session.get_phase_artifact(key)
+        if cached:
+            cache[key] = cached
+        return cached
+
+    def _execute_phase_sequence(
+        self,
+        *,
+        agent: DeepResearchAgent,
+        session: ResearchSession,
+        batch_id: str,
+        user_topic: Optional[str],
+        phases: List[str],
+    ) -> Dict[str, Any]:
+        artifacts: Dict[str, Dict[str, Any]] = {}
+
+        if user_topic is None:
+            user_topic = session.get_metadata("user_topic", None)
+
+        for phase_name in phases:
+            if phase_name == "phase0":
+                artifacts["phase0"] = agent.run_phase0_prepare(
+                    batch_id=batch_id,
+                    session=session,
+                    force=True,
+                )
+            elif phase_name == "phase0_5":
+                phase0 = artifacts.get("phase0") or self._load_artifact(session, artifacts, "phase0")
+                if not phase0:
+                    raise ValueError("Phase 0 artifacts missing; cannot rerun Phase 0.5")
+                artifacts["phase0_5"] = agent.run_phase0_5_role_generation(
+                    session=session,
+                    combined_abstract=phase0["combined_abstract"],
+                    user_topic=user_topic,
+                    force=True,
+                )
+            elif phase_name == "phase1":
+                phase0 = artifacts.get("phase0") or self._load_artifact(session, artifacts, "phase0")
+                if not phase0:
+                    raise ValueError("Phase 0 artifacts missing; cannot rerun Phase 1")
+                phase0_5 = artifacts.get("phase0_5") or self._load_artifact(session, artifacts, "phase0_5")
+                batch_data = phase0["batch_data"]
+                artifacts["phase1"] = agent.run_phase1_discover(
+                    session=session,
+                    combined_abstract=phase0["combined_abstract"],
+                    user_topic=user_topic,
+                    research_role=phase0_5.get("research_role") if phase0_5 else None,
+                    pre_role_feedback=(phase0_5 or {}).get("pre_role_feedback"),
+                    batch_data=batch_data,
+                    force=True,
+                )
+            elif phase_name == "phase2":
+                phase0 = artifacts.get("phase0") or self._load_artifact(session, artifacts, "phase0")
+                phase1_artifact = artifacts.get("phase1") or self._load_artifact(session, artifacts, "phase1")
+                phase0_5 = artifacts.get("phase0_5") or self._load_artifact(session, artifacts, "phase0_5")
+                if not phase0 or not phase1_artifact:
+                    raise ValueError("Phase 0 and Phase 1 artifacts required for Phase 2 rerun")
+                artifacts["phase2"] = agent.run_phase2_synthesize(
+                    session=session,
+                    phase1_artifact=phase1_artifact,
+                    combined_abstract=phase0["combined_abstract"],
+                    user_topic=user_topic,
+                    pre_role_feedback=(phase0_5 or {}).get("pre_role_feedback"),
+                    force=True,
+                )
+            elif phase_name == "phase3":
+                phase0 = artifacts.get("phase0") or self._load_artifact(session, artifacts, "phase0")
+                phase2_artifact = artifacts.get("phase2") or self._load_artifact(session, artifacts, "phase2")
+                if not phase0 or not phase2_artifact:
+                    raise ValueError("Phase 0 and Phase 2 artifacts required for Phase 3 rerun")
+                plan = phase2_artifact.get("plan", [])
+                if not plan:
+                    raise ValueError("Plan missing from Phase 2 artifacts")
+                artifacts["phase3"] = agent.run_phase3_execute(
+                    session=session,
+                    plan=plan,
+                    batch_data=phase0["batch_data"],
+                    force=True,
+                    require_confirmation=False,
+                )
+            elif phase_name == "phase4":
+                phase2_artifact = artifacts.get("phase2") or self._load_artifact(session, artifacts, "phase2")
+                phase3_artifact = artifacts.get("phase3") or self._load_artifact(session, artifacts, "phase3")
+                if not phase2_artifact or not phase3_artifact:
+                    raise ValueError("Phase 2 and Phase 3 artifacts required for Phase 4 rerun")
+                artifacts["phase4"] = agent.run_phase4_synthesize(
+                    session=session,
+                    phase2_artifact=phase2_artifact,
+                    phase3_artifact=phase3_artifact,
+                    batch_id=batch_id,
+                    force=True,
+                )
+            else:
+                raise ValueError(f"Unsupported phase '{phase_name}'")
+
+        return artifacts
+
+    def _execute_phase3_step(
+        self,
+        *,
+        agent: DeepResearchAgent,
+        session: ResearchSession,
+        batch_id: str,
+        step_id: int,
+        regenerate_report: bool,
+    ) -> Dict[str, Any]:
+        phase0 = session.get_phase_artifact("phase0")
+        if not phase0:
+            phase0 = agent.run_phase0_prepare(batch_id=batch_id, session=session, force=True)
+
+        phase2 = session.get_phase_artifact("phase2")
+        if not phase2 or not phase2.get("plan"):
+            raise ValueError("Phase 2 artifacts missing or invalid; cannot rerun step")
+
+        plan = phase2.get("plan", [])
+        batch_data = phase0.get("batch_data", {})
+        artifacts = {}
+
+        artifacts["phase3"] = agent.rerun_phase3_step(
+            session=session,
+            plan=plan,
+            batch_data=batch_data,
+            step_id=step_id,
+        )
+
+        if regenerate_report:
+            phase3 = artifacts["phase3"]
+            artifacts["phase4"] = agent.run_phase4_synthesize(
+                session=session,
+                phase2_artifact=phase2,
+                phase3_artifact=phase3,
+                batch_id=batch_id,
+                force=True,
+            )
+
+        return artifacts
+
+    async def rerun_phase(
+        self,
+        batch_id: str,
+        session_id: str,
+        phase: str,
+        *,
+        rerun_downstream: bool = True,
+        user_topic: Optional[str] = None,
+    ):
+        sequence = self._resolve_phase_sequence(phase, rerun_downstream)
+        await self.ws_manager.broadcast(batch_id, {
+            "type": "research:phase_rerun_started",
+            "batch_id": batch_id,
+            "session_id": session_id,
+            "phase": sequence[0],
+            "phases": sequence,
+        })
+
+        loop = asyncio.get_running_loop()
+        ui = WebSocketUI(
+            self.ws_manager,
+            batch_id,
+            main_loop=loop,
+            conversation_service=self.conversation_service,
+        )
+        self.ws_manager.register_ui(batch_id, ui)
+
+        try:
+            agent = DeepResearchAgent(ui=ui)
+            session = ResearchSession.load(session_id)
+            artifacts = await asyncio.to_thread(
+                self._execute_phase_sequence,
+                agent=agent,
+                session=session,
+                batch_id=batch_id,
+                user_topic=user_topic,
+                phases=sequence,
+            )
+            response_payload: Dict[str, Any] = {
+                "type": "research:phase_rerun_complete",
+                "batch_id": batch_id,
+                "session_id": session_id,
+                "phase": sequence[0],
+                "phases": sequence,
+            }
+            if "phase2" in artifacts:
+                response_payload["plan"] = artifacts["phase2"].get("plan")
+            if "phase4" in artifacts:
+                response_payload["report_path"] = artifacts["phase4"].get("report_path")
+                response_payload["additional_report_paths"] = artifacts["phase4"].get("additional_report_paths")
+                response_payload["report_stale"] = False
+                # If phase4 was rerun, send research:complete signal
+                await self.ws_manager.broadcast(batch_id, {
+                    "type": "research:complete",
+                    "batch_id": batch_id,
+                    "session_id": session_id,
+                    "status": "completed",
+                    "message": "研究完成",
+                })
+            elif "phase3" in artifacts:
+                response_payload["report_stale"] = True
+            await self.ws_manager.broadcast(batch_id, response_payload)
+        except Exception as exc:
+            logger.error(f"Phase rerun failed: {exc}", exc_info=True)
+            await self.ws_manager.broadcast(batch_id, {
+                "type": "research:phase_rerun_error",
+                "batch_id": batch_id,
+                "session_id": session_id,
+                "phase": sequence[0],
+                "message": str(exc),
+            })
+            raise
+        finally:
+            self.ws_manager.unregister_ui(batch_id)
+
+    async def rerun_phase3_step(
+        self,
+        batch_id: str,
+        session_id: str,
+        step_id: int,
+        *,
+        regenerate_report: bool = True,
+    ):
+        await self.ws_manager.broadcast(batch_id, {
+            "type": "research:step_rerun_started",
+            "batch_id": batch_id,
+            "session_id": session_id,
+            "step_id": step_id,
+            "regenerate_report": regenerate_report,
+        })
+
+        loop = asyncio.get_running_loop()
+        ui = WebSocketUI(
+            self.ws_manager,
+            batch_id,
+            main_loop=loop,
+            conversation_service=self.conversation_service,
+        )
+        self.ws_manager.register_ui(batch_id, ui)
+
+        try:
+            agent = DeepResearchAgent(ui=ui)
+            session = ResearchSession.load(session_id)
+            artifacts = await asyncio.to_thread(
+                self._execute_phase3_step,
+                agent=agent,
+                session=session,
+                batch_id=batch_id,
+                step_id=step_id,
+                regenerate_report=regenerate_report,
+            )
+
+            response_payload: Dict[str, Any] = {
+                "type": "research:step_rerun_complete",
+                "batch_id": batch_id,
+                "session_id": session_id,
+                "step_id": step_id,
+                "regenerate_report": regenerate_report,
+            }
+            if "phase3" in artifacts:
+                response_payload["updated_phase3"] = {
+                    "plan": artifacts["phase3"].get("plan"),
+                    "plan_hash": artifacts["phase3"].get("plan_hash"),
+                }
+            if regenerate_report and "phase4" in artifacts:
+                response_payload["report_path"] = artifacts["phase4"].get("report_path")
+                response_payload["additional_report_paths"] = artifacts["phase4"].get("additional_report_paths")
+                response_payload["report_stale"] = False
+                # If report was regenerated, send research:complete signal
+                await self.ws_manager.broadcast(batch_id, {
+                    "type": "research:complete",
+                    "batch_id": batch_id,
+                    "session_id": session_id,
+                    "status": "completed",
+                    "message": "研究完成",
+                })
+            else:
+                response_payload["report_stale"] = True
+            await self.ws_manager.broadcast(batch_id, response_payload)
+        except Exception as exc:
+            logger.error(f"Step rerun failed: {exc}", exc_info=True)
+            await self.ws_manager.broadcast(batch_id, {
+                "type": "research:step_rerun_error",
+                "batch_id": batch_id,
+                "session_id": session_id,
+                "step_id": step_id,
+                "message": str(exc),
+            })
+            raise
+        finally:
+            self.ws_manager.unregister_ui(batch_id)
     
     async def _load_link_context(self, batch_id: str):
         """
@@ -1340,6 +1697,49 @@ class WorkflowService:
                 logger.info(f"Batch {batch_id} was cancelled before workflow started")
                 return {'success': False, 'error': 'Cancelled by user'}
             
+            # Check if this is a resume of an existing session
+            # If phase0 exists, scraping is already done - skip directly to research
+            session_id = None
+            skip_scraping = False
+            logger.info(f"[RESUME DEBUG] Checking for existing session with batch_id={batch_id}")
+            try:
+                # Try to find existing session for this batch_id
+                sessions_dir = project_root / "data" / "research" / "sessions"
+                logger.info(f"[RESUME DEBUG] Sessions dir exists: {sessions_dir.exists()}, path: {sessions_dir}")
+                if sessions_dir.exists():
+                    # Look for session files for this batch
+                    session_files = list(sessions_dir.glob("session_*.json"))
+                    logger.info(f"[RESUME DEBUG] Found {len(session_files)} session files to check")
+                    for session_file in session_files:
+                        try:
+                            with open(session_file, 'r', encoding='utf-8') as f:
+                                session_data = json.load(f)
+                            metadata = session_data.get("metadata", {})
+                            session_batch_id = metadata.get("batch_id")
+                            logger.info(f"[RESUME DEBUG] Checking {session_file.name}: batch_id={session_batch_id}, looking for={batch_id}, match={session_batch_id == batch_id}")
+                            if session_batch_id == batch_id:
+                                # Found session for this batch
+                                session_id = metadata.get("session_id")
+                                phase_artifacts = session_data.get("phase_artifacts", {})
+                                has_phase0 = "phase0" in phase_artifacts
+                                logger.info(f"[RESUME DEBUG] ✓ MATCH! session_id={session_id}, has phase0={has_phase0}, phase_artifacts keys={list(phase_artifacts.keys())}")
+                                # If phase0 exists, scraping is done
+                                if has_phase0:
+                                    skip_scraping = True
+                                    logger.info(f"[RESUME DEBUG] ✓ SKIPPING SCRAPING - Found existing session {session_id} with phase0 complete")
+                                else:
+                                    logger.info(f"[RESUME DEBUG] ✗ NOT SKIPPING - phase0 not found in artifacts")
+                                break
+                        except Exception as e:
+                            logger.warning(f"[RESUME DEBUG] Error checking session file {session_file}: {e}")
+                            continue
+                else:
+                    logger.warning(f"[RESUME DEBUG] Sessions directory does not exist: {sessions_dir}")
+            except Exception as e:
+                logger.error(f"[RESUME DEBUG] Error checking for existing session: {e}", exc_info=True)
+            
+            logger.info(f"[RESUME DEBUG] Final decision: skip_scraping={skip_scraping}, session_id={session_id}")
+            
             # Load link context for this batch
             await self._load_link_context(batch_id)
             
@@ -1353,148 +1753,161 @@ class WorkflowService:
             )
             
             try:
-                # Step 1: Run all scrapers (using proven test function)
-                logger.info(f"Starting scrapers for batch: {batch_id}")
-                
-                # Notify frontend that we're in scraping phase
-                await self.ws_manager.broadcast(batch_id, {
-                    "type": "research:phase_change",
-                    "phase": "scraping",
-                    "phase_name": "抓取进度",
-                    "message": "开始抓取内容",
-                })
-                
-                # Check cancellation before scraping
-                if self.progress_service.is_cancelled(batch_id):
-                    logger.info(f"Batch {batch_id} was cancelled before scraping")
-                    return {'success': False, 'error': 'Cancelled by user'}
-                
-                # Use direct execution to pass progress callbacks to scrapers
-                # Run in thread pool - Playwright needs to be initialized in the thread
-                # Note: Playwright browser processes are created in the thread, so this should work
-                scrapers_result = await asyncio.to_thread(
-                    _run_scrapers_in_thread,
-                    progress_callback=progress_callback,
-                    batch_id=batch_id,
-                    cancellation_checker=lambda: self.progress_service.is_cancelled(batch_id)
-                )
-                
-                # Check cancellation after scraping
-                if self.progress_service.is_cancelled(batch_id):
-                    logger.info(f"Batch {batch_id} was cancelled during scraping")
-                    cancellation_info = self.progress_service.get_cancellation_info(batch_id)
-                    return {
-                        'success': False,
-                        'error': 'Cancelled by user',
-                        'cancellation_info': cancellation_info
-                    }
-                
-                if not scrapers_result.get("success"):
-                    logger.error(f"Scrapers failed: {scrapers_result}")
-                    raise Exception("Scrapers failed")
-                
-                scraping_end_time = time.time()
-                logger.info(f"[TIMING] Scraping completed at {scraping_end_time:.3f}: {scrapers_result.get('passed', 0)}/{scrapers_result.get('total', 0)} succeeded")
-                
-                # Wait for all status updates to be processed before transitioning
-                # This ensures all links have final status before research phase starts
-                status_wait_start = time.time()
-                logger.info(f"[TIMING] Starting status updates wait at {status_wait_start:.3f} for batch {batch_id}")
-                logger.info(f"Waiting for status updates to complete for batch {batch_id}...")
-                all_status_complete = await self._wait_for_status_updates(progress_queue, batch_id, max_wait_seconds=10.0)
-                status_wait_elapsed = time.time() - status_wait_start
-                logger.info(f"[TIMING] Status updates wait completed in {status_wait_elapsed:.3f}s for batch {batch_id}")
-                
-                # Force a final batch status update to ensure frontend has accurate state
-                await self.progress_service._update_batch_status(batch_id)
-                
-                # CRITICAL: Wait for explicit confirmation signal from scraping service
-                # This ensures all expected processes (not just started ones) are complete
-                confirmation_start = time.time()
-                logger.info(f"[TIMING] Starting confirmation wait at {confirmation_start:.3f} for batch {batch_id}")
-                logger.info(f"Waiting for scraping completion confirmation for batch {batch_id}...")
-                confirmation = await self.wait_for_scraping_confirmation(progress_queue, batch_id, max_wait_seconds=15.0)
-                confirmation_elapsed = time.time() - confirmation_start
-                logger.info(f"[TIMING] Confirmation wait completed in {confirmation_elapsed:.3f}s for batch {batch_id}")
-                
-                if not confirmation or not confirmation.get('confirmed'):
-                    # Confirmation not received or not confirmed
-                    if confirmation:
-                        logger.error(
-                            f"Scraping completion NOT confirmed for batch {batch_id}: "
-                            f"Expected {confirmation.get('expected_total', 0)}, "
-                            f"Registered {confirmation.get('registered_count', 0)}, "
-                            f"Completed {confirmation.get('completed_count', 0)}, "
-                            f"Failed {confirmation.get('failed_count', 0)}, "
-                            f"Pending {confirmation.get('pending_count', 0)}, "
-                            f"In Progress {confirmation.get('in_progress_count', 0)}"
-                        )
-                        if confirmation.get('non_final_statuses'):
-                            logger.error(f"Non-final statuses: {confirmation.get('non_final_statuses')}")
-                    else:
-                        logger.error(f"Scraping completion confirmation timeout for batch {batch_id}")
+                # Step 1: Run all scrapers (or skip if already done)
+                logger.info(f"[RESUME DEBUG] About to check skip_scraping={skip_scraping}")
+                if skip_scraping:
+                    # Scraping already complete - skip directly to research
+                    logger.info(f"[RESUME DEBUG] ✓✓✓ TAKING SKIP PATH - Skipping scraping for batch {batch_id} - already complete (phase0 exists)")
                     
-                    # Don't proceed to research phase - this is a critical error
-                    raise Exception(
-                        f"Scraping completion not confirmed for batch {batch_id}. "
-                        f"Cannot proceed to research phase until all expected processes complete."
-                    )
-                
-                # Explicit 100% completion check
-                completion_rate = confirmation.get('completion_rate', 0.0)
-                completion_percentage = confirmation.get('completion_percentage', 0.0)
-                is_100_percent = confirmation.get('is_100_percent', False)
-                total_final = confirmation.get('total_final', 0)
-                expected_total = confirmation.get('expected_total', 0)
-                
-                # Require explicit 100% completion
-                if not (is_100_percent and total_final == expected_total and completion_percentage >= 100.0):
-                    logger.error(
-                        f"Completion rate not 100%: {completion_percentage:.1f}% "
-                        f"({total_final}/{expected_total})"
-                    )
-                    raise Exception(
-                        f"Scraping not 100% complete: {completion_percentage:.1f}% "
-                        f"({total_final}/{expected_total}). Cannot proceed to research phase."
-                    )
-                
-                logger.info(
-                    f"Scraping 100% COMPLETE for batch {batch_id}: "
-                    f"{completion_percentage:.1f}% ({total_final}/{expected_total}) - "
-                    f"{confirmation.get('completed_count', 0)} completed, "
-                    f"{confirmation.get('failed_count', 0)} failed"
-                )
-                
-                # Additional polling check as backup to catch timing issues
-                is_100_percent_polled = await self.wait_for_100_percent_completion(
-                    batch_id,
-                    max_wait_seconds=10.0
-                )
-                
-                if not is_100_percent_polled:
-                    logger.error("100% completion not reached after polling")
-                    raise Exception("Scraping not 100% complete after polling. Cannot proceed to research phase.")
-                
-                # Step 2: Verify scraper results (using proven test function)
-                verify_start = time.time()
-                logger.info(f"[TIMING] Starting verification at {verify_start:.3f} for batch {batch_id}")
-                logger.info(f"Verifying scraper results for batch: {batch_id}")
-                
-                verified = await asyncio.to_thread(
-                    verify_scraper_results,
-                    batch_id,
-                    progress_callback=progress_callback
-                )
-                verify_elapsed = time.time() - verify_start
-                logger.info(f"[TIMING] Verification completed in {verify_elapsed:.3f}s for batch {batch_id}")
-                
-                if not verified:
+                    # Notify frontend that scraping is already complete
                     await self.ws_manager.broadcast(batch_id, {
-                        "type": "error",
-                        "phase": "verification",
-                        "message": "抓取结果验证失败",
+                        "type": "scraping:already_complete",
+                        "batch_id": batch_id,
+                        "message": "抓取已完成，直接进入研究阶段",
                     })
-                    raise Exception("Scraper results verification failed")
+                else:
+                    # Run scrapers normally
+                    logger.info(f"[RESUME DEBUG] ✗✗✗ TAKING SCRAPING PATH - Starting scrapers for batch: {batch_id}")
+                    
+                    # Notify frontend that we're in scraping phase
+                    await self.ws_manager.broadcast(batch_id, {
+                        "type": "research:phase_change",
+                        "phase": "scraping",
+                        "phase_name": "抓取进度",
+                        "message": "开始抓取内容",
+                    })
+                    
+                    # Check cancellation before scraping
+                    if self.progress_service.is_cancelled(batch_id):
+                        logger.info(f"Batch {batch_id} was cancelled before scraping")
+                        return {'success': False, 'error': 'Cancelled by user'}
+                    
+                    # Use direct execution to pass progress callbacks to scrapers
+                    # Run in thread pool - Playwright needs to be initialized in the thread
+                    # Note: Playwright browser processes are created in the thread, so this should work
+                    scrapers_result = await asyncio.to_thread(
+                        _run_scrapers_in_thread,
+                        progress_callback=progress_callback,
+                        batch_id=batch_id,
+                        cancellation_checker=lambda: self.progress_service.is_cancelled(batch_id)
+                    )
+                    
+                    # Check cancellation after scraping
+                    if self.progress_service.is_cancelled(batch_id):
+                        logger.info(f"Batch {batch_id} was cancelled during scraping")
+                        cancellation_info = self.progress_service.get_cancellation_info(batch_id)
+                        return {
+                            'success': False,
+                            'error': 'Cancelled by user',
+                            'cancellation_info': cancellation_info
+                        }
+                    
+                    if not scrapers_result.get("success"):
+                        logger.error(f"Scrapers failed: {scrapers_result}")
+                        raise Exception("Scrapers failed")
+                    
+                    scraping_end_time = time.time()
+                    logger.info(f"[TIMING] Scraping completed at {scraping_end_time:.3f}: {scrapers_result.get('passed', 0)}/{scrapers_result.get('total', 0)} succeeded")
+                    
+                    # Wait for all status updates to be processed before transitioning
+                    # This ensures all links have final status before research phase starts
+                    status_wait_start = time.time()
+                    logger.info(f"[TIMING] Starting status updates wait at {status_wait_start:.3f} for batch {batch_id}")
+                    logger.info(f"Waiting for status updates to complete for batch {batch_id}...")
+                    all_status_complete = await self._wait_for_status_updates(progress_queue, batch_id, max_wait_seconds=10.0)
+                    status_wait_elapsed = time.time() - status_wait_start
+                    logger.info(f"[TIMING] Status updates wait completed in {status_wait_elapsed:.3f}s for batch {batch_id}")
+                    
+                    # Force a final batch status update to ensure frontend has accurate state
+                    await self.progress_service._update_batch_status(batch_id)
+                    
+                    # CRITICAL: Wait for explicit confirmation signal from scraping service
+                    # This ensures all expected processes (not just started ones) are complete
+                    confirmation_start = time.time()
+                    logger.info(f"[TIMING] Starting confirmation wait at {confirmation_start:.3f} for batch {batch_id}")
+                    logger.info(f"Waiting for scraping completion confirmation for batch {batch_id}...")
+                    confirmation = await self.wait_for_scraping_confirmation(progress_queue, batch_id, max_wait_seconds=15.0)
+                    confirmation_elapsed = time.time() - confirmation_start
+                    logger.info(f"[TIMING] Confirmation wait completed in {confirmation_elapsed:.3f}s for batch {batch_id}")
+                    
+                    if not confirmation or not confirmation.get('confirmed'):
+                        # Confirmation not received or not confirmed
+                        if confirmation:
+                            logger.error(
+                                f"Scraping completion NOT confirmed for batch {batch_id}: "
+                                f"Expected {confirmation.get('expected_total', 0)}, "
+                                f"Registered {confirmation.get('registered_count', 0)}, "
+                                f"Completed {confirmation.get('completed_count', 0)}, "
+                                f"Failed {confirmation.get('failed_count', 0)}, "
+                                f"Pending {confirmation.get('pending_count', 0)}, "
+                                f"In Progress {confirmation.get('in_progress_count', 0)}"
+                            )
+                            if confirmation.get('non_final_statuses'):
+                                logger.error(f"Non-final statuses: {confirmation.get('non_final_statuses')}")
+                        else:
+                            logger.error(f"Scraping completion confirmation timeout for batch {batch_id}")
+                        
+                        # Don't proceed to research phase - this is a critical error
+                        raise Exception(
+                            f"Scraping completion not confirmed for batch {batch_id}. "
+                            f"Cannot proceed to research phase until all expected processes complete."
+                        )
+                    
+                    # Explicit 100% completion check
+                    completion_rate = confirmation.get('completion_rate', 0.0)
+                    completion_percentage = confirmation.get('completion_percentage', 0.0)
+                    is_100_percent = confirmation.get('is_100_percent', False)
+                    total_final = confirmation.get('total_final', 0)
+                    expected_total = confirmation.get('expected_total', 0)
+                    
+                    # Require explicit 100% completion
+                    if not (is_100_percent and total_final == expected_total and completion_percentage >= 100.0):
+                        logger.error(
+                            f"Completion rate not 100%: {completion_percentage:.1f}% "
+                            f"({total_final}/{expected_total})"
+                        )
+                        raise Exception(
+                            f"Scraping not 100% complete: {completion_percentage:.1f}% "
+                            f"({total_final}/{expected_total}). Cannot proceed to research phase."
+                        )
+                    
+                    logger.info(
+                        f"Scraping 100% COMPLETE for batch {batch_id}: "
+                        f"{completion_percentage:.1f}% ({total_final}/{expected_total}) - "
+                        f"{confirmation.get('completed_count', 0)} completed, "
+                        f"{confirmation.get('failed_count', 0)} failed"
+                    )
+                    
+                    # Additional polling check as backup to catch timing issues
+                    is_100_percent_polled = await self.wait_for_100_percent_completion(
+                        batch_id,
+                        max_wait_seconds=10.0
+                    )
+                    
+                    if not is_100_percent_polled:
+                        logger.error("100% completion not reached after polling")
+                        raise Exception("Scraping not 100% complete after polling. Cannot proceed to research phase.")
+                    
+                    # Step 2: Verify scraper results (using proven test function)
+                    verify_start = time.time()
+                    logger.info(f"[TIMING] Starting verification at {verify_start:.3f} for batch {batch_id}")
+                    logger.info(f"Verifying scraper results for batch: {batch_id}")
+                    
+                    verified = await asyncio.to_thread(
+                        verify_scraper_results,
+                        batch_id,
+                        progress_callback=progress_callback
+                    )
+                    verify_elapsed = time.time() - verify_start
+                    logger.info(f"[TIMING] Verification completed in {verify_elapsed:.3f}s for batch {batch_id}")
+                    
+                    if not verified:
+                        await self.ws_manager.broadcast(batch_id, {
+                            "type": "error",
+                            "phase": "verification",
+                            "message": "抓取结果验证失败",
+                        })
+                        raise Exception("Scraper results verification failed")
                 
                 # Step 3: Run research agent (using proven test function)
                 phase_change_start = time.time()
@@ -1514,7 +1927,12 @@ class WorkflowService:
                 
                 # Create UI with WebSocket callbacks and main event loop reference
                 main_loop = asyncio.get_running_loop()
-                ui = WebSocketUI(self.ws_manager, batch_id, main_loop=main_loop)
+                ui = WebSocketUI(
+                    self.ws_manager,
+                    batch_id,
+                    main_loop=main_loop,
+                    conversation_service=self.conversation_service,
+                )
                 
                 # Register UI instance with WebSocket manager for user input delivery
                 self.ws_manager.register_ui(batch_id, ui)
@@ -1532,6 +1950,19 @@ class WorkflowService:
                 
                 if not result:
                     raise Exception("Research agent failed")
+
+                session_id = result.get("session_id")
+                if session_id:
+                    self.conversation_service.set_session_id(batch_id, session_id)
+                
+                # Send research:complete signal to indicate research agent has finished
+                await self.ws_manager.broadcast(batch_id, {
+                    "type": "research:complete",
+                    "batch_id": batch_id,
+                    "session_id": session_id,
+                    "status": "completed",
+                    "message": "研究完成",
+                })
                 
                 await self.ws_manager.broadcast(batch_id, {
                     "type": "workflow:complete",

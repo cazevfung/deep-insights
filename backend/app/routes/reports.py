@@ -79,16 +79,18 @@ def _find_report_file(batch_id: str) -> Tuple[Optional[Path], Optional[str]]:
                 return report_file, session_id
     
     # Try to find report in data/research/reports/ by checking session files
-    # First, find session that matches batch_id
+    # First, find all sessions that match batch_id
     sessions_dir = project_root / "data" / "research" / "sessions"
+    matching_sessions = []
+    
     if sessions_dir.exists():
         for session_file in sessions_dir.glob("session_*.json"):
             try:
                 session_data = _safe_load_json_file(session_file)
-                # Check if session has metadata with batch_id or final_report
                 metadata = session_data.get("metadata", {})
-                if metadata.get("final_report"):
-                    # Extract session_id from filename
+                
+                # Check if this session matches the requested batch_id
+                if metadata.get("batch_id") == batch_id:
                     session_id_match = re.match(r"session_(.+?)\.json", session_file.name)
                     if session_id_match:
                         session_id = session_id_match.group(1)
@@ -96,10 +98,33 @@ def _find_report_file(batch_id: str) -> Tuple[Optional[Path], Optional[str]]:
                         reports_dir = project_root / "data" / "research" / "reports"
                         report_file = reports_dir / f"report_{session_id}.md"
                         if report_file.exists():
-                            return report_file, session_id
+                            # Prioritize sessions with:
+                            # 1. status="completed" (highest priority)
+                            # 2. final_report metadata exists
+                            # 3. Most recent update time
+                            priority = 0
+                            if metadata.get("status") == "completed":
+                                priority += 1000
+                            if metadata.get("final_report"):
+                                priority += 100
+                            updated_at = metadata.get("updated_at", metadata.get("created_at", ""))
+                            
+                            matching_sessions.append({
+                                "report_file": report_file,
+                                "session_id": session_id,
+                                "priority": priority,
+                                "updated_at": updated_at
+                            })
             except Exception as e:
                 logger.debug(f"Error reading session file {session_file}: {e}")
                 continue
+        
+        # Sort by priority (descending), then by updated_at (descending)
+        if matching_sessions:
+            matching_sessions.sort(key=lambda x: (x["priority"], x["updated_at"]), reverse=True)
+            best_match = matching_sessions[0]
+            logger.info(f"Found {len(matching_sessions)} sessions for batch_id {batch_id}, selecting session {best_match['session_id']} (priority={best_match['priority']})")
+            return best_match["report_file"], best_match["session_id"]
     
     return None, None
 

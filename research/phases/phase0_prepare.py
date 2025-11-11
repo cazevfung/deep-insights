@@ -7,6 +7,11 @@ from research.phases.base_phase import BasePhase
 from research.data_loader import ResearchDataLoader
 from core.config import Config
 
+try:
+    from research.embeddings.vector_indexer import VectorIndexer
+except Exception:  # pragma: no cover - optional dependency during bootstrap
+    VectorIndexer = None  # type: ignore
+
 
 class Phase0Prepare(BasePhase):
     """Phase 0: Load and prepare data for research."""
@@ -15,6 +20,7 @@ class Phase0Prepare(BasePhase):
         super().__init__(*args, **kwargs)
         self.data_loader = ResearchDataLoader()
         self.config = Config()
+        self._vector_indexer: Optional[VectorIndexer] = None
         
         # Check if summarization is enabled
         self.summarization_enabled = self.config.get(
@@ -95,6 +101,26 @@ class Phase0Prepare(BasePhase):
             "quality_assessment": quality_assessment,  # Enhancement #4
             "summaries_created": self.summarization_enabled  # Track if summaries were created
         }
+
+        # Vector indexing (Phase 0 → vector store)
+        if VectorIndexer is not None and self.config.get("research.embeddings.enable", True):
+            if self._vector_indexer is None:
+                try:
+                    self._vector_indexer = VectorIndexer(config=self.config)
+                except Exception as exc:
+                    self.logger.warning("Vector indexer initialization failed: %s", exc)
+                    self._vector_indexer = None
+
+            if self._vector_indexer:
+                try:
+                    self.logger.info("Phase 0: Indexing embeddings for batch %s", batch_id)
+                    self._vector_indexer.index_batch(batch_id, batch_data)
+                    result["vector_indexed"] = True
+                except Exception as exc:
+                    self.logger.error("Phase 0 vector indexing failed: %s", exc, exc_info=True)
+                    result["vector_indexed"] = False
+        else:
+            result["vector_indexed"] = False
         
         self.logger.info(
             f"Phase 0 complete: Loaded {len(batch_data)} content items "

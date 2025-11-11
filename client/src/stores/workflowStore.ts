@@ -17,10 +17,11 @@ interface ScrapingItem {
   total_bytes?: number
 }
 
-interface SessionStep {
+export interface SessionStep {
   step_id: number
   findings: {
     summary: string
+    article?: string
     points_of_interest: {
       key_claims: Array<{
         claim: string
@@ -32,7 +33,11 @@ interface SessionStep {
       }>
     }
     analysis_details: {
-      five_whys: string[]
+      five_whys: Array<{
+        level: number
+        question: string
+        answer: string
+      }>
       assumptions: string[]
       uncertainties: string[]
     }
@@ -112,11 +117,34 @@ export interface LiveReportSection {
   updatedAt?: string
 }
 
+export interface ConversationMessage {
+  id: string
+  role: 'user' | 'assistant' | 'system'
+  content: string
+  status: 'queued' | 'in_progress' | 'completed' | 'error'
+  timestamp: string
+  metadata?: Record<string, any>
+}
+
 interface WorkflowState {
   currentPhase: 'input' | 'scraping' | 'research' | 'phase3' | 'phase4' | 'complete'
   batchId: string | null
   workflowId: string | null
   workflowStarted: boolean  // Track if workflow has been started for current batchId
+  sessionId: string | null
+  reportStale: boolean
+  rerunState: {
+    inProgress: boolean
+    phase: string | null
+    phases: string[]
+    lastError: string | null
+  }
+  stepRerunState: {
+    inProgress: boolean
+    stepId: number | null
+    regenerateReport: boolean
+    lastError: string | null
+  }
   
   // Progress tracking
   overallProgress: number
@@ -190,6 +218,7 @@ interface WorkflowState {
       progress: number
       message: string
     } | null
+    conversationMessages: ConversationMessage[]
   }
   
   // Phase 3
@@ -236,11 +265,18 @@ interface WorkflowState {
   updateLiveInsight: (insight: Partial<LiveInsight> & { id: string }) => void
   updateLiveAction: (action: Partial<LiveAction> & { id: string }) => void
   updateLiveReportSection: (section: Partial<LiveReportSection> & { id: string }) => void
+  upsertConversationMessage: (message: ConversationMessage) => void
+  resetConversationMessages: () => void
   addPhase3Step: (step: SessionStep) => void
+  setPhase3Steps: (steps: SessionStep[], nextStepId?: number | null) => void
   setFinalReport: (report: WorkflowState['finalReport']) => void
   addError: (phase: string, message: string) => void
   reset: () => void
   validateState: () => { isValid: boolean; errors: string[] }
+  setSessionId: (sessionId: string | null) => void
+  setReportStale: (stale: boolean) => void
+  setPhaseRerunState: (state: Partial<WorkflowState['rerunState']>) => void
+  setStepRerunState: (state: Partial<WorkflowState['stepRerunState']>) => void
 }
 
 const initialState: Omit<WorkflowState, keyof {
@@ -274,6 +310,20 @@ const initialState: Omit<WorkflowState, keyof {
   batchId: null,
   workflowId: null,
   workflowStarted: false,
+  sessionId: null,
+  reportStale: false,
+  rerunState: {
+    inProgress: false,
+    phase: null,
+    phases: [],
+    lastError: null,
+  },
+  stepRerunState: {
+    inProgress: false,
+    stepId: null,
+    regenerateReport: true,
+    lastError: null,
+  },
   overallProgress: 0,
   currentStep: null,
   stepProgress: 0,
@@ -319,6 +369,7 @@ const initialState: Omit<WorkflowState, keyof {
     liveReportSections: {},
     synthesizedGoal: null,
     summarizationProgress: null,
+    conversationMessages: [],
   },
   phase3Steps: [],
   currentStepId: null,
@@ -345,6 +396,20 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
         workflowId: null,
         workflowStarted: false,
         currentPhase: 'input',
+        sessionId: null,
+        reportStale: false,
+        rerunState: {
+          inProgress: false,
+          phase: null,
+          phases: [],
+          lastError: null,
+        },
+        stepRerunState: {
+          inProgress: false,
+          stepId: null,
+          regenerateReport: true,
+          lastError: null,
+        },
         overallProgress: 0,
         currentStep: null,
         stepProgress: 0,
@@ -392,6 +457,8 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
           liveReportSections: {},
           synthesizedGoal: null,
           summarizationProgress: null,
+          conversationMessages: [],
+          conversationMessages: [],
         },
         phase3Steps: [],
         currentStepId: null,
@@ -977,6 +1044,29 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
         },
       }
     }),
+  upsertConversationMessage: (message) =>
+    set((state) => {
+      const existing = state.researchAgentStatus.conversationMessages.filter((item) => item.id !== message.id)
+      const merged = [...existing, message].sort((a, b) => {
+        const aTime = new Date(a.timestamp).getTime()
+        const bTime = new Date(b.timestamp).getTime()
+        return aTime - bTime
+      })
+      const limited = merged.length > 200 ? merged.slice(merged.length - 200) : merged
+      return {
+        researchAgentStatus: {
+          ...state.researchAgentStatus,
+          conversationMessages: limited,
+        },
+      }
+    }),
+  resetConversationMessages: () =>
+    set((state) => ({
+      researchAgentStatus: {
+        ...state.researchAgentStatus,
+        conversationMessages: [],
+      },
+    })),
   addPhase3Step: (step) =>
     set((state) => {
       // Use Set for O(1) lookup to check if step already exists
@@ -1013,6 +1103,16 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
         currentStepId: step.step_id,
       }
     }),
+  setPhase3Steps: (steps, nextStepId) =>
+    set(() => {
+      const sorted = [...steps].sort((a, b) => a.step_id - b.step_id)
+      const lastCompleted = sorted.length ? sorted[sorted.length - 1].step_id : null
+      const currentStepId = typeof nextStepId === 'number' ? nextStepId : lastCompleted
+      return {
+        phase3Steps: sorted,
+        currentStepId,
+      }
+    }),
   setFinalReport: (report) => set({ finalReport: report }),
   addError: (phase, message) =>
     set((state) => ({
@@ -1027,6 +1127,23 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
     })),
   setCancelled: (cancelled, cancellationInfo) =>
     set({ cancelled, cancellationInfo: cancellationInfo || null }),
+  setSessionId: (sessionId) => set({ sessionId }),
+  setReportStale: (stale) => set({ reportStale: stale }),
+  setPhaseRerunState: (payload) =>
+    set((state) => ({
+      rerunState: {
+        ...state.rerunState,
+        ...payload,
+        phases: payload.phases ?? state.rerunState.phases,
+      },
+    })),
+  setStepRerunState: (payload) =>
+    set((state) => ({
+      stepRerunState: {
+        ...state.stepRerunState,
+        ...payload,
+      },
+    })),
   reset: () => set({ ...initialState, workflowStarted: false }),
   validateState: () => {
     const state = useWorkflowStore.getState()

@@ -34,10 +34,19 @@ export const useStreamParser = (options: UseStreamParserOptions = {}): ParserSta
   const updateLiveReportSection = useWorkflowStore((state) => state.updateLiveReportSection)
   const [parserState, setParserState] = useState<ParserState>(defaultState)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastParsedHashRef = useRef<string | null>(null)
+  const lastStreamIdRef = useRef<string | null>(null)
   const resolvedStreamId = streamId ?? researchAgentStatus.streams.activeStreamId ?? researchAgentStatus.streams.order[0] ?? null
   const streamBuffer = resolvedStreamId
     ? researchAgentStatus.streams.buffers[resolvedStreamId]?.raw ?? ''
     : researchAgentStatus.streamBuffer
+
+  useEffect(() => {
+    if (resolvedStreamId !== lastStreamIdRef.current) {
+      lastStreamIdRef.current = resolvedStreamId
+      lastParsedHashRef.current = null
+    }
+  }, [resolvedStreamId])
 
   useEffect(() => {
     if (timeoutRef.current) {
@@ -47,6 +56,7 @@ export const useStreamParser = (options: UseStreamParserOptions = {}): ParserSta
 
     if (!streamBuffer) {
       setParserState(defaultState)
+      lastParsedHashRef.current = null
       return
     }
 
@@ -58,12 +68,16 @@ export const useStreamParser = (options: UseStreamParserOptions = {}): ParserSta
     timeoutRef.current = setTimeout(() => {
       try {
         const parsed = incrementalParseJSON(streamBuffer, { enableRepair })
+        const parsedHash = JSON.stringify(parsed)
+        const isDuplicate = parsedHash === lastParsedHashRef.current
+        lastParsedHashRef.current = parsedHash
+
         setParserState({
           root: parsed,
           status: 'valid',
         })
 
-        if (parsed) {
+        if (!isDuplicate && parsed) {
           if (Array.isArray(parsed.suggested_goals)) {
             // Update goal list (will sync liveGoals internally)
             setGoals(parsed.suggested_goals)
@@ -146,6 +160,27 @@ export const useStreamParser = (options: UseStreamParserOptions = {}): ParserSta
                 content: section.content || section.body || section.summary,
                 status: 'ready',
               })
+            })
+          }
+
+          // Phase 0 summarization support
+          // Handle transcript summaries
+          if (parsed.key_facts || parsed.key_opinions || parsed.key_datapoints || parsed.topic_areas) {
+            console.log('[Phase 0] Transcript summary parsed:', {
+              key_facts: parsed.key_facts?.length,
+              key_opinions: parsed.key_opinions?.length,
+              key_datapoints: parsed.key_datapoints?.length,
+              topic_areas: parsed.topic_areas?.length
+            })
+          }
+
+          // Handle comment summaries
+          if (parsed.key_facts_from_comments || parsed.key_opinions_from_comments || parsed.major_themes) {
+            console.log('[Phase 0] Comments summary parsed:', {
+              key_facts: parsed.key_facts_from_comments?.length,
+              key_opinions: parsed.key_opinions_from_comments?.length,
+              major_themes: parsed.major_themes?.length,
+              sentiment: parsed.sentiment_overview
             })
           }
         }

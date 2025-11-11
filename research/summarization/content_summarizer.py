@@ -96,7 +96,7 @@ class ContentSummarizer:
         # Summarize transcript if available
         if transcript:
             try:
-                summary["transcript_summary"] = self._summarize_transcript(transcript)
+                summary["transcript_summary"] = self._summarize_transcript(transcript, link_id)
             except Exception as e:
                 logger.error(f"Failed to summarize transcript for {link_id}: {e}")
                 summary["transcript_summary"] = {
@@ -112,7 +112,7 @@ class ContentSummarizer:
         # Summarize comments if available
         if comments:
             try:
-                summary["comments_summary"] = self._summarize_comments(comments)
+                summary["comments_summary"] = self._summarize_comments(comments, link_id)
             except Exception as e:
                 logger.error(f"Failed to summarize comments for {link_id}: {e}")
                 total_comments = len(comments) if isinstance(comments, list) else 0
@@ -130,9 +130,13 @@ class ContentSummarizer:
         
         return summary
     
-    def _summarize_transcript(self, transcript: str) -> Dict[str, Any]:
+    def _summarize_transcript(self, transcript: str, link_id: str = "unknown") -> Dict[str, Any]:
         """
         Extract lists of key facts, opinions, and data points from transcript.
+        
+        Args:
+            transcript: The transcript text to summarize
+            link_id: The link identifier for tracking/metadata
         
         Returns lists that serve as markers for retrieval, not narrative summaries.
         """
@@ -159,6 +163,9 @@ class ContentSummarizer:
                 if self.ui:
                     metadata = {
                         "component": "transcript",
+                        "phase_label": "0",
+                        "phase": "phase0",
+                        "link_id": link_id,
                         "word_count": word_count,
                     }
                     stream_id = f"summarization:{link_id}:transcript"
@@ -185,6 +192,9 @@ class ContentSummarizer:
                     if self.ui and stream_id:
                         metadata = {
                             "component": "transcript",
+                            "phase_label": "0",
+                            "phase": "phase0",
+                            "link_id": link_id,
                             "word_count": word_count,
                             "tokens": stream_token_count,
                         }
@@ -224,9 +234,13 @@ class ContentSummarizer:
             logger.error(f"Error calling Qwen API for transcript summarization: {e}")
             raise
     
-    def _summarize_comments(self, comments: List) -> Dict[str, Any]:
+    def _summarize_comments(self, comments: List, link_id: str = "unknown") -> Dict[str, Any]:
         """
         Extract lists of key facts, opinions, and data points from comments.
+        
+        Args:
+            comments: The comments list to summarize
+            link_id: The link identifier for tracking/metadata
         
         Returns lists that serve as markers for retrieval, not narrative summaries.
         """
@@ -260,6 +274,9 @@ class ContentSummarizer:
                 if self.ui:
                     metadata = {
                         "component": "comments",
+                        "phase_label": "0",
+                        "phase": "phase0",
+                        "link_id": link_id,
                         "total_comments": total_comments,
                     }
                     stream_id = f"summarization:{link_id}:comments"
@@ -286,6 +303,9 @@ class ContentSummarizer:
                     if self.ui and stream_id:
                         metadata = {
                             "component": "comments",
+                            "phase_label": "0",
+                            "phase": "phase0",
+                            "link_id": link_id,
                             "total_comments": total_comments,
                             "tokens": stream_token_count,
                         }

@@ -72,6 +72,12 @@ browser:
   browser_cdp_url: 'http://localhost:9222'  # Chrome DevTools Protocol URL
   # To use: Start Chrome with --remote-debugging-port=9222
   # Example: chrome.exe --remote-debugging-port=9222 --user-data-dir="C:\temp\chrome-profile"
+  proxy:
+    enabled: false
+    server: ''
+    username: ''
+    password: ''
+    bypass: []
   
 storage:
   base_dir: 'data/research'
@@ -79,6 +85,18 @@ storage:
   save_metadata: true
   cache_enabled: true
   cache_dir: 'data/cache'
+
+# Alibaba Cloud OSS Configuration (for uploading HTML reports and other files)
+# Dedicated bucket for public HTML reports
+oss:
+  # Using dedicated public bucket for HTML reports
+  # Falls back to bilibili scraper credentials if not specified
+  access_key_id: 'YOUR_OSS_ACCESS_KEY_ID'  # Optional override
+  access_key_secret: 'YOUR_OSS_ACCESS_KEY_SECRET'  # Optional override
+  bucket: 'YOUR_PUBLIC_BUCKET'  # Bucket for reports
+  endpoint: 'https://oss-cn-beijing.aliyuncs.com'
+  reports_prefix: 'research-reports'  # Folder in bucket for HTML reports
+  set_public_acl: false  # Set to true if bucket requires per-object ACLs
 
 web:
   host: '127.0.0.1'
@@ -97,6 +115,17 @@ qwen:
   max_tokens: 32000
   language: 'zh-CN'  # Output in Chinese
 
+llm:
+  fallback:
+    enabled: true
+    provider: 'openai'
+    model: 'gpt-4o-mini'
+    api_key_env: 'OPENAI_API_KEY'
+    base_url: null  # Override when using Azure/OpenAI compatible endpoints
+    timeout_seconds: 60
+    retry_delay_seconds: 1.5
+    max_prompt_chars: 20000
+
 research:
   summarization:
     enabled: true  # Enable Phase 0 summarization with qwen-flash
@@ -106,6 +135,25 @@ research:
     save_to_files: true  # Save summaries to JSON files for persistence
     reuse_existing_summaries: true  # Use existing summaries if found in JSON files
   
+  embeddings:
+    enable: true
+    provider: "dashscope"  # Options: dashscope, openai, hash
+    model: "text-embedding-v1"
+    dimension: 1024
+    batch_size: 16
+    timeout: 45
+    version: 1
+    store:
+      path: "data/vector_store"
+    chunk:
+      default_tokens: 750
+      min_tokens: 400
+      overlap_tokens: 150
+      document_tokens: 1200
+    search:
+      top_k: 40
+      max_context_chars: 5000
+
   retrieval:
     window_words: 20000  # Increased from 3000 to minimize back-and-forth
     window_overlap_words: 1000  # Proportional overlap (~5%)
@@ -123,10 +171,37 @@ research:
     min_total_followup_chars: 1500
     max_total_followup_chars: 20000
     enable_cache: true
+    vector_first:
+      debug_logs: false  # Enable for detailed retrieval logging
   
   phases:
     use_marker_overview: true  # Enable marker-based flow
     marker_overview_max_items: 20  # Max items to show in overview
+    # Phase-specific model configurations
+    phase0:
+      model: "qwen-flash"
+      enable_thinking: false
+      stream: true
+    phase0_5:
+      model: "qwen-flash"
+      enable_thinking: false
+      stream: true
+    phase1:
+      model: "qwen3-max"
+      enable_thinking: true
+      stream: true
+    phase2:
+      model: "qwen-plus"
+      enable_thinking: true
+      stream: true
+    phase3:
+      model: "qwen-plus"
+      enable_thinking: false
+      stream: true
+    phase4:
+      model: "qwen-plus"
+      enable_thinking: true
+      stream: true
   synthesis:
     min_words_total: 5000
     section_min_words: 350

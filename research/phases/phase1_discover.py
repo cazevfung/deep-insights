@@ -65,6 +65,7 @@ class Phase1Discover(BasePhase):
             ) + amendment_note,
             "research_role_display": role_context["research_role_display"],
             "research_role_rationale": role_context["research_role_rationale"],
+            "system_role_description": role_context["system_role_description"],  # Add for system prompt
             "avoid_list": "",
         }
         messages = compose_messages("phase1_discover", context=context)
@@ -74,7 +75,15 @@ class Phase1Discover(BasePhase):
         import time
         api_start_time = time.time()
         self.logger.info(f"[TIMING] Starting API call for Phase 1 at {api_start_time:.3f}")
-        response = self._stream_with_callback(messages)
+        response = self._stream_with_callback(
+            messages,
+            stream_metadata={
+                "component": "goal_generation",
+                "phase_label": "1",
+                "user_topic_provided": bool(user_topic),
+                "amendment_attempt": bool(amendment_feedback),
+            },
+        )
         api_elapsed = time.time() - api_start_time
         self.logger.info(f"[TIMING] API call completed in {api_elapsed:.3f}s for Phase 1")
 
@@ -142,7 +151,15 @@ class Phase1Discover(BasePhase):
             messages = compose_messages("phase1_discover", context=context)
             api_retry_start = time.time()
             self.logger.info(f"[TIMING] Starting retry API call for Phase 1 at {api_retry_start:.3f}")
-            response_retry = self._stream_with_callback(messages)
+            response_retry = self._stream_with_callback(
+                messages,
+                stream_metadata={
+                    "component": "goal_generation_retry",
+                    "phase_label": "1",
+                    "retry": True,
+                    "user_topic_provided": bool(user_topic),
+                },
+            )
             api_retry_elapsed = time.time() - api_retry_start
             self.logger.info(f"[TIMING] Retry API call completed in {api_retry_elapsed:.3f}s for Phase 1")
             try:

@@ -1,6 +1,7 @@
 import React from 'react'
 import { JSONTree } from 'react-json-tree'
 import { useStreamParser } from '../../hooks/useStreamParser'
+import Phase0SummaryDisplay from './Phase0SummaryDisplay'
 
 const jsonTheme = {
   base00: '#FFFFFF',
@@ -42,6 +43,22 @@ const StreamStructuredView: React.FC<StreamStructuredViewProps> = ({
     return <p className="text-sm text-neutral-400">{emptyMessage}</p>
   }
 
+  // Check if this is Phase 0 summary data
+  const isPhase0Summary = 
+    root.key_facts || root.key_opinions || root.key_datapoints || 
+    root.key_facts_from_comments || root.key_opinions_from_comments || 
+    root.major_themes
+
+  // Render specialized Phase 0 display if detected
+  if (isPhase0Summary) {
+    return (
+      <div className="stream-structured-view p-4">
+        <Phase0SummaryDisplay data={root} />
+      </div>
+    )
+  }
+
+  // Fallback to JSON tree display for other phases
   return (
     <div className="stream-structured-view">
       <JSONTree

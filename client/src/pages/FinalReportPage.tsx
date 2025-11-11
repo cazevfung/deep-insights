@@ -1,26 +1,25 @@
 import React, { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useWorkflowStore } from '../stores/workflowStore'
 import { apiService } from '../services/api'
 import ReactMarkdown from 'react-markdown'
 
 const FinalReportPage: React.FC = () => {
-  const { batchId, finalReport, setFinalReport } = useWorkflowStore()
+  const navigate = useNavigate()
+  const { batchId, finalReport, setFinalReport, reportStale, sessionId } = useWorkflowStore()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // If we already have the report in store, don't fetch again
     if (finalReport?.content) {
       return
     }
 
-    // If no batchId, can't fetch report
     if (!batchId) {
       setError('还没有开始研究工作，请先添加链接并开始研究')
       return
     }
 
-    // Fetch report from API
     const fetchReport = async () => {
       setLoading(true)
       setError(null)
@@ -46,20 +45,44 @@ const FinalReportPage: React.FC = () => {
     fetchReport()
   }, [batchId, finalReport, setFinalReport])
 
+  const handleExport = () => {
+    if (!sessionId) {
+      return
+    }
+    // Open export page in new tab
+    window.open(`/export/${sessionId}`, '_blank')
+  }
+
   return (
-    <div className="max-w-6xl mx-auto h-full flex flex-col">
+    <div className="max-w-4xl mx-auto h-full flex flex-col">
       <div className="card h-full flex flex-col p-0">
-        {/* Report Header */}
         <div className="sticky top-0 bg-neutral-white pb-4 border-b border-neutral-300 mb-4 z-10 px-6 pt-6 rounded-t-lg">
-          <h2 className="text-xl font-bold text-neutral-black">研究报告</h2>
-          {finalReport?.generatedAt && (
-            <p className="text-sm text-neutral-500 mt-1">
-              撰写于: {new Date(finalReport.generatedAt).toLocaleString('zh-CN')}
-            </p>
-          )}
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-neutral-black">研究报告</h2>
+              {finalReport?.generatedAt && (
+                <p className="text-sm text-neutral-500 mt-1">
+                  撰写于: {new Date(finalReport.generatedAt).toLocaleString('zh-CN')}
+                </p>
+              )}
+              {reportStale && (
+                <p className="text-sm text-secondary-500 mt-2">
+                  提示：最终报告已过期，请重新运行阶段 4 以获取最新结果。
+                </p>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleExport}
+              disabled={!sessionId}
+              className="inline-flex items-center justify-center rounded-full border border-primary-200 bg-primary-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-primary-600 disabled:cursor-not-allowed disabled:border-neutral-200 disabled:bg-neutral-200 disabled:text-neutral-500"
+            >
+              导出 PDF
+            </button>
+          </div>
         </div>
 
-        {/* Report Content */}
         <div className="flex-1 overflow-y-auto px-6 pb-6">
           {loading && (
             <div className="flex items-center justify-center h-full">

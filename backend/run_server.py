@@ -4,11 +4,13 @@ Run the FastAPI server with startup validation.
 """
 import argparse
 import os
-import uvicorn
 import socket
+import subprocess
 import sys
 from pathlib import Path
 from typing import Optional
+
+import uvicorn
 from loguru import logger
 
 # Add project root to path
@@ -16,6 +18,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from core.config import Config
+from lib.logging_setup import setup_logging
 
 
 def check_port_available(host: str, port: int) -> bool:
@@ -70,11 +73,53 @@ def validate_startup(override_host: Optional[str] = None, override_port: Optiona
         return False
 
 
+def ensure_console_window(args: argparse.Namespace) -> None:
+    """On Windows, relaunch the script in a dedicated console unless disabled."""
+    if os.name != "nt":
+        return
+
+    if args.reuse_window:
+        return
+
+    if os.environ.get("BACKEND_SERVER_CHILD") == "1":
+        return
+
+    child_env = os.environ.copy()
+    child_env["BACKEND_SERVER_CHILD"] = "1"
+
+    command = [sys.executable, str(Path(__file__).resolve())]
+    if args.host:
+        command += ["--host", args.host]
+    if args.port is not None:
+        command += ["--port", str(args.port)]
+
+    try:
+        creation_flags = subprocess.CREATE_NEW_CONSOLE  # type: ignore[attr-defined]
+    except AttributeError:
+        creation_flags = 0
+
+    subprocess.Popen(
+        command,
+        cwd=str(project_root),
+        env=child_env,
+        creationflags=creation_flags,
+    )
+    print("Launching backend server in a new console window...")
+    sys.exit(0)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run Research Tool backend server")
     parser.add_argument("--host", type=str, help="Override host to bind")
     parser.add_argument("--port", type=int, help="Override port to bind")
+    parser.add_argument(
+        "--reuse-window",
+        action="store_true",
+        help="Run the server in the current console window (skip auto-spawn on Windows)",
+    )
     args = parser.parse_args()
+
+    ensure_console_window(args)
 
     env_host = os.environ.get("BACKEND_HOST_OVERRIDE")
     env_port = os.environ.get("BACKEND_PORT_OVERRIDE")
@@ -88,27 +133,8 @@ if __name__ == "__main__":
     override_host = args.host or env_host
     override_port = args.port if args.port is not None else env_port_int
 
-    # Configure logging
-    logger.remove()  # Remove default handler
-    
-    # Log to stderr (console) - this will show in the terminal window
-    logger.add(
-        sys.stderr,
-        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
-        level="INFO",
-        colorize=True
-    )
-    
-    # Also log to a file for debugging
-    log_file = Path(__file__).parent.parent / "logs" / "backend.log"
-    log_file.parent.mkdir(exist_ok=True, parents=True)
-    logger.add(
-        str(log_file),
-        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
-        level="DEBUG",  # More verbose in file
-        rotation="10 MB",
-        retention="7 days"
-    )
+    # Configure logging (console + file + stdlib interception)
+    setup_logging(enable_console=True, console_colorize=True)
     
     logger.info("=" * 60)
     logger.info("Starting Research Tool Backend Server")
@@ -141,6 +167,8 @@ if __name__ == "__main__":
             reload=backend_config['reload'],
             reload_dirs=backend_config['reload_dirs'],
             log_level="info",
+            log_config=None,  # Use our Loguru-based config
+            access_log=True,
         )
     except KeyboardInterrupt:
         logger.info("Server stopped by user")

@@ -5,10 +5,53 @@ the scratchpad and all findings.
 """
 
 import json
+from dataclasses import dataclass, field, asdict
 from pathlib import Path
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Iterable
 from datetime import datetime
 from loguru import logger
+
+
+def _now_iso() -> str:
+    return datetime.now().isoformat()
+
+
+@dataclass
+class StepDigest:
+    """Structured digest summary for a completed step."""
+
+    step_id: int
+    goal_text: str = ""
+    summary: str = ""
+    points_of_interest: List[str] = field(default_factory=list)
+    notable_evidence: List[Dict[str, Any]] = field(default_factory=list)
+    revision_notes: Optional[str] = None
+    text_units: List[str] = field(default_factory=list)
+    created_at: str = field(default_factory=_now_iso)
+    updated_at: str = field(default_factory=_now_iso)
+
+    def to_payload(self) -> Dict[str, Any]:
+        payload = asdict(self)
+        payload["step_id"] = int(self.step_id)
+        return payload
+
+    @classmethod
+    def from_payload(cls, payload: Dict[str, Any]) -> "StepDigest":
+        data = dict(payload or {})
+        text_units = data.get("text_units") or []
+        if isinstance(text_units, str):
+            text_units = [text_units]
+        return cls(
+            step_id=int(data.get("step_id", 0)),
+            goal_text=data.get("goal_text", ""),
+            summary=data.get("summary", ""),
+            points_of_interest=list(data.get("points_of_interest") or []),
+            notable_evidence=list(data.get("notable_evidence") or []),
+            revision_notes=data.get("revision_notes"),
+            text_units=list(text_units),
+            created_at=data.get("created_at", _now_iso()),
+            updated_at=data.get("updated_at", _now_iso()),
+        )
 
 
 class ResearchSession:
@@ -48,6 +91,12 @@ class ResearchSession:
             "research_plan": None,
             "status": "initialized"
         }
+        self.phase_artifacts: Dict[str, Any] = {}
+        self.step_digests: Dict[int, StepDigest] = {}
+        
+        # Performance optimization: Cache scratchpad summary to avoid rebuilding on every access
+        self._scratchpad_summary_cache: Optional[str] = None
+        self._scratchpad_cache_valid: bool = False
         
         # Session file path
         self.session_file = self.base_path / f"session_{session_id}.json"
@@ -58,7 +107,12 @@ class ResearchSession:
         """Save session to disk."""
         session_data = {
             "metadata": self.metadata,
-            "scratchpad": self.scratchpad
+            "scratchpad": self.scratchpad,
+            "phase_artifacts": self.phase_artifacts,
+            "step_digests": [
+                digest.to_payload()
+                for _, digest in sorted(self.step_digests.items(), key=lambda item: item[0])
+            ],
         }
         
         try:
@@ -98,6 +152,19 @@ class ResearchSession:
             
             session.metadata = session_data.get("metadata", {})
             session.scratchpad = session_data.get("scratchpad", {})
+            session.phase_artifacts = session_data.get("phase_artifacts", {})
+            
+            # Invalidate cache after loading from disk
+            session._scratchpad_cache_valid = False
+            
+            digests_payload = session_data.get("step_digests") or []
+            session.step_digests = {}
+            for item in digests_payload:
+                try:
+                    digest = StepDigest.from_payload(item)
+                    session.step_digests[digest.step_id] = digest
+                except Exception as exc:
+                    logger.warning("Failed to load step digest entry %s: %s", item, exc)
             
             logger.info(f"Loaded session from {session_file}")
         except Exception as e:
@@ -125,7 +192,11 @@ class ResearchSession:
             insights: Key insights summary
             confidence: Confidence score (0.0-1.0)
             sources: List of source link_ids (enhancement #2)
+            autosave: Whether to save session to disk after update (default: True)
         """
+        # Invalidate cache since scratchpad is changing
+        self._scratchpad_cache_valid = False
+        
         scratchpad_entry = {
             "step_id": step_id,
             "findings": findings,
@@ -150,11 +221,20 @@ class ResearchSession:
         """
         Get scratchpad contents as a formatted string for prompts.
         
+        Uses cached summary for performance - cache is invalidated when scratchpad updates.
+        
         Returns:
             Formatted scratchpad string with source attribution (enhancement #2)
         """
+        # Return cached summary if valid
+        if self._scratchpad_cache_valid and self._scratchpad_summary_cache is not None:
+            return self._scratchpad_summary_cache
+        
+        # Rebuild summary
         if not self.scratchpad:
-            return "暂无发现。"
+            self._scratchpad_summary_cache = "暂无发现。"
+            self._scratchpad_cache_valid = True
+            return self._scratchpad_summary_cache
         
         summary_parts = []
         for step_key in sorted(self.scratchpad.keys()):
@@ -253,7 +333,106 @@ class ResearchSession:
             
             summary_parts.append(step_summary)
         
-        return "\n\n".join(summary_parts)
+        # Cache the result for future calls
+        self._scratchpad_summary_cache = "\n\n".join(summary_parts)
+        self._scratchpad_cache_valid = True
+        
+        return self._scratchpad_summary_cache
+
+    # ------------------------------------------------------------------
+    # Step digest helpers
+    # ------------------------------------------------------------------
+    def upsert_step_digest(self, digest: StepDigest, *, autosave: bool = True) -> None:
+        """Persist or update the structured digest for a step."""
+        digest.updated_at = _now_iso()
+        self.step_digests[int(digest.step_id)] = digest
+        if autosave:
+            self.save()
+
+    def get_step_digest(self, step_id: int) -> Optional[StepDigest]:
+        return self.step_digests.get(int(step_id))
+
+    def get_step_digests_before(self, step_id: int) -> List[StepDigest]:
+        target = int(step_id)
+        return [
+            digest
+            for _, digest in sorted(self.step_digests.items(), key=lambda item: item[0])
+            if digest.step_id < target
+        ]
+
+    def get_digest_text_units_before(self, step_id: int) -> List[str]:
+        units: List[str] = []
+        for digest in self.get_step_digests_before(step_id):
+            units.extend(digest.text_units or [])
+        return [u for u in units if u and isinstance(u, str)]
+
+    def aggregate_step_digests(
+        self,
+        upto_step_id: Optional[int] = None,
+        *,
+        token_cap: Optional[int] = None,
+    ) -> str:
+        """
+        Render cumulative digest text up to the specified step.
+
+        Args:
+            upto_step_id: exclusive upper bound (current step id).
+            token_cap: maximum tokens to include (approximate, 4 chars per token).
+        """
+        digests = self.get_step_digests_before(upto_step_id or 0) if upto_step_id else [
+            digest for _, digest in sorted(self.step_digests.items(), key=lambda item: item[0])
+        ]
+        if not digests:
+            return "暂无前序摘要。"
+
+        char_cap = None
+        if isinstance(token_cap, int) and token_cap > 0:
+            char_cap = max(200, token_cap * 4)
+
+        def _safe_join(values: Iterable[str]) -> str:
+            return "; ".join(v for v in values if isinstance(v, str) and v.strip())
+
+        lines: List[str] = []
+        used = 0
+        for digest in digests:
+            header = f"步骤 {digest.step_id}：{digest.goal_text}".strip()
+            if char_cap and used + len(header) + 1 > char_cap:
+                break
+            lines.append(header)
+            used += len(header) + 1
+
+            if digest.summary:
+                summary_line = f"  摘要：{digest.summary.strip()}"
+                if char_cap and used + len(summary_line) + 1 > char_cap:
+                    break
+                lines.append(summary_line)
+                used += len(summary_line) + 1
+
+            poi_text = _safe_join(digest.points_of_interest)
+            if poi_text:
+                poi_line = f"  兴趣点：{poi_text}"
+                if char_cap and used + len(poi_line) + 1 > char_cap:
+                    break
+                lines.append(poi_line)
+                used += len(poi_line) + 1
+
+            if digest.notable_evidence:
+                for evidence in digest.notable_evidence:
+                    description = evidence.get("description") or evidence.get("quote") or ""
+                    if not description:
+                        continue
+                    ev_line = f"    证据：{description}"
+                    if char_cap and used + len(ev_line) + 1 > char_cap:
+                        break
+                    lines.append(ev_line)
+                    used += len(ev_line) + 1
+                if char_cap and used >= char_cap:
+                    break
+
+        if char_cap and used >= char_cap:
+            lines.append("...（已截断，更多历史内容未展示）")
+
+        return "\n".join(lines) if lines else "暂无前序摘要。"
     
     def set_metadata(self, key: str, value: Any):
         """Update metadata."""
@@ -263,4 +442,62 @@ class ResearchSession:
     def get_metadata(self, key: str, default: Any = None) -> Any:
         """Get metadata value."""
         return self.metadata.get(key, default)
+
+    def save_phase_artifact(self, phase_key: str, data: Any, *, autosave: bool = True) -> None:
+        """
+        Persist artifacts for a specific phase.
+
+        Args:
+            phase_key: Logical phase identifier (e.g., "phase0", "phase3_step_1").
+            data: Serializable artifact payload.
+            autosave: Whether to persist immediately.
+        """
+        self.phase_artifacts[phase_key] = {
+            "data": data,
+            "updated_at": datetime.now().isoformat(),
+        }
+        if autosave:
+            self.save()
+
+    def get_phase_artifact(self, phase_key: str, default: Any = None) -> Any:
+        """
+        Retrieve stored artifacts for a phase.
+
+        Args:
+            phase_key: Logical phase identifier.
+            default: Value to return if artifact absent.
+        """
+        entry = self.phase_artifacts.get(phase_key)
+        if not entry:
+            return default
+        return entry.get("data", default)
+
+    def drop_phase_artifact(self, phase_key: str, *, autosave: bool = True) -> None:
+        """
+        Remove artifacts for a phase.
+
+        Args:
+            phase_key: Logical phase identifier.
+            autosave: Whether to persist removal immediately.
+        """
+        if phase_key in self.phase_artifacts:
+            self.phase_artifacts.pop(phase_key, None)
+            if autosave:
+                self.save()
+
+    def drop_phase_artifacts(self, phase_keys: Iterable[str], *, autosave: bool = True) -> None:
+        """
+        Remove multiple phase artifacts in one call.
+
+        Args:
+            phase_keys: Iterable of logical phase identifiers.
+            autosave: Whether to persist removal immediately.
+        """
+        removed = False
+        for key in phase_keys:
+            if key in self.phase_artifacts:
+                self.phase_artifacts.pop(key, None)
+                removed = True
+        if removed and autosave:
+            self.save()
 

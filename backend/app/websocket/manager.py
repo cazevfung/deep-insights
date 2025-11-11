@@ -1,7 +1,7 @@
 """
 WebSocket manager for real-time progress updates.
 """
-from typing import Dict, Set
+from typing import Dict, Set, Optional
 from fastapi import WebSocket
 import json
 import asyncio
@@ -19,6 +19,7 @@ class WebSocketManager:
         # Message buffer for messages sent before clients connect
         self._message_buffer: Dict[str, list] = {}  # batch_id -> list of messages
         self._max_buffer_size = 100  # Maximum messages to buffer per batch
+        self._conversation_service: Optional['ConversationContextService'] = None
     
     def register_ui(self, batch_id: str, ui: 'WebSocketUI'):
         """Register a WebSocketUI instance for a batch."""
@@ -31,6 +32,10 @@ class WebSocketManager:
         if batch_id in self._ui_instances:
             del self._ui_instances[batch_id]
             logger.debug(f"Unregistered WebSocketUI for batch_id: {batch_id}")
+
+    def set_conversation_service(self, service: 'ConversationContextService'):
+        """Attach conversation context service for conversational feedback."""
+        self._conversation_service = service
     
     async def connect(self, websocket: WebSocket, batch_id: str):
         """Connect a WebSocket client."""
@@ -193,6 +198,30 @@ class WebSocketManager:
                 try:
                     ui.deliver_user_input(prompt_id, response)
                     logger.info(f"Successfully delivered user input for prompt_id: {prompt_id}, batch_id: {batch_id}")
+                    if self._conversation_service:
+                        conversation_results = await self._conversation_service.resolve_procedural_prompt(
+                            batch_id,
+                            prompt_id,
+                            response,
+                        )
+                        for conversation_result in conversation_results:
+                            user_payload = self._conversation_service.get_message_payload(
+                                batch_id, conversation_result.user_message_id
+                            )
+                            if user_payload:
+                                await self.broadcast(batch_id, {
+                                    "type": "conversation:message",
+                                    "message": user_payload,
+                                })
+                            if conversation_result.assistant_message_id:
+                                assistant_payload = self._conversation_service.get_message_payload(
+                                    batch_id, conversation_result.assistant_message_id
+                                )
+                                if assistant_payload:
+                                    await self.broadcast(batch_id, {
+                                        "type": "conversation:message",
+                                        "message": assistant_payload,
+                                    })
                 except Exception as e:
                     logger.error(f"Failed to deliver user input for prompt_id: {prompt_id}, batch_id: {batch_id}: {e}", exc_info=True)
                     await self.send_to_client(websocket, {

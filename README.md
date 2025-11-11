@@ -20,8 +20,8 @@
 ┌─────────────────────────────────────────────────────────────────────────┐
 │ 🔍 内容提取阶段（并行处理）
 │
-│   ├─ YouTube 字幕提取（使用Playwright抓取）
-│   ├─ Bilibili 字幕提取（使用Cookies进行视频下载+阿里云上传+Paraformer转录）
+│   ├─ YouTube 字幕提取（使用 Playwright 抓取）
+│   ├─ Bilibili 字幕提取（Cookies 认证 + 视频下载 + Paraformer 转录）
 │   ├─ 文章内容提取
 │   └─ 评论提取（支持分页）
 └─────────────────────────────────────────────────────────────────────────┘
@@ -64,8 +64,8 @@
 │ 🔬 阶段 3: 详细研究
 │
 │   🤖 AI: Qwen3-max
-│   ├─ 多轮深度对话研究
-│   ├─ 上下文检索机制
+│   ├─ 多轮深度对话研究（Phase 3 专属会话界面）
+│   ├─ 语义向量检索（向量存储 + 嵌入模型）
 │   └─ 智能内容检索和分析
 └─────────────────────────────────────────────────────────────────────────┘
     │
@@ -74,7 +74,7 @@
 │ 📝 阶段 4: 最终综合
 │
 │   🤖 AI: Qwen3-max
-│   └─ 整合所有研究成果，生成高质量研究报告
+│   └─ 整合所有研究成果，生成高质量研究报告，并支持多格式导出
 └─────────────────────────────────────────────────────────────────────────┘
     │
     ▼
@@ -88,15 +88,14 @@
 │     ├─ 阶段 0: 数据摘要（快速、高效）
 │     └─ 阶段 0.5: 角色生成（快速生成）
 │
-│  🧠 Qwen3-max   (深度任务，思考模式)
-│     └─ 阶段 1: 目标发现（需要推理能力，启用思考模式）
-│
 │  ⚡ Qwen-plus   (平衡任务)
+│     ├─ 阶段 1: 目标发现（需要推理能力，启用思考模式）
 │     ├─ 阶段 2: 问题综合（需要结构化思维，启用思考模式）
-│     └─ 阶段 3: 详细研究（需要多轮对话，标准模式）
+│     ├─ 阶段 3: 详细研究（语义检索 + 多轮对话，标准模式）
+│     └─ 阶段 4: 报告生成（需要综合能力，支持导出）
 │
 │  🧠 Qwen3-max   (深度任务，标准模式)
-│     └─ 阶段 4: 报告生成（需要综合能力）
+│     └─ 作为全局回退模型保障关键阶段稳定性
 │
 │  所有阶段均启用流式输出 (stream: true)
 │
@@ -122,15 +121,19 @@
   - 阶段 2: 研究问题综合
   - 阶段 3: 详细研究执行
   - 阶段 4: 最终综合和报告生成
+- **语义向量检索**: 集成嵌入与向量存储，在 Phase 3 中通过语义检索精准定位上下文
+- **智能内容标记系统**: 自动提取 Facts / Opinions / Data，驱动目标发现与研究规划
 - **会话管理**: 跟踪研究会话，支持进度追踪
 - **进度追踪**: 恢复中断的研究会话
 - **质量评估**: 自动数据质量评分和标记
 
 ### Web 应用特性
 - **前后端分离架构**: FastAPI 后端 + React 前端
-- **实时进度更新**: WebSocket 实时推送抓取和研究进度
-- **工作流管理**: 完整的抓取→研究→报告生成流程
+- **实时进度更新**: WebSocket 实时推送抓取和研究进度（包含当前阶段与子步骤）
+- **工作流管理**: 完整的抓取→研究→报告生成流程，并支持断点恢复
 - **历史记录**: 查看和管理所有研究会话
+- **Phase 3 专属会话界面**: 更直观地查看多轮对话式研究过程
+- **报告导出**: 支持在前端触发导出 API，下载 Markdown 或结构化研究结果
 - **响应式设计**: 支持桌面和移动设备
 - **现代化 UI**: 基于 Tailwind CSS 的美观界面
 
@@ -139,8 +142,10 @@
 - **智能缓存**: 避免重复提取相同的 URL
 - **丰富元数据**: 提取标题、作者、发布日期、字数等
 - **Qwen3 集成**: 使用 Qwen3-max、Qwen-flash 等模型进行 AI 驱动的研究
+- **向量存储与嵌入**: 支持 SQLite/Chroma 向量数据库与可配置嵌入模型
 - **媒体工具**: MP4 → MP3 转换和视频下载支持
 - **浏览器自动化**: 基于 Playwright 的爬取，支持 Chrome 集成
+- **统一日志系统**: 内置 Loguru 结构化日志，支持文件轮转和级别配置
 
 ## 快速开始
 
@@ -176,6 +181,7 @@
    ```
    
    后端将在 `http://localhost:3001` 运行
+   首次启动会自动初始化向量存储数据库并进行必要的嵌入配置检查
 
 5. **启动前端应用:**
    ```bash
@@ -188,6 +194,7 @@
 6. **使用应用:**
    - 在浏览器中打开 `http://localhost:3000`
    - 输入链接并开始研究
+   - 在研究完成后，通过导出功能下载报告与会话数据
 
 ### 方式二：使用命令行
 
@@ -251,6 +258,8 @@
 - **yt-dlp**: 视频下载（用于 Bilibili）
 - **dashscope**: 阿里云 Paraformer API（用于云端转录）
 - **openai**: 兼容 OpenAI 的 SDK，用于 Qwen API
+- **loguru**: 统一的结构化日志记录
+- **chromadb** (可选): 向量数据库实现语义检索
 - **pytest**: 测试框架
 
 **前端:**
@@ -316,6 +325,26 @@ research:
   synthesis:
     min_words_total: 5000
 
+vector_store:
+  enabled: true
+  db_path: "data/vector_store/embeddings.sqlite"
+  embedding_model: "text-embedding-v1"
+  chunk_size: 1000
+  overlap: 200
+
+embeddings:
+  provider: "qwen"  # 可选："openai"
+  model: "text-embedding-v1"
+  batch_size: 16
+  max_retries: 3
+
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  console: true
+  file: true
+  rotation: "10 MB"
+  retention: "7 days"
+
 storage:
   cache_dir: "data/cache"
   base_dir: "data/research"
@@ -323,6 +352,11 @@ storage:
 web:
   host: "127.0.0.1"
   port: 5000
+  cors:
+    allowed_origins: ["http://localhost:3000"]
+    allow_credentials: true
+    allow_methods: ["*"]
+    allow_headers: ["*"]
 ```
 
 ## 使用说明
@@ -455,6 +489,7 @@ result = article.scrape("https://example.com/article")
 - `POST /api/workflow/start` - 启动工作流
 - `GET /api/workflow/status/{workflow_id}` - 获取工作流状态
 - `POST /api/workflow/cancel` - 取消正在运行的工作流
+- `POST /api/exports` - 导出研究报告和会话数据
 
 ### 研究
 - `POST /api/research/user_input` - 在研究阶段提交用户输入
@@ -689,6 +724,18 @@ playwright install chromium
 - 在 `config.yaml` 的 research.retrieval 部分减少 `window_words`
 - 减少 `max_followups_per_step`
 - 处理较小的数据批次
+
+### 向量存储与嵌入
+
+**向量数据库初始化失败:**
+- 确认 `vector_store.db_path` 指向的目录存在且具备读写权限
+- 删除损坏的数据库文件后重新启动后端（会自动重建）
+- 检查 `chromadb` / SQLite 依赖是否安装成功
+
+**嵌入生成超时:**
+- 减少 `embeddings.batch_size` 或启用更高性能的模型
+- 核对 Qwen API 配额是否足够，必要时降低并发请求
+- 确保网络环境稳定，必要时重试
 
 ### Web 应用问题
 

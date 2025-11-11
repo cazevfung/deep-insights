@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Card from '../components/common/Card'
 import Button from '../components/common/Button'
 import { apiService } from '../services/api'
-import { useWorkflowStore } from '../stores/workflowStore'
+import { SessionStep, useWorkflowStore } from '../stores/workflowStore'
 import { useUiStore } from '../stores/uiStore'
 
 interface HistorySession {
@@ -15,15 +15,55 @@ interface HistorySession {
   current_phase?: string
 }
 
+interface ScrapingStatusSnapshot {
+  total?: number
+  expected_total?: number
+  completed?: number
+  failed?: number
+  inProgress?: number
+  items?: any[]
+  completionRate?: number
+  is100Percent?: boolean
+  canProceedToResearch?: boolean
+}
+
+interface Phase3State {
+  plan?: Array<{ step_id: number }>
+  steps?: SessionStep[]
+  completed_step_ids?: number[]
+  total_steps?: number
+  next_step_id?: number | null
+  synthesized_goal?: any
+}
+
+interface HistorySessionDetail extends HistorySession {
+  session_id?: string
+  metadata?: Record<string, any>
+  scraping_status?: ScrapingStatusSnapshot
+  phase3?: Phase3State
+  resume_required?: boolean
+  data_loaded?: boolean
+}
+
 const HistoryPage: React.FC = () => {
   const navigate = useNavigate()
-  const { setBatchId, setCurrentPhase } = useWorkflowStore()
+  const {
+    setBatchId,
+    setCurrentPhase,
+    setWorkflowStarted,
+    setPlan,
+    setSynthesizedGoal,
+    setPhase3Steps,
+    setSessionId,
+    updateScrapingStatus,
+  } = useWorkflowStore()
   const { addNotification } = useUiStore()
   const [sessions, setSessions] = useState<HistorySession[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [exportingBatchId, setExportingBatchId] = useState<string | null>(null)
 
   useEffect(() => {
     loadHistory()
@@ -51,34 +91,67 @@ const HistoryPage: React.FC = () => {
   const handleResume = async (batchId: string) => {
     try {
       // Load session data
-      const sessionData = await apiService.getHistorySession(batchId)
+      const sessionData = (await apiService.getHistorySession(batchId)) as HistorySessionDetail
       
       // Restore workflow state
       setBatchId(batchId)
-      
-      // Determine current phase from session data
-      if (sessionData.current_phase) {
-        setCurrentPhase(sessionData.current_phase as any)
-      } else if (sessionData.status === 'completed') {
-        setCurrentPhase('complete')
-        navigate('/report')
-        return
-      } else {
-        // Try to determine phase from progress
-        if (sessionData.scraping_status?.completed === sessionData.scraping_status?.total) {
-          setCurrentPhase('research')
-          navigate('/research')
-          return
-        } else {
-          setCurrentPhase('scraping')
-          navigate('/scraping')
-          return
-        }
+      setSessionId(sessionData.session_id || null)
+      setWorkflowStarted(false)
+
+      // Hydrate scraping snapshot
+      if (sessionData.scraping_status) {
+        const snapshot = sessionData.scraping_status
+        updateScrapingStatus({
+          total: snapshot.total ?? snapshot.expected_total ?? 0,
+          expectedTotal: snapshot.expected_total ?? snapshot.total ?? 0,
+          completed: snapshot.completed ?? 0,
+          failed: snapshot.failed ?? 0,
+          inProgress: snapshot.inProgress ?? 0,
+          items: snapshot.items ?? [],
+          completionRate: snapshot.completionRate ?? 0,
+          is100Percent: Boolean(snapshot.is100Percent),
+          canProceedToResearch: Boolean(snapshot.canProceedToResearch),
+        })
       }
 
-      // Resume workflow
-      await apiService.resumeSession(batchId)
-      addNotification('已恢复会话', 'success')
+      // Hydrate Phase 3 plan/steps if present
+      setPlan((sessionData.phase3?.plan as any) ?? null)
+      setSynthesizedGoal(sessionData.phase3?.synthesized_goal ?? null)
+      const phase3Steps = (sessionData.phase3?.steps as SessionStep[]) ?? []
+      setPhase3Steps(phase3Steps, sessionData.phase3?.next_step_id ?? null)
+      
+      // Determine current phase from session data
+      const resolvedPhase =
+        sessionData.current_phase ||
+        (sessionData.status === 'completed' ? 'complete' : sessionData.data_loaded ? 'research' : 'scraping')
+
+      // Resume workflow FIRST (before setting phase or navigating)
+      // Resume if workflow is not complete (status or phase indicates incomplete)
+      // Note: We check status and phase FIRST, resume_required is just a hint
+      const isIncomplete = sessionData.status !== 'completed' && resolvedPhase !== 'complete'
+      const shouldResume = isIncomplete || (sessionData.resume_required === true)
+      
+      console.log('[HistoryPage] Resume decision:', {
+        isIncomplete,
+        shouldResume,
+        resume_required: sessionData.resume_required,
+        status: sessionData.status,
+        resolvedPhase,
+        batchId
+      })
+      
+      if (shouldResume) {
+        console.log('[HistoryPage] Calling resumeSession API for batch:', batchId)
+        await apiService.resumeSession(batchId)
+        console.log('[HistoryPage] resumeSession API call completed')
+        addNotification('已恢复会话', 'success')
+      } else {
+        console.log('[HistoryPage] NOT resuming - just loading state')
+        addNotification('已加载会话状态', 'success')
+      }
+      
+      // NOW set the phase (this triggers auto-navigation)
+      setCurrentPhase(resolvedPhase as any)
       
       // Navigate based on current phase
       const phaseRoutes: Record<string, string> = {
@@ -87,7 +160,7 @@ const HistoryPage: React.FC = () => {
         phase3: '/phase3',
         complete: '/report',
       }
-      const route = phaseRoutes[sessionData.current_phase] || '/scraping'
+      const route = phaseRoutes[resolvedPhase] || '/scraping'
       navigate(route)
     } catch (err: any) {
       console.error('Failed to resume session:', err)
@@ -123,6 +196,27 @@ const HistoryPage: React.FC = () => {
     } catch (err: any) {
       console.error('Failed to delete session:', err)
       addNotification('无法删除会话，请重试', 'error')
+    }
+  }
+
+  const handleExportPdf = async (batchId: string) => {
+    setExportingBatchId(batchId)
+    try {
+      const sessionData = (await apiService.getHistorySession(batchId)) as HistorySessionDetail
+      const sessionId = sessionData.session_id
+      if (!sessionId) {
+        throw new Error('未找到会话ID，无法导出PDF')
+      }
+
+      // Open export page in new tab
+      window.open(`/export/${sessionId}`, '_blank')
+      addNotification('已打开导出页面', 'success')
+    } catch (err: any) {
+      console.error('Failed to open export page:', err)
+      const detail = err?.response?.data?.detail || err?.message || '无法打开导出页面'
+      addNotification(detail, 'error')
+    } finally {
+      setExportingBatchId(null)
     }
   }
 
@@ -240,6 +334,15 @@ const HistoryPage: React.FC = () => {
                           </div>
                         </div>
                         <div className="flex items-center gap-2 ml-4">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleExportPdf(session.batch_id)}
+                            isLoading={exportingBatchId === session.batch_id}
+                            disabled={exportingBatchId !== null && exportingBatchId !== session.batch_id}
+                          >
+                            导出 PDF
+                          </Button>
                           {session.status === 'completed' && (
                             <Button
                               variant="secondary"

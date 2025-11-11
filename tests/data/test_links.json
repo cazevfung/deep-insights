@@ -1,16 +1,126 @@
 {
-  "batchId": "20251107_120212",
-  "createdAt": "2025-11-07T12:02:12.106562+00:00",
+  "batchId": "20251110_100512",
+  "createdAt": "2025-11-10T10:05:12.571933+00:00",
   "links": [
     {
       "id": "yt_req1",
       "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=am2Jl7o3roQ"
+      "url": "https://www.youtube.com/watch?v=jC4v5AS4RIM"
     },
     {
       "id": "yt_req2",
       "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=1u6IfvGvx7Y"
+      "url": "https://www.youtube.com/watch?v=p09yRj47kNM"
+    },
+    {
+      "id": "yt_req3",
+      "type": "youtube",
+      "url": "https://www.youtube.com/watch?v=qBlX6FhDm2E"
+    },
+    {
+      "id": "yt_req4",
+      "type": "youtube",
+      "url": "https://www.youtube.com/watch?v=yMOmmnjy3sE"
+    },
+    {
+      "id": "yt_req5",
+      "type": "youtube",
+      "url": "https://www.youtube.com/watch?v=Ozp3k4qzmHo"
+    },
+    {
+      "id": "yt_req6",
+      "type": "youtube",
+      "url": "https://www.youtube.com/watch?v=INlCLmWlojY"
+    },
+    {
+      "id": "yt_req7",
+      "type": "youtube",
+      "url": "https://www.youtube.com/watch?v=QXAXNcRs7gQ&t=257s"
+    },
+    {
+      "id": "yt_req8",
+      "type": "youtube",
+      "url": "https://www.youtube.com/watch?v=bMmlCPLDk1c"
+    },
+    {
+      "id": "bili_req1",
+      "type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1BHyrBsEeS/"
+    },
+    {
+      "id": "bili_req2",
+      "type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV19vfZY3E46/"
+    },
+    {
+      "id": "bili_req3",
+      "type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1ww411W7CA/"
+    },
+    {
+      "id": "bili_req4",
+      "type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1iweMzXEm2/"
+    },
+    {
+      "id": "bili_req5",
+      "type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1Vqe3z4Eyg/"
+    },
+    {
+      "id": "bili_req6",
+      "type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1Vqe3z4Eyg/"
+    },
+    {
+      "id": "yt_req9",
+      "type": "youtube",
+      "url": "https://www.youtube.com/watch?v=2IK3DFHRFfw&t=375s"
+    },
+    {
+      "id": "yt_req10",
+      "type": "youtube",
+      "url": "https://www.youtube.com/watch?v=KeZn5VxnxaI"
+    },
+    {
+      "id": "yt_req11",
+      "type": "youtube",
+      "url": "https://www.youtube.com/watch?v=0bnxF9YfyFI"
+    },
+    {
+      "id": "yt_req12",
+      "type": "youtube",
+      "url": "https://www.youtube.com/watch?v=fa8k8IQ1_X0"
+    },
+    {
+      "id": "yt_req13",
+      "type": "youtube",
+      "url": "https://www.youtube.com/watch?v=mERBjn6JotM"
+    },
+    {
+      "id": "yt_req14",
+      "type": "youtube",
+      "url": "https://www.youtube.com/watch?v=MjamAL6FBJY"
+    },
+    {
+      "id": "yt_req15",
+      "type": "youtube",
+      "url": "https://www.youtube.com/watch?v=cmg3LfJZORw"
+    },
+    {
+      "id": "yt_req16",
+      "type": "youtube",
+      "url": "https://www.youtube.com/watch?v=BRkE4lFPwnU"
+    },
+    {
+      "id": "yt_req17",
+      "type": "youtube",
+      "url": "https://www.youtube.com/watch?v=Ozp3k4qzmHo"
+    },
+    {
+      "id": "yt_req18",
+      "type": "youtube",
+      "url": "https://www.youtube.com/watch?v=lCG47inAITk"
     }
   ]
 }

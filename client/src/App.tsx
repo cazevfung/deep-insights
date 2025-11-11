@@ -8,6 +8,7 @@ import ResearchAgentPage from './pages/ResearchAgentPage'
 import Phase3SessionPage from './pages/Phase3SessionPage'
 import FinalReportPage from './pages/FinalReportPage'
 import HistoryPage from './pages/HistoryPage'
+import ReportExportPage from './pages/ReportExportPage'
 import { useProgressNavigation } from './hooks/useProgressNavigation'
 
 // Define route order for animation direction
@@ -171,6 +172,10 @@ function AnimatedRoutes() {
               <HistoryPage />
             </motion.div>
           }
+        />
+        <Route
+          path="/export/:sessionId"
+          element={<ReportExportPage />}
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

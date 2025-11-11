@@ -21,6 +21,11 @@ const ScrapingProgressPage: React.FC = () => {
     cancellationInfo,
     setWorkflowStarted,
     updateScrapingStatus,
+    setFinalReport,
+    setGoals,
+    setPlan,
+    setPhase3Steps,
+    updateResearchAgentStatus,
   } = useWorkflowStore()
   
   const [isCancelling, setIsCancelling] = useState(false)
@@ -165,6 +170,86 @@ const ScrapingProgressPage: React.FC = () => {
       setIsCheckingStatus(true)
       
       try {
+        // FRONTEND FIX: Check if report exists FIRST before trusting workflow status
+        // This prevents treating completed workflows as "running" based on WebSocket connections
+        try {
+          console.log('Checking if report exists for batch:', batchId)
+          const report = await apiService.getFinalReport(batchId)
+          
+          if (report && report.status === 'ready') {
+            console.log('✓ Report exists and is ready - workflow is COMPLETED')
+            // Mark workflow as completed, not running
+            setWorkflowStatus('completed')
+            setWorkflowStarted(true)
+            
+            // Update scraping status to show completion
+            updateScrapingStatus({
+              is100Percent: true,
+              canProceedToResearch: true,
+            })
+            
+            // Set final report in store
+            setFinalReport({
+              content: report.content,
+              generatedAt: report.metadata.generatedAt,
+              status: 'ready',
+            })
+            
+            // Try to load session data to populate research phases
+            if (report.metadata.sessionId) {
+              try {
+                const historyData = await apiService.getHistorySession(batchId)
+                console.log('Loaded session data for completed workflow:', historyData)
+                
+                // Populate research data if available
+                if (historyData.research_results) {
+                  const results = historyData.research_results
+                  
+                  // Set goals if available
+                  if (results.goals) {
+                    setGoals(results.goals)
+                  }
+                  
+                  // Set plan if available
+                  if (results.plan) {
+                    setPlan(results.plan)
+                  }
+                  
+                  // Set phase 3 steps if available
+                  if (results.phase3_steps && Array.isArray(results.phase3_steps)) {
+                    setPhase3Steps(results.phase3_steps)
+                  }
+                  
+                  // Update research phase
+                  updateResearchAgentStatus({
+                    phase: '4', // Final phase
+                  })
+                  
+                  // Update current phase to complete
+                  setCurrentPhase('complete')
+                }
+              } catch (historyError) {
+                console.log('Could not load session data:', historyError)
+                // Not critical - just log and continue
+              }
+            }
+            
+            hasInitializedRef.current = true
+            checkInProgressRef.current = false
+            setIsCheckingStatus(false)
+            return // Skip workflow status check - report proves it's done
+          }
+          
+          console.log('Report not ready or doesn\'t exist, checking workflow status...')
+        } catch (reportError: any) {
+          // Report doesn't exist (404) or error fetching - continue to workflow status check
+          if (reportError?.response?.status === 404) {
+            console.log('Report not found (404), workflow may still be in progress')
+          } else {
+            console.log('Error fetching report:', reportError?.message)
+          }
+        }
+        
         const workflowId = `workflow_${batchId}`
         let currentStatus: string | null = null
         
@@ -369,6 +454,12 @@ const ScrapingProgressPage: React.FC = () => {
           {workflowStatus === 'running' && !isCheckingStatus && (
             <div className="bg-green-50 border border-green-300 rounded-lg p-3 mb-4">
               <p className="text-sm text-green-700">工作流正在运行中...</p>
+            </div>
+          )}
+          
+          {workflowStatus === 'completed' && !isCheckingStatus && (
+            <div className="bg-blue-50 border border-blue-300 rounded-lg p-3 mb-4">
+              <p className="text-sm text-blue-700">✓ 工作流已完成 - 查看报告</p>
             </div>
           )}
           

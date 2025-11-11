@@ -1,0 +1,30 @@
+{
+  "batch_id": "20251110_100512",
+  "scraper_type": "bilibilicomments",
+  "total_comments": 4,
+  "successful_extractions": 1,
+  "total_videos": 2,
+  "comments": [
+    {
+      "content": "这些方法对于所有对话的AI都是适用的，特别是gemini，豆包还有deepseek的API版本，效果会更好一些。",
+      "likes": 8,
+      "replies": 0,
+      "bv_id": "BV1BHyrBsEeS",
+      "link_id": "bili_req1"
+    },
+    {
+      "content": "眼睛看镜头是用英伟达的东西实现的吗",
+      "likes": 1,
+      "replies": 0,
+      "bv_id": "BV1BHyrBsEeS",
+      "link_id": "bili_req1"
+    }
+  ],
+  "generated_at": "2025-11-10T18:41:22.065289",
+  "summary": {
+    "transcript_summary": {},
+    "comments_summary": {},
+    "created_at": "2025-11-10T18:54:49.813213",
+    "model_used": "qwen-flash"
+  }
+}

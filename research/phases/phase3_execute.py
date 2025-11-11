@@ -1,14 +1,24 @@
 """Phase 3: Execute Research Plan."""
 
 import json
+import re
 import time
-from typing import Dict, Any, List, Optional
+from collections import defaultdict
+from typing import Dict, Any, List, Optional, Set, Iterable
 from research.phases.base_phase import BasePhase
 from research.data_loader import ResearchDataLoader
 from research.prompts import compose_messages, load_schema
+from research.prompts.context_formatters import format_research_role_for_context
 from research.retrieval_handler import RetrievalHandler
 from core.config import Config
 from research.utils.marker_formatter import format_marker_overview
+from research.retrieval.vector_retrieval_service import (
+    VectorRetrievalService,
+    RetrievalFilters,
+    VectorSearchResult,
+)
+from research.embeddings.embedding_client import EmbeddingClient, EmbeddingConfig
+from research.session import StepDigest
 
 
 class Phase3Execute(BasePhase):
@@ -48,6 +58,14 @@ class Phase3Execute(BasePhase):
         self._never_truncate_items = cfg.get_bool("research.retrieval.never_truncate_items", True)
         # Max transcript chars (0 = no limit, let API handle token limits)
         self._max_transcript_chars = cfg.get_int("research.retrieval.max_transcript_chars", 0)
+        # Vector-first routing controls
+        self._vector_first_enabled = bool(cfg.get("research.retrieval.vector_first.enabled", True))
+        self._vector_min_chars = cfg.get_int("research.retrieval.vector_first.min_appended_chars", 600)
+        self._vector_window_cap = cfg.get_int("research.retrieval.vector_first.max_sequential_windows", 3)
+        self._vector_block_chars = cfg.get_int("research.retrieval.vector_first.max_block_chars", 800)
+        self._vector_top_k = cfg.get_int("research.retrieval.vector_first.top_k", 12)
+        self._vector_max_rounds = cfg.get_int("research.retrieval.vector_first.max_rounds", 3)
+        self._vector_debug_logs = bool(cfg.get("research.retrieval.vector_first.debug_logs", False))
         # Debug: log config loading (INFO level for troubleshooting)
         try:
             self.logger.info(
@@ -59,7 +77,67 @@ class Phase3Execute(BasePhase):
             pass
         # Simple in-memory cache (per executor instance)
         self._retrieval_cache: Dict[str, str] = {}
+
+        # Vector retrieval service
+        try:
+            self.vector_service: Optional[VectorRetrievalService] = VectorRetrievalService(config=cfg)
+        except Exception as exc:
+            self.logger.warning("Vector retrieval service unavailable: %s", exc)
+            self.vector_service = None
+
+        # Novelty enforcement controls
+        self._novelty_enabled = bool(cfg.get("research.phase3.novelty.enforce", True))
+        self._novelty_similarity_threshold = float(cfg.get("research.phase3.novelty.similarity_threshold", 0.82) or 0.82)
+        self._keyword_overlap_threshold = float(cfg.get("research.phase3.novelty.keyword_overlap_threshold", 0.7) or 0.7)
+        self._allow_revision_duplicates = bool(cfg.get("research.phase3.novelty.allow_revision_duplicates", True))
+        self._digest_token_cap = cfg.get_int("research.phase3.novelty.digest_token_cap", 1800)
+
+        def _cfg_int(path: str, default: int) -> int:
+            try:
+                return int(cfg.get(path, default) or default)
+            except Exception:
+                return default
+
+        embedding_provider = (
+            cfg.get("research.phase3.novelty.embedding.provider", None)
+            or cfg.get("research.embeddings.provider", None)
+            or "hash"
+        )
+        embedding_model = (
+            cfg.get("research.phase3.novelty.embedding.model", None)
+            or cfg.get("research.embeddings.model", None)
+            or "text-embedding-v1"
+        )
+        embedding_dimension = _cfg_int("research.phase3.novelty.embedding.dimension", 768)
+        embedding_batch_size = _cfg_int("research.phase3.novelty.embedding.batch_size", 16)
+        embedding_timeout = _cfg_int("research.phase3.novelty.embedding.timeout", 45)
+        embedding_base_url = cfg.get("research.phase3.novelty.embedding.base_url", None) or cfg.get(
+            "research.embeddings.base_url", None
+        )
+
+        novelty_embedding_cfg = EmbeddingConfig(
+            provider=str(embedding_provider),
+            model=str(embedding_model),
+            dimension=int(embedding_dimension or 768),
+            batch_size=int(embedding_batch_size or 16),
+            timeout=int(embedding_timeout or 45),
+            base_url=embedding_base_url,
+        )
+        try:
+            self._embedding_client: Optional[EmbeddingClient] = EmbeddingClient(novelty_embedding_cfg)
+        except Exception as exc:
+            self.logger.warning("Embedding client unavailable for novelty filtering: %s", exc)
+            self._embedding_client = None
+
+        # Telemetry per step
+        self._step_stats: Dict[int, Dict[str, float]] = {}
+        self._vector_seen_chunks: Dict[int, Set[str]] = defaultdict(set)
+        self._vector_full_items: Dict[int, bool] = defaultdict(bool)
+        self._shared_role_context: Dict[str, str] = {}
     
+    def _has_vector_service(self) -> bool:
+        return self.vector_service is not None and getattr(self.vector_service, "enabled", True)
+
     def execute(
         self,
         research_plan: List[Dict[str, Any]],
@@ -77,6 +155,37 @@ class Phase3Execute(BasePhase):
         """
         self.logger.info(f"Phase 3: Executing {len(research_plan)} steps")
         
+        # Reset telemetry for this run
+        self._step_stats = {}
+        self._vector_seen_chunks.clear()
+        self._vector_full_items.clear()
+
+        role_artifact = self.session.get_phase_artifact("phase0_5", {}) or {}
+        research_role_obj = None
+        if isinstance(role_artifact, dict):
+            research_role_obj = role_artifact.get("research_role")
+            if not research_role_obj:
+                role_result = role_artifact.get("role_result")
+                if isinstance(role_result, dict):
+                    research_role_obj = role_result.get("research_role")
+        role_context = format_research_role_for_context(research_role_obj)
+        role_display = role_context.get("research_role_display", "")
+        role_rationale = (role_context.get("research_role_rationale", "") or "").strip()
+        if role_display:
+            role_section_lines = [f"- 角色：{role_display}"]
+            if role_rationale:
+                role_section_lines.append(role_rationale)
+        else:
+            role_section_lines = ["未提供专属研究角色；默认以资深数据分析专家视角执行任务。"]
+            role_rationale = ""
+        shared_role_context = {
+            "system_role_description": role_display or "资深数据分析专家",
+            "research_role_rationale": role_rationale,
+            "research_role_section": "\n".join(role_section_lines),
+            "research_role_display": role_display,
+        }
+        self._shared_role_context = dict(shared_role_context)
+
         all_findings = []
         
         # Execute each step
@@ -86,6 +195,8 @@ class Phase3Execute(BasePhase):
             required_data = step.get("required_data")
             chunk_strategy = step.get("chunk_strategy", "all")
             
+            self._init_step_stats(step_id)
+
             # Log step configuration and batch stats for debugging
             try:
                 transcripts_count = sum(1 for d in batch_data.values() if d.get("transcript"))
@@ -114,20 +225,51 @@ class Phase3Execute(BasePhase):
             try:
                 chunk_size = step.get("chunk_size", self._window_words)
                 if chunk_strategy == "sequential":
-                    # Run paged processing to avoid truncation and improve coverage
-                    findings = self._execute_step_paged(step_id, goal, batch_data, required_data, chunk_size)
-                    # Complete step after paged processing
+                    vector_attempted = False
+                    vector_result: Optional[Dict[str, Any]] = None
+                    if self._vector_first_enabled and self._has_vector_service():
+                        vector_attempted = True
+                        vector_result = self._attempt_vector_first(
+                            step_id,
+                            goal,
+                            required_data,
+                            batch_data,
+                            step.get("required_content_items"),
+                        )
+                    if vector_result is not None:
+                        finalized = self._finalize_step_output(step_id, goal, vector_result)
+                        all_findings.append(finalized)
+                        self._log_step_summary(step_id)
+                        if self.progress_tracker:
+                            self.progress_tracker.complete_step(step_id, finalized["findings"])
+                        if hasattr(self, 'ui') and self.ui:
+                            self.ui.display_message(
+                                f"步骤 {step_id}/{total_steps} 执行完成",
+                                "success"
+                            )
+                        continue
+
+                    router_reason = "vector_insufficient" if vector_attempted else "chunk_strategy"
+                    findings = self._execute_step_paged(
+                        step_id,
+                        goal,
+                        batch_data,
+                        required_data,
+                        chunk_size,
+                        router_reason=router_reason,
+                    )
+                    finalized = self._finalize_step_output(step_id, goal, findings)
+                    all_findings.append(finalized)
                     if self.progress_tracker:
-                        self.progress_tracker.complete_step(step_id, findings)
+                        self.progress_tracker.complete_step(step_id, finalized["findings"])
                     
-                    # Send completion update
                     if hasattr(self, 'ui') and self.ui:
                         self.ui.display_message(
                             f"步骤 {step_id}/{total_steps} 执行完成",
                             "success"
                         )
                     
-                    all_findings.append({"step_id": step_id, "findings": findings})
+                    self._log_step_summary(step_id)
                 else:
                     # Prepare data chunk with source tracking (enhancement #2)
                     data_chunk, source_info = self._prepare_data_chunk(
@@ -157,29 +299,19 @@ class Phase3Execute(BasePhase):
                         required_content_items=required_content_items  # Pass required items
                     )
                     
-                    # Extract sources from findings or data chunk (enhancement #2)
-                    sources = source_info.get("link_ids", [])
-                    if not sources and "sources" in findings.get("findings", {}):
-                        sources = findings["findings"].get("sources", [])
+                    # Update scratchpad and track findings
+                    finalized = self._finalize_step_output(
+                        step_id,
+                        goal,
+                        findings,
+                        default_sources=source_info.get("link_ids", []),
+                    )
+                    all_findings.append(finalized)
                     
-                    # Update scratchpad with sources (enhancement #2)
-                    insights = findings.get("insights", "")
-                    confidence = findings.get("confidence", 0.0)
-                    findings_data = findings.get("findings", {})
-                    findings_data["sources"] = sources  # Add sources to findings
-                    self.session.update_scratchpad(step_id, findings_data, insights, confidence, sources)
-                    
-                    # Track chunk for sequential processing (enhancement #1)
-                    if chunk_strategy == "sequential" and data_chunk:
-                        self._track_chunk(step_id, data_chunk, findings)
-                    
-                    all_findings.append({
-                        "step_id": step_id,
-                        "findings": findings
-                    })
-                    
+                    self._log_step_summary(step_id)
+
                     if self.progress_tracker:
-                        self.progress_tracker.complete_step(step_id, findings)
+                        self.progress_tracker.complete_step(step_id, finalized["findings"])
                     
                     # Send completion update
                     if hasattr(self, 'ui') and self.ui:
@@ -196,7 +328,8 @@ class Phase3Execute(BasePhase):
         
         result = {
             "completed_steps": len(all_findings),
-            "findings": all_findings
+            "findings": all_findings,
+            "telemetry": self._step_stats,
         }
         
         self.logger.info(f"Phase 3 complete: Executed {len(all_findings)} steps")
@@ -213,12 +346,15 @@ class Phase3Execute(BasePhase):
         *,
         overlap_words: int = None,
         max_windows: int = None,
+        router_reason: str = "chunk_strategy",
     ) -> Dict[str, Any]:
         """Process large transcripts by paging through windows to avoid truncation."""
         if overlap_words is None:
             overlap_words = self._window_overlap
         if max_windows is None:
             max_windows = self._max_windows
+        if self._vector_first_enabled and isinstance(self._vector_window_cap, int) and self._vector_window_cap > 0:
+            max_windows = min(max_windows, max(1, self._vector_window_cap))
         # Build combined transcript once
         transcript_content, source_info = self._get_transcript_content(
             batch_data, "sequential", chunk_size
@@ -237,7 +373,8 @@ class Phase3Execute(BasePhase):
                 "all",
                 None,
                 batch_data=batch_data,  # Pass batch_data for marker overview
-                required_content_items=None
+                required_content_items=None,
+                usage_tag=f"phase3_step_{step_id}_fallback",
             )
 
         # Log paging plan
@@ -248,6 +385,25 @@ class Phase3Execute(BasePhase):
             self.logger.info(
                 f"[Step {step_id}] Paging: words={n}, chunk_size={chunk_size}, overlap={effective_overlap}, "
                 f"max_windows={max_windows}, planned_windows≈{planned_windows}"
+            )
+        except Exception:
+            pass
+
+        self.logger.warning(
+            "[PHASE3-FALLBACK] step=%s mode=sequential reason=%s goal='%s'",
+            step_id,
+            router_reason,
+            goal[:80] if goal else "",
+        )
+        try:
+            stats_snapshot = self._step_stats.get(step_id, {})
+            self.logger.warning(
+                "[PHASE3-ROUTER] step=%s action=sequential_fallback reason=%s windows_cap=%s vector_hits=%s appended_chars=%s",
+                step_id,
+                router_reason,
+                max_windows,
+                int(stats_snapshot.get("vector_hits", 0)),
+                int(stats_snapshot.get("vector_appended_chars", 0)),
             )
         except Exception:
             pass
@@ -295,7 +451,9 @@ class Phase3Execute(BasePhase):
                 "sequential",
                 prev_ctx,
                 batch_data=batch_data,  # Pass batch_data for marker overview
-                required_content_items=None
+                required_content_items=None,
+                allow_vector=False,
+                usage_tag=f"phase3_step_{step_id}_window_{windows_processed+1}",
             )
 
             # Merge results into aggregated structures
@@ -338,6 +496,7 @@ class Phase3Execute(BasePhase):
 
             # Advance window with overlap (with guards to ensure real progress)
             windows_processed += 1
+            self._increment_step_stat(step_id, "sequential_windows", 1)
             if window_end >= n:
                 break
             # Ensure overlap is strictly less than chunk size to avoid 1-word sliding
@@ -364,8 +523,9 @@ class Phase3Execute(BasePhase):
         # Persist accumulated window progress once for the step
         try:
             self.session.save()
-        except Exception:
-            pass
+            self.logger.debug(f"[PERF] Saved session after processing {windows_processed} windows for step {step_id}")
+        except Exception as e:
+            self.logger.warning(f"Failed to save session after step {step_id}: {e}")
 
         # Build aggregated return object
         aggregated_insights = "\n\n".join(insights_parts)
@@ -375,6 +535,529 @@ class Phase3Execute(BasePhase):
             "insights": aggregated_insights[:2000],
             "confidence": overall_confidence or 0.6,
         }
+
+    def _attempt_vector_first(
+        self,
+        step_id: int,
+        goal: str,
+        required_data: str,
+        batch_data: Dict[str, Any],
+        required_content_items: Optional[List[str]],
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Attempt a vector-first execution round before falling back to sequential paging.
+        """
+        scratchpad_summary = self.session.get_scratchpad_summary()
+        result = self._execute_step(
+            step_id,
+            goal,
+            "",
+            scratchpad_summary,
+            required_data,
+            "vector_first",
+            None,
+            batch_data=batch_data,
+            required_content_items=required_content_items,
+            usage_tag=f"phase3_step_{step_id}_vector_first",
+        )
+        if self._should_use_vector_result(step_id, result):
+            self.logger.info(
+                "[PHASE3-ROUTER] step=%s action=vector_first_success hits=%s appended_chars=%s",
+                step_id,
+                int(self._step_stats.get(step_id, {}).get("vector_hits", 0)),
+                int(self._step_stats.get(step_id, {}).get("vector_appended_chars", 0)),
+            )
+            return result
+        stats_snapshot = self._step_stats.get(step_id, {})
+        still_missing = result.get("still_missing") if isinstance(result, dict) else None
+        completion_reason = result.get("completion_reason") if isinstance(result, dict) else ""
+        try:
+            self.logger.warning(
+                "[PHASE3-ROUTER] step=%s action=vector_first_fallback reason=insufficient_context hits=%s appended_chars=%s followup_turns=%s completion_reason=%s still_missing=%s",
+                step_id,
+                int(stats_snapshot.get("vector_hits", 0)),
+                int(stats_snapshot.get("vector_appended_chars", 0)),
+                int(stats_snapshot.get("vector_followup_turns", 0)),
+                completion_reason or "",
+                still_missing if isinstance(still_missing, list) else None,
+            )
+        except Exception:
+            pass
+        return None
+
+    def _should_use_vector_result(self, step_id: int, result: Any) -> bool:
+        if self._vector_full_items.get(step_id):
+            try:
+                self.logger.info(
+                    "[PHASE3-ROUTER] step=%s treating vector result as success (full_content_item delivered)",
+                    step_id,
+                )
+            except Exception:
+                pass
+            return True
+        if not isinstance(result, dict):
+            return False
+        stats = self._step_stats.get(step_id) or {}
+        vector_hits = int(stats.get("vector_hits", 0))
+        appended_chars = int(stats.get("vector_appended_chars", 0))
+        if isinstance(self._vector_min_chars, int) and self._vector_min_chars > 0:
+            if vector_hits > 0 and appended_chars < self._vector_min_chars:
+                return False
+        still_missing = result.get("still_missing")
+        if isinstance(still_missing, list) and still_missing:
+            if self._is_generic_missing_context(still_missing):
+                try:
+                    self.logger.info(
+                        "[PHASE3-ROUTER] step=%s ignoring generic still_missing hints (%s)",
+                        step_id,
+                        len(still_missing),
+                    )
+                except Exception:
+                    pass
+            else:
+                return False
+        completion_reason = str(result.get("completion_reason", "") or "").lower()
+        if completion_reason in {"missing_context", "need_more_context", "insufficient_context"}:
+            return False
+        findings = result.get("findings")
+        if isinstance(findings, dict) and findings:
+            return True
+        if result.get("insights"):
+            return True
+        return vector_hits > 0
+
+    def _is_generic_missing_context(self, still_missing: List[Dict[str, Any]]) -> bool:
+        if not still_missing:
+            return False
+        generic_terms = [
+            "full transcript",
+            "entire transcript",
+            "whole transcript",
+            "完整转录",
+            "完整內容",
+            "完整内容",
+            "全文",
+            "全部内容",
+            "more context",
+        ]
+        for item in still_missing:
+            if isinstance(item, str):
+                item = {"query": item}
+            elif not isinstance(item, dict):
+                return False
+            parts: List[str] = []
+            for key in ("reason", "details", "request", "description", "search_hint"):
+                value = item.get(key)
+                if isinstance(value, str):
+                    parts.append(value)
+            payload = " ".join(parts).lower()
+            if not payload:
+                return False
+            if not any(term in payload for term in generic_terms):
+                return False
+        return True
+
+    def _limit_block(self, text: str, *, max_chars: Optional[int] = None) -> str:
+        if not isinstance(text, str):
+            text = str(text or "")
+        configured_limit = max_chars if isinstance(max_chars, int) and max_chars > 0 else 0
+        default_block = self._vector_block_chars if isinstance(self._vector_block_chars, int) else 0
+        item_limit = self._max_chars_per_item if isinstance(self._max_chars_per_item, int) else 0
+        total_cap = self._max_total_followup_chars if isinstance(self._max_total_followup_chars, int) else 0
+        candidates = [configured_limit, default_block, item_limit, total_cap]
+        positive = [c for c in candidates if isinstance(c, int) and c > 0]
+        limit = min(positive) if positive else 1500
+        limit = max(300, limit)
+        if len(text) <= limit:
+            return text
+        return text[: limit - 20].rstrip() + "\n...[内容截断]"
+
+    def _summarize_vector_results(
+        self,
+        query: str,
+        results: List[VectorSearchResult],
+        *,
+        max_chars: Optional[int] = None,
+    ) -> str:
+        if not results:
+            return "(No semantic matches found)"
+        limit = max_chars or self._vector_block_chars or 1500
+        limit = max(400, limit)
+        header = f"[Vector Evidence] query=\"{query[:80]}\""
+        lines: List[str] = [header]
+        used = len(header)
+
+        grouped: Dict[str, List[VectorSearchResult]] = {}
+        for res in results:
+            grouped.setdefault(res.link_id, []).append(res)
+
+        for link_id, group in grouped.items():
+            top = sorted(group, key=lambda r: r.score, reverse=True)
+            best = top[0]
+            link_header = f"- link_id={link_id} score={best.score:.3f}"
+            if used + len(link_header) + 1 > limit:
+                break
+            lines.append(link_header)
+            used += len(link_header) + 1
+
+            for res in top:
+                snippet_raw = res.text_preview or ""
+                snippet = re.sub(r"\s+", " ", snippet_raw).strip()
+                if not snippet:
+                    continue
+                snippet = snippet[:280]
+                metadata_bits: List[str] = []
+                chunk_type = res.metadata.get("chunk_type")
+                if chunk_type:
+                    metadata_bits.append(str(chunk_type))
+                chunk_index = res.metadata.get("chunk_index")
+                if chunk_index is not None:
+                    metadata_bits.append(f"idx={chunk_index}")
+                meta_label = f"[{', '.join(metadata_bits)}]" if metadata_bits else ""
+                bullet = f"    • {meta_label} {snippet}"
+                if used + len(bullet) + 1 > limit:
+                    break
+                lines.append(bullet)
+                used += len(bullet) + 1
+            if used >= limit:
+                break
+
+        if used >= limit:
+            lines.append("    • ...[更多匹配已截断]")
+
+        return "\n".join(lines)
+
+    def _finalize_step_output(
+        self,
+        step_id: int,
+        goal: str,
+        step_output: Dict[str, Any],
+        *,
+        default_sources: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        step_output["step_id"] = step_id
+        processed_output = self._apply_novelty_filter(step_id, step_output)
+        findings_data = processed_output.get("findings")
+        if not isinstance(findings_data, dict):
+            findings_data = {"raw": findings_data}
+            processed_output["findings"] = findings_data
+        sources = findings_data.get("sources")
+        if not isinstance(sources, list):
+            sources = list(default_sources or [])
+        elif default_sources:
+            sources = list({*sources, *default_sources})
+        findings_data["sources"] = sources
+        insights = processed_output.get("insights", "")
+        confidence = float(processed_output.get("confidence", 0.0) or 0.0)
+        self._persist_step_digest(step_id, goal, processed_output, sources)
+        self.session.update_scratchpad(step_id, findings_data, insights, confidence, sources)
+        return {"step_id": step_id, "findings": processed_output}
+
+    def _persist_step_digest(
+        self,
+        step_id: int,
+        goal: str,
+        step_output: Dict[str, Any],
+        sources: Optional[List[str]] = None,
+    ) -> None:
+        findings_data = step_output.get("findings", {}) or {}
+        summary = str(findings_data.get("summary") or "").strip()
+        poi_lines: List[str] = []
+        text_units = self._collect_digest_text_units(findings_data)
+        notable_evidence_entries: List[Dict[str, Any]] = []
+        poi = findings_data.get("points_of_interest") or {}
+        if isinstance(poi, dict):
+            for key, values in poi.items():
+                if not isinstance(values, list):
+                    continue
+                for entry in values:
+                    primary_text = self._extract_entry_text(key, entry)
+                    if primary_text:
+                        poi_lines.append(f"{key}: {primary_text}")
+                    if key == "notable_evidence" and isinstance(entry, dict):
+                        evidence_payload = {
+                            "description": entry.get("description") or entry.get("quote") or primary_text,
+                            "quote": entry.get("quote"),
+                            "source_link_id": entry.get("source_link_id"),
+                        }
+                        notable_evidence_entries.append(evidence_payload)
+        if sources and not any(ev.get("source_link_id") for ev in notable_evidence_entries):
+            notable_evidence_entries.append({"description": "参考来源", "source_link_id": ", ".join(sources)})
+
+        digest = StepDigest(
+            step_id=step_id,
+            goal_text=goal or "",
+            summary=summary,
+            points_of_interest=poi_lines[:20],
+            notable_evidence=notable_evidence_entries[:20],
+            text_units=text_units[:128],
+        )
+        novelty_meta = step_output.get("novelty") or {}
+        if isinstance(novelty_meta, dict) and novelty_meta.get("revision_note"):
+            digest.revision_notes = str(novelty_meta["revision_note"])
+        self.session.upsert_step_digest(digest, autosave=False)
+
+    def _collect_digest_text_units(self, findings_data: Dict[str, Any]) -> List[str]:
+        units: List[str] = []
+        summary = findings_data.get("summary")
+        if isinstance(summary, str) and summary.strip():
+            units.append(summary.strip())
+        for entry in self._enumerate_poi_entries(findings_data):
+            text = entry.get("text")
+            if text:
+                units.append(text)
+        return [u for u in units if isinstance(u, str) and u.strip()]
+
+    def _apply_novelty_filter(self, step_id: int, step_output: Dict[str, Any]) -> Dict[str, Any]:
+        if not self._novelty_enabled:
+            return step_output
+        findings_data = step_output.get("findings")
+        if not isinstance(findings_data, dict):
+            return step_output
+        entries = self._enumerate_poi_entries(findings_data)
+        candidate_count = len(entries)
+        novelty_meta = step_output.setdefault("novelty", {})
+        novelty_meta["candidate_count"] = candidate_count
+        if candidate_count == 0:
+            return step_output
+        prior_units = self.session.get_digest_text_units_before(step_id)
+        if not prior_units:
+            self._increment_step_stat(step_id, "novelty_candidates", candidate_count)
+            return step_output
+
+        candidate_texts = [entry["text"] for entry in entries]
+        prior_vecs: List[List[float]] = []
+        candidate_vecs: List[List[float]] = []
+
+        if self._embedding_client:
+            try:
+                combined_embeddings = self._embedding_client.embed_texts([*prior_units, *candidate_texts])
+                expected = len(prior_units) + len(candidate_texts)
+                if len(combined_embeddings) == expected:
+                    prior_vecs = combined_embeddings[: len(prior_units)]
+                    candidate_vecs = combined_embeddings[len(prior_units) :]
+            except Exception as exc:
+                self.logger.warning(
+                    "[PHASE3-NOVELTY] step=%s embedding similarity failed (%s); falling back to keyword overlap only",
+                    step_id,
+                    exc,
+                )
+                prior_vecs = []
+                candidate_vecs = []
+
+        prior_keyword_bags = [self._build_keyword_bag(text) for text in prior_units]
+
+        removals: Dict[str, Set[int]] = defaultdict(set)
+        pruned_meta: List[Dict[str, Any]] = []
+
+        for idx, entry in enumerate(entries):
+            if entry.get("is_revision") and self._allow_revision_duplicates:
+                continue
+
+            best_sim = 0.0
+            best_match_idx = -1
+            if candidate_vecs:
+                candidate_vec = candidate_vecs[idx]
+                for p_idx, prior_vec in enumerate(prior_vecs):
+                    sim = self._cosine_similarity(candidate_vec, prior_vec)
+                    if sim > best_sim:
+                        best_sim = sim
+                        best_match_idx = p_idx
+
+            keyword_score = 0.0
+            match_text = ""
+            if best_match_idx >= 0:
+                match_text = prior_units[best_match_idx]
+                keyword_score = self._keyword_overlap_score(
+                    candidate_texts[idx],
+                    match_text,
+                    prior_keyword_bags[best_match_idx],
+                )
+            else:
+                for p_idx, prior_text in enumerate(prior_units):
+                    overlap = self._keyword_overlap_score(
+                        candidate_texts[idx],
+                        prior_text,
+                        prior_keyword_bags[p_idx],
+                    )
+                    if overlap > keyword_score:
+                        keyword_score = overlap
+                        best_match_idx = p_idx
+                        match_text = prior_text
+
+            duplicate = False
+            reasons: List[str] = []
+            if best_sim >= self._novelty_similarity_threshold and best_match_idx >= 0:
+                duplicate = True
+                reasons.append(f"sim={best_sim:.3f}")
+            if keyword_score >= self._keyword_overlap_threshold and best_match_idx >= 0:
+                duplicate = True
+                reasons.append(f"kw={keyword_score:.3f}")
+
+            if not duplicate:
+                continue
+
+            removals[entry["category"]].add(entry["index"])
+            pruned_meta.append(
+                {
+                    "category": entry["category"],
+                    "text": entry["text"],
+                    "matched_text": match_text,
+                    "similarity": round(best_sim, 3),
+                    "keyword_overlap": round(keyword_score, 3),
+                    "reason": ", ".join(reasons) or "duplicate",
+                }
+            )
+
+        duplicates_removed = sum(len(indices) for indices in removals.values())
+        self._increment_step_stat(step_id, "novelty_candidates", candidate_count)
+        if duplicates_removed:
+            poi = findings_data.get("points_of_interest")
+            if isinstance(poi, dict):
+                for category, indices in removals.items():
+                    values = poi.get(category)
+                    if not isinstance(values, list):
+                        continue
+                    filtered = [item for i, item in enumerate(values) if i not in indices]
+                    poi[category] = filtered
+            novelty_meta["duplicates_removed"] = duplicates_removed
+            novelty_meta["pruned"] = pruned_meta
+            self._increment_step_stat(step_id, "novelty_duplicates_removed", duplicates_removed)
+            self.logger.info(
+                "[PHASE3-NOVELTY] step=%s pruned=%s/%s entries (sim>=%.2f | kw>=%.2f)",
+                step_id,
+                duplicates_removed,
+                candidate_count,
+                self._novelty_similarity_threshold,
+                self._keyword_overlap_threshold,
+            )
+        else:
+            novelty_meta["duplicates_removed"] = 0
+            self.logger.info(
+                "[PHASE3-NOVELTY] step=%s no duplicate entries detected (%s candidates)",
+                step_id,
+                candidate_count,
+            )
+
+        return step_output
+
+    def _enumerate_poi_entries(self, findings_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        entries: List[Dict[str, Any]] = []
+        poi = findings_data.get("points_of_interest") or {}
+        if not isinstance(poi, dict):
+            return entries
+        for category, values in poi.items():
+            if not isinstance(values, list):
+                continue
+            for index, entry in enumerate(values):
+                text = self._extract_entry_text(category, entry)
+                if not text:
+                    continue
+                entries.append(
+                    {
+                        "category": category,
+                        "index": index,
+                        "value": entry,
+                        "text": text.strip(),
+                        "is_revision": self._is_revision_entry(entry),
+                    }
+                )
+        return entries
+
+    def _extract_entry_text(self, category: str, entry: Any) -> str:
+        if isinstance(entry, str):
+            return entry.strip()
+        if isinstance(entry, dict):
+            if category == "notable_evidence":
+                quote = entry.get("quote")
+                description = entry.get("description")
+                if description and quote:
+                    return f"{description}｜引述：{quote}"
+                if description:
+                    return str(description)
+                if quote:
+                    return str(quote)
+            preferred_fields = [
+                "claim",
+                "description",
+                "quote",
+                "example",
+                "topic",
+                "insight",
+                "summary",
+                "question",
+                "observation",
+                "note",
+                "text",
+            ]
+            for field in preferred_fields:
+                value = entry.get(field)
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
+        return ""
+
+    def _is_revision_entry(self, entry: Any) -> bool:
+        if not isinstance(entry, dict):
+            return False
+        flags = [
+            entry.get("is_revision"),
+            entry.get("revision"),
+            entry.get("revision_flag"),
+            entry.get("update_reason"),
+            entry.get("status"),
+        ]
+        for flag in flags:
+            if isinstance(flag, str) and flag.lower() in {"true", "yes", "updated", "revised"}:
+                return True
+            if isinstance(flag, bool) and flag:
+                return True
+        text_fields = [
+            entry.get("note"),
+            entry.get("description"),
+            entry.get("claim"),
+            entry.get("quote"),
+            entry.get("summary"),
+        ]
+        for text in text_fields:
+            if isinstance(text, str) and any(keyword in text for keyword in ("修订", "更新", "更正", "revision", "update")):
+                return True
+        return False
+
+    def _keyword_overlap_score(self, text_a: str, text_b: str, precomputed_bag_b: Optional[Set[str]] = None) -> float:
+        if not self._keyword_overlap_threshold:
+            return 0.0
+        bag_a = self._build_keyword_bag(text_a)
+        bag_b = precomputed_bag_b if precomputed_bag_b is not None else self._build_keyword_bag(text_b)
+        if not bag_a or not bag_b:
+            return 0.0
+        intersection = len(bag_a & bag_b)
+        normalizer = max(1, min(len(bag_a), len(bag_b)))
+        return intersection / normalizer
+
+    def _build_keyword_bag(self, text: str) -> Set[str]:
+        if not isinstance(text, str):
+            text = str(text or "")
+        lowered = text.lower().strip()
+        if not lowered:
+            return set()
+        tokens = re.findall(r"[\w\u4e00-\u9fff]+", lowered)
+        bag = {token for token in tokens if len(token) > 1}
+        if not bag and len(lowered) > 2:
+            bag = {lowered[i : i + 2] for i in range(len(lowered) - 1)}
+        if not bag and lowered:
+            bag = {lowered}
+        return bag
+
+    def _cosine_similarity(self, vec_a: Iterable[float], vec_b: Iterable[float]) -> float:
+        a_list = list(vec_a)
+        b_list = list(vec_b)
+        if not a_list or not b_list or len(a_list) != len(b_list):
+            length = min(len(a_list), len(b_list))
+            if length == 0:
+                return 0.0
+            a_list = a_list[:length]
+            b_list = b_list[:length]
+        return sum(x * y for x, y in zip(a_list, b_list))
     
     def _prepare_data_chunk(
         self,
@@ -806,10 +1489,20 @@ class Phase3Execute(BasePhase):
         chunk_strategy: str = "all",
         previous_chunks_context: Optional[str] = None,
         batch_data: Optional[Dict[str, Any]] = None,
-        required_content_items: Optional[List[str]] = None
+        required_content_items: Optional[List[str]] = None,
+        allow_vector: bool = True,
+        usage_tag: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Execute a single step with marker-first approach and optional retrieval flow."""
         safe_summary = scratchpad_summary if scratchpad_summary != "暂无发现。" else "暂无之前的发现。"
+        safe_data_chunk = self._safe_truncate_data_chunk(data_chunk, required_data, chunk_strategy)
+        digest_context = self.session.aggregate_step_digests(
+            step_id,
+            token_cap=self._digest_token_cap if isinstance(self._digest_token_cap, int) else None,
+        )
+        novelty_guidance = (
+            "务必生成全新的观点或信息，禁止重复之前步骤的摘要或兴趣点。"
+        )
         
         # Add previous chunks context for sequential chunking (enhancement #1)
         chunks_context_str = ""
@@ -829,14 +1522,16 @@ class Phase3Execute(BasePhase):
             except Exception as e:
                 self.logger.warning(f"Failed to prepare marker overview for step {step_id}: {e}")
                 # Fallback to data_chunk if marker overview fails
-                safe_data_chunk = self._safe_truncate_data_chunk(data_chunk, required_data, chunk_strategy)
                 marker_overview = ""
         else:
             # Fallback: use truncated data_chunk if no batch_data
-            safe_data_chunk = self._safe_truncate_data_chunk(data_chunk, required_data, chunk_strategy)
             self.logger.info(f"[Step {step_id}] Using data_chunk (no batch_data for markers)")
         
+        user_guidance_context = self._build_user_feedback_context()
+
+        role_context = getattr(self, "_shared_role_context", {}) or {}
         context = {
+            **role_context,
             "step_id": step_id,
             "goal": goal,
             "marker_overview": marker_overview,  # New: marker overview first
@@ -844,6 +1539,9 @@ class Phase3Execute(BasePhase):
             "retrieved_content": retrieved_content,  # Will be populated by requests
             "scratchpad_summary": safe_summary,
             "previous_chunks_context": chunks_context_str,  # Enhancement #1
+            "user_guidance_context": user_guidance_context,
+            "cumulative_digest": digest_context,
+            "novelty_guidance": novelty_guidance,
         }
         messages = compose_messages("phase3_execute", context=context)
         
@@ -865,7 +1563,23 @@ class Phase3Execute(BasePhase):
         if hasattr(self, 'ui') and self.ui:
             self.ui.display_message(f"正在调用AI分析数据 (步骤 {step_display_id})...", "info")
         
-        response1 = self._stream_with_callback(messages)
+        base_tag = usage_tag or f"phase3_step_{step_id}_initial"
+
+        response1 = self._stream_with_callback(
+            messages,
+            usage_tag=base_tag,
+            log_payload=True,
+            payload_label=base_tag,
+            stream_metadata={
+                "component": "step_initial",
+                "phase_label": "3",
+                "step_id": step_id,
+                "goal": goal,
+                "required_data": required_data,
+                "chunk_strategy": chunk_strategy,
+                "vector_enabled": bool(allow_vector),
+            },
+        )
         api_elapsed = time.time() - api_start_time
         self.logger.info(f"[TIMING] API call completed in {api_elapsed:.3f}s for Step {step_display_id}")
         
@@ -876,16 +1590,32 @@ class Phase3Execute(BasePhase):
         if isinstance(parsed1, dict):
             if parsed1.get("requests") and isinstance(parsed1["requests"], list):
                 requests = parsed1["requests"]
-            elif parsed1.get("missing_context") and isinstance(parsed1["missing_context"], list):
-                # Convert missing_context to keyword-style requests as a fallback
+            elif allow_vector and parsed1.get("missing_context") and isinstance(parsed1["missing_context"], list):
+                # Convert missing_context to retrieval requests when vector flow is enabled
                 requests = self._convert_missing_context_to_requests(parsed1["missing_context"])  # type: ignore
 
         # Enhanced back-and-forth retrieval flow
-        if requests:
+        if requests and allow_vector:
             return self._run_followups_with_retrieval(
-                step_id, messages, response1, parsed1, requests,
-                batch_data=batch_data  # Pass batch_data for retrieval
+                step_id,
+                messages,
+                response1,
+                parsed1,
+                requests,
+                batch_data=batch_data,  # Pass batch_data for retrieval
+                base_usage_tag=base_tag,
+                allow_vector=True,
+                vector_round_cap=self._vector_max_rounds,
             )
+        elif requests and not allow_vector:
+            try:
+                self.logger.warning(
+                    "[PHASE3-ROUTER] step=%s skipping follow-up retrieval (vector disabled, %s requests)",
+                    step_id,
+                    len(requests),
+                )
+            except Exception:
+                pass
 
         return parsed1
 
@@ -897,7 +1627,11 @@ class Phase3Execute(BasePhase):
         prior_response_text: str,
         prior_parsed: Dict[str, Any],
         initial_requests: List[Dict[str, Any]],
-        batch_data: Optional[Dict[str, Any]] = None
+        batch_data: Optional[Dict[str, Any]] = None,
+        *,
+        base_usage_tag: Optional[str] = None,
+        allow_vector: bool = True,
+        vector_round_cap: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Run up to N follow-up turns with normalized, deduped, cached retrieval and size controls."""
         retriever = RetrievalHandler()
@@ -909,6 +1643,9 @@ class Phase3Execute(BasePhase):
             except AttributeError:
                 batch_data = None
 
+        if not base_usage_tag:
+            base_usage_tag = f"phase3_step_{step_id}"
+
         def _normalize_request(req: Dict[str, Any]) -> Dict[str, Any]:
             # Support new request types
             normalized = {
@@ -919,6 +1656,8 @@ class Phase3Execute(BasePhase):
                 "method": req.get("method") or "keyword",
                 "parameters": req.get("parameters") or {},
             }
+            if req.get("source_link_ids"):
+                normalized["source_link_ids"] = req.get("source_link_ids")
             # Add new request type specific fields
             if req.get("request_type") == "full_content_item":
                 normalized["content_types"] = req.get("content_types", ["transcript", "comments"])
@@ -938,6 +1677,63 @@ class Phase3Execute(BasePhase):
             norm = _normalize_request(req)
             return json.dumps(norm, sort_keys=True, ensure_ascii=False)
 
+        def _augment_with_semantic(requests: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+            if not allow_vector:
+                return requests
+            if not requests or not self._has_vector_service():
+                return requests
+            augmented: List[Dict[str, Any]] = []
+            for req in requests:
+                augmented.append(req)
+                request_type = req.get("request_type") or req.get("method")
+                if request_type in {"semantic", "vector"}:
+                    continue
+                params = req.get("parameters") or {}
+                if not isinstance(params, dict):
+                    params = {}
+                query_candidates: List[str] = []
+                keywords = params.get("keywords")
+                if isinstance(keywords, list):
+                    query_candidates.extend(str(k).strip() for k in keywords if k)
+                elif isinstance(keywords, str):
+                    query_candidates.append(keywords.strip())
+                if params.get("query"):
+                    query_candidates.append(str(params.get("query")).strip())
+                for field in ("marker_text", "topic"):
+                    value = req.get(field)
+                    if value:
+                        query_candidates.append(str(value).strip())
+                # Remove empties
+                query_candidates = [q for q in query_candidates if q]
+                if not query_candidates:
+                    continue
+                semantic_req = dict(req)
+                semantic_req["request_type"] = "semantic"
+                semantic_req["method"] = "semantic"
+                semantic_params = dict(params)
+                semantic_params["query"] = " ".join(query_candidates)
+                semantic_params.setdefault("top_k", self._vector_top_k)
+                semantic_params.setdefault("context_window", params.get("context_window", 500))
+                fallback_keywords = semantic_params.get("fallback_keywords") or query_candidates[:5]
+                if isinstance(fallback_keywords, list):
+                    semantic_params["fallback_keywords"] = [str(k) for k in fallback_keywords if k]
+                else:
+                    semantic_params["fallback_keywords"] = [str(fallback_keywords)]
+                semantic_req["parameters"] = semantic_params
+                source_link_id = semantic_req.get("source_link_id")
+                if source_link_id and not semantic_req.get("source_link_ids"):
+                    semantic_req["source_link_ids"] = [source_link_id]
+                augmented.append(semantic_req)
+            deduped: List[Dict[str, Any]] = []
+            dedup_keys: set = set()
+            for req in augmented:
+                key = _req_key(req)
+                if key in dedup_keys:
+                    continue
+                dedup_keys.add(key)
+                deduped.append(_normalize_request(req))
+            return deduped
+
         def _clip(text: str) -> str:
             if not isinstance(text, str):
                 text = str(text or "")
@@ -955,31 +1751,64 @@ class Phase3Execute(BasePhase):
             if self._enable_cache and key in self._retrieval_cache:
                 return self._retrieval_cache[key]
             try:
-                block = self._handle_retrieval_request(_normalize_request(req), retriever, batch_data) or ""
+                block = self._handle_retrieval_request(
+                    _normalize_request(req),
+                    retriever,
+                    batch_data,
+                    step_id=step_id,
+                ) or ""
             except Exception as e:
                 block = f"[Retrieval error] {e}"
+            max_chars_override = None
+            if req.get("request_type") == "full_content_item":
+                max_chars_override = self._max_total_followup_chars or max(4000, (self._vector_block_chars or 800) * 4)
+            block = self._limit_block(block, max_chars=max_chars_override)
             block = _clip(block)
             if self._enable_cache:
                 self._retrieval_cache[key] = block
             return block
 
         # Normalize and dedupe initial requests
-        seen: set = set()
+        seen_req_keys: set = set()
         pending: List[Dict[str, Any]] = []
         for r in initial_requests:
             k = _req_key(r)
-            if k not in seen:
-                seen.add(k)
+            if k not in seen_req_keys:
+                seen_req_keys.add(k)
                 pending.append(_normalize_request(r))
-
+        if pending:
+            pending = _augment_with_semantic(pending)
+        prev_req_keys: set = {_req_key(req) for req in pending}
         turn = 0
-        prev_req_keys: set = set(seen)
         current_messages = list(base_messages)
         last_response_text = prior_response_text
         last_parsed = prior_parsed
 
-        while pending and (turn < max(0, int(self._max_followups))):
+        configured_rounds = int(self._max_followups)
+        max_rounds = vector_round_cap if vector_round_cap is not None else configured_rounds
+        max_rounds = max(0, min(max_rounds, configured_rounds))
+
+        while pending and (turn < max_rounds):
             turn += 1
+            self._increment_step_stat(step_id, "vector_followup_turns", 1)
+
+            if self._vector_debug_logs:
+                try:
+                    req_summaries = []
+                    for req in pending:
+                        req_summaries.append(
+                            f"{req.get('request_type', req.get('method'))}:{req.get('content_type')}:{req.get('source_link_id') or 'all'}"
+                        )
+                    self.logger.info(
+                        "[PHASE3-VECTOR-DEBUG] step=%s followup=%s pending_requests=%s descriptors=%s",
+                        step_id,
+                        turn,
+                        len(pending),
+                        req_summaries[:10],
+                    )
+                except Exception:
+                    pass
+
             # Fetch all blocks
             blocks: List[str] = []
             total_chars = 0
@@ -991,7 +1820,7 @@ class Phase3Execute(BasePhase):
                     total_chars += len(b)
 
             # If total is too small, optionally broaden by relaxing constraints (simple: include raw transcript excerpts)
-            if total_chars < self._min_total_followup_chars:
+            if allow_vector and total_chars < self._min_total_followup_chars:
                 try:
                     self.logger.info(
                         f"[Step {step_id}] Follow-up {turn}: total appended chars {total_chars} < min {self._min_total_followup_chars}, broadening context"
@@ -1011,6 +1840,24 @@ class Phase3Execute(BasePhase):
                 blocks = trimmed
 
             appended_context = "\n\n".join(blocks) if blocks else "(No additional context retrieved)"
+            self._increment_step_stat(step_id, "vector_appended_chars", len(appended_context))
+            if any("type=full_content_item" in b for b in blocks):
+                self._vector_full_items[step_id] = True
+
+            if self._vector_debug_logs:
+                try:
+                    block_lengths = [len(b) for b in blocks]
+                    self.logger.info(
+                        "[PHASE3-VECTOR-DEBUG] step=%s followup=%s blocks=%s block_lengths=%s appended_len=%s",
+                        step_id,
+                        turn,
+                        len(blocks),
+                        block_lengths[:10],
+                        len(appended_context),
+                    )
+                except Exception:
+                    pass
+
             try:
                 self.logger.info(
                     f"[Step {step_id}] Follow-up {turn}: appended_context_len={len(appended_context)} from {len(blocks)} blocks"
@@ -1037,10 +1884,44 @@ class Phase3Execute(BasePhase):
             self.logger.info(f"[TIMING] Starting follow-up API call for Step {step_id} at {followup_start:.3f}")
             if hasattr(self, 'ui') and self.ui:
                 self.ui.display_message(f"正在获取补充数据 (步骤 {step_id})...", "info")
-            last_response_text = self._stream_with_callback(followup_messages)
+            usage_before = {}
+            if self._vector_debug_logs:
+                try:
+                    usage_before = self.client.get_usage_info() if getattr(self, "client", None) else {}
+                except Exception:
+                    usage_before = {}
+            followup_tag = f"{base_usage_tag}_followup_{turn}"
+            last_response_text = self._stream_with_callback(
+                followup_messages,
+                usage_tag=followup_tag,
+                log_payload=True,
+                payload_label=followup_tag,
+                stream_metadata={
+                    "component": "step_followup",
+                    "phase_label": "3",
+                    "step_id": step_id,
+                    "followup_round": turn,
+                    "vector_enabled": bool(allow_vector),
+                },
+            )
             followup_elapsed = time.time() - followup_start
             self.logger.info(f"[TIMING] Follow-up API call completed in {followup_elapsed:.3f}s for Step {step_id}")
             last_parsed = self._parse_phase3_response_forgiving(last_response_text, step_id)
+            if self._vector_debug_logs:
+                try:
+                    usage_after = self.client.get_usage_info() if getattr(self, "client", None) else {}
+                    delta_input = usage_after.get("input_tokens", 0) - usage_before.get("input_tokens", 0)
+                    delta_output = usage_after.get("output_tokens", 0) - usage_before.get("output_tokens", 0)
+                    self.logger.info(
+                        "[PHASE3-VECTOR-DEBUG] step=%s followup=%s latency=%.3fs input_tokens=%s output_tokens=%s",
+                        step_id,
+                        turn,
+                        followup_elapsed,
+                        delta_input,
+                        delta_output,
+                    )
+                except Exception:
+                    pass
 
             # Prepare next-turn requests, dedupe and detect churn
             new_requests: List[Dict[str, Any]] = []
@@ -1050,16 +1931,38 @@ class Phase3Execute(BasePhase):
                     if k not in prev_req_keys:
                         prev_req_keys.add(k)
                         new_requests.append(_normalize_request(r))
+            if allow_vector and hasattr(last_parsed, "get"):
+                still_missing = last_parsed.get("still_missing")
+                if isinstance(still_missing, list) and still_missing:
+                    if self._vector_debug_logs:
+                        try:
+                            self.logger.info(
+                                "[PHASE3-VECTOR-DEBUG] step=%s followup=%s still_missing_samples=%s",
+                                step_id,
+                                turn,
+                                still_missing[:3],
+                            )
+                        except Exception:
+                            pass
+                    missing_reqs = self._convert_missing_context_to_requests(still_missing)
+                    for r in missing_reqs:
+                        k = _req_key(r)
+                        if k not in prev_req_keys:
+                            prev_req_keys.add(k)
+                            new_requests.append(_normalize_request(r))
 
             # If no new requests or only duplicates, stop early
             if not new_requests:
                 try:
-                    self.logger.info(f"[Step {step_id}] Follow-up {turn}: no new requests; ending loop")
+                    self.logger.info(f"[Step {step_id}] Follow-up {turn}: no new requests or missing context; ending loop")
                 except Exception:
                     pass
                 break
 
             # Next turn
+            if new_requests and allow_vector and self._has_vector_service():
+                new_requests = _augment_with_semantic(new_requests)
+            prev_req_keys.update(_req_key(req) for req in new_requests)
             pending = new_requests
             current_messages = followup_messages
 
@@ -1110,17 +2013,68 @@ class Phase3Execute(BasePhase):
         """Best-effort conversion of missing_context hints into retrieval requests."""
         requests: List[Dict[str, Any]] = []
         for idx, item in enumerate(missing):
+            if isinstance(item, str):
+                item = {"query": item}
+            elif not isinstance(item, dict):
+                try:
+                    self.logger.warning(
+                        "[PHASE3-VECTOR] Ignoring unsupported missing_context entry type=%s value=%s",
+                        type(item),
+                        item,
+                    )
+                except Exception:
+                    pass
+                continue
             source_link_id = item.get("source") or item.get("source_link_id") or "unknown"
             search_hint = item.get("search_hint") or item.get("query") or ""
             if not search_hint:
                 continue
+
+            link_candidates: List[str] = []
+            # Explicit fields first
+            explicit_link = item.get("source") or item.get("source_link_id")
+            if isinstance(explicit_link, str) and explicit_link:
+                link_candidates.append(explicit_link.strip())
+            # Regex scan inside hint/details
+            link_pattern = re.compile(r"(link[_\-][0-9a-zA-Z]+)")
+            matches = link_pattern.findall(search_hint)
+            if not matches:
+                for key in ("reason", "details", "description"):
+                    text_val = item.get(key)
+                    if isinstance(text_val, str):
+                        matches.extend(link_pattern.findall(text_val))
+            if matches:
+                for m in matches:
+                    link_candidates.append(m.strip())
+
+            if link_candidates:
+                primary_link = link_candidates[0].replace("-", "_")
+                requests.append(
+                    {
+                        "id": f"auto_full_{idx+1}",
+                        "content_type": "transcript",
+                        "source_link_id": primary_link,
+                        "request_type": "full_content_item",
+                        "content_types": ["transcript", "comments"],
+                        "parameters": {},
+                        "reason": item.get("reason", "Full content requested via missing_context"),
+                    }
+                )
+
             requests.append(
                 {
                     "id": f"auto_req_{idx+1}",
                     "content_type": "transcript",
                     "source_link_id": source_link_id,
-                    "method": "keyword",
-                    "parameters": {"keywords": [search_hint], "context_window": 500},
+                    "request_type": "semantic",
+                    "method": "semantic",
+                    "parameters": {
+                        "query": search_hint,
+                        "fallback_keywords": [search_hint],
+                        "context_window": 500,
+                        "top_k": self._vector_top_k,
+                    },
+                    "source_link_ids": [] if source_link_id in {"", "unknown"} else [source_link_id],
                     "reason": item.get("reason", "Fill missing context"),
                 }
             )
@@ -1130,7 +2084,9 @@ class Phase3Execute(BasePhase):
         self,
         req: Dict[str, Any],
         retriever: RetrievalHandler,
-        batch_data: Optional[Dict[str, Any]] = None
+        batch_data: Optional[Dict[str, Any]] = None,
+        *,
+        step_id: Optional[int] = None,
     ) -> Optional[str]:
         """Route a single retrieval request to the appropriate handler and format a block."""
         # Get batch_data from session if not provided
@@ -1151,6 +2107,112 @@ class Phase3Execute(BasePhase):
         block_header = (
             f"[Retrieval Result] type={request_type}, content_type={content_type}, link_id={link_id}"
         )
+
+        if request_type in {"semantic", "vector"} or req.get("method") == "semantic":
+            if not isinstance(params, dict):
+                params = dict(params) if params else {}
+            query = (
+                params.get("query")
+                or req.get("query")
+                or req.get("marker_text")
+                or req.get("topic")
+                or ""
+            )
+            if not query:
+                return "[Retrieval] Error: Missing query for semantic request"
+
+            fallback_keywords_raw = params.get("fallback_keywords") or []
+            if isinstance(fallback_keywords_raw, str):
+                fallback_keywords = [fallback_keywords_raw]
+            else:
+                fallback_keywords = [str(k) for k in fallback_keywords_raw if k]
+            context_window = int(params.get("context_window", 500))
+
+            link_filters = req.get("source_link_ids") or ([] if not link_id else [link_id])
+            filters = RetrievalFilters(
+                link_ids=link_filters or None,
+                chunk_types=req.get("chunk_types"),
+            )
+
+            top_k_param = params.get("top_k") if isinstance(params, dict) else None
+            top_k = top_k_param or self._vector_top_k
+            try:
+                step_context = req.get("step_id") or req.get("source_step_id")
+                self.logger.info(
+                    "[PHASE3-VECTOR] Semantic retrieval request: query='%s', step=%s, link_filters=%s",
+                    query[:80],
+                    step_context if step_context is not None else "?",
+                    link_filters,
+                )
+            except Exception:
+                pass
+            filter_desc = {
+                "link_ids": filters.link_ids if filters else None,
+                "chunk_types": filters.chunk_types if filters else None,
+            }
+
+            vector_results: List[VectorSearchResult] = []
+            latency_ms = 0.0
+            if self._has_vector_service():
+                search_start = time.perf_counter()
+                vector_results = self.vector_service.search(query, filters=filters, top_k=top_k)
+                latency_ms = (time.perf_counter() - search_start) * 1000.0
+                if step_id is not None:
+                    self._increment_step_stat(step_id, "vector_calls", 1)
+                    self._increment_step_stat(step_id, "vector_latency_ms", latency_ms)
+            else:
+                self.logger.warning(
+                    "[PHASE3-FALLBACK] step=%s reason=vector_service_unavailable query='%s'",
+                    step_id,
+                    query[:80],
+                )
+
+            hit_count = len(vector_results)
+
+            if hit_count > 0:
+                top_score = max(r.score for r in vector_results)
+                self.logger.info(
+                    "[PHASE3-VECTOR] step=%s hits=%s latency=%.1fms top_score=%.3f filters=%s",
+                    step_id,
+                    hit_count,
+                    latency_ms,
+                    top_score,
+                    filter_desc,
+                )
+                if step_id is not None:
+                    self._increment_step_stat(step_id, "vector_hits", 1)
+                    self._increment_step_stat(step_id, "vector_results_returned", hit_count)
+                    self._set_step_stat_max(step_id, "vector_best_score", top_score)
+                # Filter out chunks already delivered for this step to avoid duplicates
+                filtered_results = vector_results[:top_k]
+                if step_id is not None:
+                    seen_chunks = self._vector_seen_chunks.setdefault(step_id, set())
+                    fresh = [res for res in filtered_results if res.chunk_id not in seen_chunks]
+                    if fresh:
+                        seen_chunks.update(res.chunk_id for res in fresh)
+                        filtered_results = fresh
+                formatted = self._summarize_vector_results(query, filtered_results, max_chars=self._vector_block_chars)
+                return self._limit_block(f"{block_header}\n{formatted}")
+
+            # Vector empty or unavailable – attempt keyword fallback if possible
+            if step_id is not None:
+                self._increment_step_stat(step_id, "vector_empty", 1)
+
+            if fallback_keywords and link_id:
+                keyword_content = retriever.retrieve_by_keywords(
+                    link_id,
+                    fallback_keywords,
+                    batch_data,
+                    context_window=context_window,
+                )
+                return self._limit_block(
+                    f"{block_header}\nQuery: {query}\n"
+                    "(Vector search yielded no matches; keyword fallback provided below)\n"
+                    f"{keyword_content}"
+                )
+
+            formatted = "(Vector retrieval unavailable)" if not self._has_vector_service() else "(No semantic matches found)"
+            return self._limit_block(f"{block_header}\nQuery: {query}\n{formatted}")
         
         # New request types: full_content_item, by_marker, by_topic, by_marker_types
         if request_type == "full_content_item":
@@ -1268,6 +2330,51 @@ class Phase3Execute(BasePhase):
         }
         
         self._chunk_tracker[step_id].append(chunk_summary)
+
+    def _init_step_stats(self, step_id: int) -> None:
+        if step_id not in self._step_stats:
+            self._step_stats[step_id] = {
+                "vector_calls": 0,
+                "vector_hits": 0,
+                "vector_empty": 0,
+                "vector_results_returned": 0,
+                "vector_latency_ms": 0.0,
+                "vector_best_score": 0.0,
+                "sequential_windows": 0,
+                "vector_appended_chars": 0,
+                "vector_followup_turns": 0,
+                "novelty_candidates": 0,
+                "novelty_duplicates_removed": 0,
+            }
+            self._vector_seen_chunks[step_id] = set()
+            self._vector_full_items[step_id] = False
+
+    def _increment_step_stat(self, step_id: int, key: str, value: float) -> None:
+        self._init_step_stats(step_id)
+        stats = self._step_stats[step_id]
+        stats[key] = stats.get(key, 0.0) + value
+
+    def _set_step_stat_max(self, step_id: int, key: str, value: float) -> None:
+        self._init_step_stats(step_id)
+        stats = self._step_stats[step_id]
+        stats[key] = max(stats.get(key, 0.0), value)
+
+    def _log_step_summary(self, step_id: int) -> None:
+        stats = self._step_stats.get(step_id) or {}
+        if not stats:
+            return
+        self.logger.info(
+            "[PHASE3-STEP] step=%s vector_calls=%s hits=%s empty=%s seq_windows=%s appended_chars=%s followups=%s latency_ms=%.1f best_score=%.3f",
+            step_id,
+            int(stats.get("vector_calls", 0)),
+            int(stats.get("vector_hits", 0)),
+            int(stats.get("vector_empty", 0)),
+            int(stats.get("sequential_windows", 0)),
+            int(stats.get("vector_appended_chars", 0)),
+            int(stats.get("vector_followup_turns", 0)),
+            stats.get("vector_latency_ms", 0.0),
+            stats.get("vector_best_score", 0.0),
+        )
     
     def _get_previous_chunks_context(self, step_id: int) -> Optional[str]:
         """
@@ -1300,6 +2407,25 @@ class Phase3Execute(BasePhase):
         
         return "\n\n".join(context_parts)
     
+    def _build_user_feedback_context(self) -> str:
+        """
+        Combine stored user guidance so each step can honor original intent.
+        """
+        # Retrieve initial guidance before role generation
+        pre_feedback = self.session.get_metadata("phase_feedback_pre_role", "") or ""
+        # Prefer explicitly stored post-Phase-1 feedback; fall back to legacy field
+        post_feedback = self.session.get_metadata("phase_feedback_post_phase1", "") or ""
+        if not post_feedback:
+            post_feedback = self.session.get_metadata("phase1_user_input", "") or ""
+        
+        parts = []
+        if pre_feedback.strip():
+            parts.append(f"**用户初始指导：**\n{pre_feedback.strip()}")
+        if post_feedback.strip():
+            parts.append(f"**用户优先事项：**\n{post_feedback.strip()}")
+        
+        return "\n\n".join(parts)
+    
     def _validate_phase3_schema(self, data: Dict[str, Any]) -> None:
         """
         Validate Phase 3 step output using output_schema.json if available.
@@ -1331,6 +2457,10 @@ class Phase3Execute(BasePhase):
         # Check for summary (recommended but not strictly required for backward compatibility)
         if "summary" not in findings:
             self.logger.debug("Findings missing 'summary' field (recommended)")
+        if "article" not in findings:
+            self.logger.warning("Findings missing 'article' field (required for comprehensive answer)")
+        elif not isinstance(findings.get("article"), str):
+            raise ValueError("Schema validation failed: 'article' must be string")
         
         # Validate points_of_interest if present
         if "points_of_interest" in findings:

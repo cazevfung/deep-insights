@@ -100,6 +100,33 @@ class StartWorkflowResponse(BaseModel):
     batch_id: str
     status: str
 
+class PhaseRerunRequest(BaseModel):
+    batch_id: str
+    session_id: str
+    phase: str
+    rerun_downstream: bool = True
+    user_topic: Optional[str] = None
+
+class PhaseRerunResponse(BaseModel):
+    batch_id: str
+    session_id: str
+    phase: str
+    phases: list
+    status: str
+
+class StepRerunRequest(BaseModel):
+    batch_id: str
+    session_id: str
+    step_id: int
+    regenerate_report: bool = True
+
+class StepRerunResponse(BaseModel):
+    batch_id: str
+    session_id: str
+    step_id: int
+    regenerate_report: bool
+    status: str
+
 
 @router.post("/start", response_model=StartWorkflowResponse)
 async def start_workflow(request: StartWorkflowRequest, background_tasks: BackgroundTasks):
@@ -162,6 +189,52 @@ async def start_workflow(request: StartWorkflowRequest, background_tasks: Backgr
     except Exception as e:
         logger.error(f"Failed to start workflow: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to start workflow: {str(e)}")
+
+@router.post("/restart/phase", response_model=PhaseRerunResponse)
+async def restart_phase(request: PhaseRerunRequest):
+    if workflow_service is None:
+        raise HTTPException(status_code=500, detail="Workflow service not initialized")
+    try:
+        phases = workflow_service._resolve_phase_sequence(request.phase, request.rerun_downstream)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    asyncio.create_task(
+        workflow_service.rerun_phase(
+            batch_id=request.batch_id,
+            session_id=request.session_id,
+            phase=request.phase,
+            rerun_downstream=request.rerun_downstream,
+            user_topic=request.user_topic,
+        )
+    )
+    return PhaseRerunResponse(
+        batch_id=request.batch_id,
+        session_id=request.session_id,
+        phase=phases[0],
+        phases=phases,
+        status="started",
+    )
+
+@router.post("/restart/phase3-step", response_model=StepRerunResponse)
+async def restart_phase3_step(request: StepRerunRequest):
+    if workflow_service is None:
+        raise HTTPException(status_code=500, detail="Workflow service not initialized")
+    asyncio.create_task(
+        workflow_service.rerun_phase3_step(
+            batch_id=request.batch_id,
+            session_id=request.session_id,
+            step_id=request.step_id,
+            regenerate_report=request.regenerate_report,
+        )
+    )
+    return StepRerunResponse(
+        batch_id=request.batch_id,
+        session_id=request.session_id,
+        step_id=request.step_id,
+        regenerate_report=request.regenerate_report,
+        status="started",
+    )
 
 
 async def run_workflow_task(batch_id: str):

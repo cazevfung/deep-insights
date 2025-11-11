@@ -142,6 +142,15 @@ class Phase2Plan(BasePhase):
             except Exception as e:
                 self.logger.warning(f"Failed to format marker overview for Phase 2: {e}")
         
+        # Get research role from session metadata
+        research_role = self.session.get_metadata("research_role") if self.session else None
+        role_display = ""
+        if research_role:
+            if isinstance(research_role, dict):
+                role_display = research_role.get("role", "")
+            else:
+                role_display = str(research_role)
+        
         context = {
             "suggested_goals_list": suggested_goals_list,
             "synthesized_goal_context": synthesized_goal_context,
@@ -152,6 +161,7 @@ class Phase2Plan(BasePhase):
             "quality_info": quality_info,  # Enhancement #4
             "transcript_size_guidance": transcript_size_guidance,  # New: Solution 5
             "marker_overview": marker_overview,  # New: Marker overview for Phase 2
+            "system_role_description": role_display or "资深数据分析专家",
         }
         messages = compose_messages("phase2_plan", context=context)
         

@@ -13,6 +13,7 @@ class Phase0_5RoleGeneration(BasePhase):
         self,
         data_abstract: str,
         user_topic: Optional[str] = None,
+        user_guidance: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Generate appropriate research role based on data and topic.
@@ -31,9 +32,13 @@ class Phase0_5RoleGeneration(BasePhase):
             self.ui.display_message("正在构建提示词...", "info")
         
         context = {
+            "system_role_description": "智能研究助理",  # Default role for Phase 0.5 itself
             "data_abstract": data_abstract,
             "user_topic": (
                 f"**研究主题:**\n{user_topic}" if user_topic else ""
+            ),
+            "user_guidance": (
+                f"**用户初始指导：**\n{user_guidance}" if user_guidance else ""
             ),
         }
         messages = compose_messages("phase0_5_role_generation", context=context)
@@ -42,7 +47,13 @@ class Phase0_5RoleGeneration(BasePhase):
         import time
         api_start_time = time.time()
         self.logger.info(f"[TIMING] Starting API call for Phase 0.5 at {api_start_time:.3f}")
-        response = self._stream_with_callback(messages)
+        response = self._stream_with_callback(
+            messages,
+            stream_metadata={
+                "component": "role_generation",
+                "phase_label": "0.5",
+            },
+        )
         api_elapsed = time.time() - api_start_time
         self.logger.info(f"[TIMING] API call completed in {api_elapsed:.3f}s for Phase 0.5")
         
@@ -86,6 +97,8 @@ class Phase0_5RoleGeneration(BasePhase):
         
         # Store in session
         self.session.set_metadata("research_role", research_role)
+        if user_guidance is not None:
+            self.session.set_metadata("phase_feedback_pre_role", user_guidance)
         
         result = {
             "research_role": research_role,

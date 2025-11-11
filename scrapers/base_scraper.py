@@ -31,23 +31,22 @@ class BaseScraper(ABC):
         self.headless = kwargs.get('headless', self.scraper_config.get('headless', True))
         self.timeout = kwargs.get('timeout', self.scraper_config.get('timeout', 30000))
         self.num_workers = kwargs.get('num_workers', self.scraper_config.get('num_workers', 3))
+        self.proxy_config = self.config.get_browser_proxy_config()
         
         # Progress callback for tracking downloads and loading
         self.progress_callback: Optional[Callable] = kwargs.get('progress_callback', None)
-        
-        # Cancellation checker callback - returns True if cancelled
-        self.cancellation_checker: Optional[Callable[[], bool]] = kwargs.get('cancellation_checker', None)
+        self.cancellation_checker: Optional[Callable[[], bool]] = kwargs.get('cancellation_checker')
         
         # Current extraction context (set during extract() call)
         self._current_batch_id: Optional[str] = None
         self._current_link_id: Optional[str] = None
         self._current_url: Optional[str] = None
+        self._cancelled: bool = False
         
         # Browser resources (lazy initialization)
         self._playwright = None
         self._browser = None
         self._context = None
-        self._browser_process_pid = None  # Track browser process PID for force-killing
     
     def _check_chrome_running(self, port: int = 9222) -> bool:
         """
@@ -168,15 +167,7 @@ class BaseScraper(ABC):
             connect_to_existing = self.config.get('browser.connect_to_existing_browser', False)
             
             logger.info(f"[{self.scraper_type}] Initializing Playwright...")
-            try:
-                # Start Playwright - this should work in any thread context
-                self._playwright = sync_playwright().start()
-                logger.info(f"[{self.scraper_type}] Playwright started successfully")
-            except Exception as playwright_error:
-                logger.error(f"[{self.scraper_type}] Failed to start Playwright: {playwright_error}")
-                import traceback
-                logger.error(f"[{self.scraper_type}] Playwright start traceback: {traceback.format_exc()}")
-                raise RuntimeError(f"Failed to start Playwright: {playwright_error}") from playwright_error
+            self._playwright = sync_playwright().start()
             
             if connect_to_existing:
                 # Connect to existing Chrome browser (uses your normal Chrome profile)
@@ -208,6 +199,8 @@ class BaseScraper(ABC):
                 try:
                     self._browser = self._playwright.chromium.connect_over_cdp(cdp_url)
                     logger.info(f"[{self.scraper_type}] Successfully connected to existing browser")
+                    if self.proxy_config.get('enabled'):
+                        logger.info(f"[{self.scraper_type}] Proxy configuration ignored because an existing browser is being used")
                 except Exception as e:
                     logger.error(f"[{self.scraper_type}] Failed to connect to existing browser in strict mode: {e}")
                     raise
@@ -215,39 +208,33 @@ class BaseScraper(ABC):
                 # Launch new browser instance (default behavior)
                 # headless=True hides the browser window by default
                 chrome_args = ['--disable-blink-features=AutomationControlled']
-                
-                # Add args for web server environments (when running from FastAPI/async context)
-                # These are needed when Playwright runs from asyncio.to_thread() or web server
-                chrome_args.extend([
-                    '--no-sandbox',  # Required when running from web server/thread context
-                    '--disable-dev-shm-usage',  # Prevents shared memory issues in web server
-                    '--disable-setuid-sandbox',  # Additional sandbox bypass for web server
-                ])
-                
                 if self.headless:
                     # Additional args for optimal headless mode performance
                     chrome_args.append('--disable-gpu')
-                
-                try:
-                    logger.info(f"[{self.scraper_type}] Launching Chromium browser (headless={self.headless})...")
-                    logger.debug(f"[{self.scraper_type}] Chrome args: {chrome_args}")
-                    self._browser = self._playwright.chromium.launch(
-                        headless=self.headless,
-                        args=chrome_args
-                    )
-                    logger.info(f"[{self.scraper_type}] Chromium browser launched successfully")
-                    logger.debug(f"[{self.scraper_type}] New browser instance launched")
-                except Exception as launch_error:
-                    logger.error(f"[{self.scraper_type}] Failed to launch Chromium: {launch_error}")
-                    import traceback
-                    logger.error(f"[{self.scraper_type}] Launch traceback: {traceback.format_exc()}")
-                    raise RuntimeError(f"Failed to launch Chromium browser: {launch_error}") from launch_error
+                proxy_settings = None
+                if self.proxy_config.get('enabled'):
+                    proxy_settings = {
+                        'server': self.proxy_config['server']
+                    }
+                    if self.proxy_config.get('username'):
+                        proxy_settings['username'] = self.proxy_config['username']
+                    if self.proxy_config.get('password'):
+                        proxy_settings['password'] = self.proxy_config['password']
+                    if self.proxy_config.get('bypass'):
+                        proxy_settings['bypass'] = ",".join(self.proxy_config['bypass'])
+                    logger.info(f"[{self.scraper_type}] Launching browser with proxy {self.proxy_config['server']}")
+                elif self.proxy_config.get('server'):
+                    logger.warning(f"[{self.scraper_type}] Proxy server configured but disabled; set browser.proxy.enabled to true to use it")
+                self._browser = self._playwright.chromium.launch(
+                    headless=self.headless,
+                    args=chrome_args,
+                    proxy=proxy_settings
+                )
+                logger.debug(f"[{self.scraper_type}] New browser instance launched")
             
             logger.debug(f"[{self.scraper_type}] Browser initialized")
         except Exception as e:
             logger.error(f"[{self.scraper_type}] Failed to initialize browser: {e}")
-            import traceback
-            logger.error(f"[{self.scraper_type}] Traceback: {traceback.format_exc()}")
             raise
     
     def _create_context(self) -> BrowserContext:
@@ -329,50 +316,6 @@ class BaseScraper(ABC):
         # Implement in subclasses if needed
         return url
     
-    def _check_cancelled(self) -> bool:
-        """
-        Check if cancellation has been requested.
-        
-        Returns:
-            True if cancelled, False otherwise
-        """
-        if self.cancellation_checker:
-            try:
-                return self.cancellation_checker()
-            except Exception as e:
-                logger.warning(f"[{self.scraper_type}] Cancellation checker failed: {e}")
-        return False
-    
-    def _error_result(self, url: str, error: str, batch_id: str = None, link_id: str = None) -> Dict:
-        """
-        Create a standardized error result dictionary.
-        
-        Args:
-            url: URL that failed
-            error: Error message
-            batch_id: Optional batch ID
-            link_id: Optional link ID
-            
-        Returns:
-            Error result dictionary
-        """
-        return {
-            'success': False,
-            'url': url,
-            'content': None,
-            'title': '',
-            'author': '',
-            'publish_date': '',
-            'source': self.scraper_type.title(),
-            'language': '',
-            'word_count': 0,
-            'extraction_method': self.scraper_type,
-            'extraction_timestamp': datetime.now().isoformat(),
-            'batch_id': batch_id,
-            'link_id': link_id,
-            'error': error
-        }
-    
     def _report_progress(self, stage: str, progress: float, message: str = "", 
                          bytes_downloaded: int = 0, total_bytes: int = 0):
         """
@@ -401,6 +344,77 @@ class BaseScraper(ABC):
                 })
             except Exception as e:
                 logger.warning(f"[{self.scraper_type}] Progress callback failed: {e}")
+    
+    def _check_cancelled(self) -> bool:
+        """
+        Check whether the current scraping operation has been cancelled.
+        
+        Returns:
+            True if a cancellation request has been detected.
+        """
+        if self._cancelled:
+            return True
+        
+        if not self.cancellation_checker:
+            return False
+        
+        try:
+            cancelled = bool(self.cancellation_checker())
+        except Exception as e:
+            logger.warning(f"[{self.scraper_type}] Cancellation checker failed: {e}")
+            return False
+        
+        if cancelled:
+            logger.info(f"[{self.scraper_type}] Cancellation flag detected")
+            self._cancelled = True
+        return cancelled
+    
+    def _error_result(
+        self,
+        url: str,
+        error: str,
+        batch_id: Optional[str] = None,
+        link_id: Optional[str] = None,
+        **extra_fields
+    ) -> Dict:
+        """
+        Build a standardized error result payload.
+        
+        Args:
+            url: URL that failed to scrape
+            error: Error message
+            batch_id: Optional batch identifier
+            link_id: Optional link identifier
+            **extra_fields: Additional fields to merge into result
+        
+        Returns:
+            Dictionary representing an error result
+        """
+        source_name = getattr(self, 'source_name', None)
+        if not source_name:
+            # Remove trailing "scraper" and title-case for readability
+            base_name = self.__class__.__name__.replace('Scraper', '')
+            source_name = base_name or self.__class__.__name__
+        
+        result = {
+            'success': False,
+            'url': url,
+            'content': None,
+            'title': '',
+            'author': '',
+            'publish_date': '',
+            'source': source_name,
+            'language': '',
+            'word_count': 0,
+            'extraction_method': self.scraper_type,
+            'extraction_timestamp': datetime.now().isoformat(),
+            'batch_id': batch_id,
+            'link_id': link_id,
+            'error': error
+        }
+        if extra_fields:
+            result.update(extra_fields)
+        return result
     
     @abstractmethod
     def validate_url(self, url: str) -> bool:
@@ -442,120 +456,44 @@ class BaseScraper(ABC):
         """
         raise NotImplementedError
     
-    def _force_kill_browser_processes(self):
-        """
-        Force kill all Chromium/Chrome browser processes spawned by Playwright.
-        This is a more aggressive cleanup method used when cancellation is detected.
-        """
+    def close(self, force_kill: bool = False):
+        """Cleanup browser resources."""
         try:
-            import platform
-            import psutil
-            
-            # Find and kill all Chromium/Chrome processes
-            killed_count = 0
-            for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
-                try:
-                    proc_info = proc.info
-                    proc_name = proc_info.get('name', '').lower()
-                    cmdline = proc_info.get('cmdline', [])
-                    cmdline_str = ' '.join(cmdline) if cmdline else ''
-                    
-                    # Check if it's a Playwright Chromium process
-                    is_playwright_chrome = (
-                        ('chromium' in proc_name or 'chrome' in proc_name) and
-                        ('playwright' in cmdline_str.lower() or 
-                         'ms-playwright' in cmdline_str.lower() or
-                         '--remote-debugging-port' in cmdline_str)
-                    )
-                    
-                    if is_playwright_chrome:
-                        try:
-                            logger.info(f"[{self.scraper_type}] Force killing browser process PID {proc_info['pid']}")
-                            proc.kill()
-                            killed_count += 1
-                        except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
-                            logger.debug(f"[{self.scraper_type}] Could not kill process {proc_info['pid']}: {e}")
-                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                    continue
-            
-            if killed_count > 0:
-                logger.info(f"[{self.scraper_type}] Force killed {killed_count} browser process(es)")
-            
-        except ImportError:
-            # psutil not available, try using OS-specific commands
-            logger.warning(f"[{self.scraper_type}] psutil not available, using OS-specific kill commands")
-            try:
-                import platform
-                if platform.system() == 'Windows':
-                    # Windows: Use taskkill to kill Chromium processes
-                    subprocess.run(
-                        ['taskkill', '/F', '/IM', 'chrome.exe', '/FI', 'WINDOWTITLE eq *playwright*'],
-                        capture_output=True,
-                        timeout=5
-                    )
-                    # Also try killing processes with ms-playwright in path
-                    subprocess.run(
-                        ['taskkill', '/F', '/FI', 'IMAGENAME eq chrome.exe', '/FI', 'COMMANDLINE eq *ms-playwright*'],
-                        capture_output=True,
-                        timeout=5
-                    )
-                else:
-                    # Linux/Mac: Use pkill
-                    subprocess.run(['pkill', '-f', 'playwright.*chromium'], capture_output=True, timeout=5)
-            except Exception as e:
-                logger.warning(f"[{self.scraper_type}] Could not force kill browser processes: {e}")
-        except Exception as e:
-            logger.warning(f"[{self.scraper_type}] Error in force kill browser processes: {e}")
-    
-    def close(self, force_kill=False):
-        """
-        Cleanup browser resources.
-        
-        Args:
-            force_kill: If True, force kill browser processes at OS level
-        """
-        try:
-            # Force kill browser processes if requested (e.g., on cancellation)
-            if force_kill:
-                self._force_kill_browser_processes()
-            
             # Check if we're using an existing browser
             connect_to_existing = self.config.get('browser.connect_to_existing_browser', False)
             
             if self._context:
                 try:
                     self._context.close()
-                except Exception as e:
-                    logger.warning(f"[{self.scraper_type}] Error closing context: {e}")
+                except Exception as ctx_err:
+                    logger.warning(f"[{self.scraper_type}] Failed to close context: {ctx_err}")
+                finally:
+                    self._context = None
             
             if self._browser:
                 try:
-                    if connect_to_existing:
-                        # Don't close the browser when connected to existing instance
-                        logger.info(f"[{self.scraper_type}] Disconnecting from browser (browser stays open)")
+                    if connect_to_existing and not force_kill:
+                        # Don't close the shared browser instance, just disconnect
+                        logger.info(f"[{self.scraper_type}] Disconnecting from existing browser")
                         self._browser.close()
                     else:
-                        # Close the browser we launched
+                        # Close the browser we launched or force close when requested
+                        logger.info(f"[{self.scraper_type}] Closing browser (force_kill={force_kill})")
                         self._browser.close()
-                except Exception as e:
-                    logger.warning(f"[{self.scraper_type}] Error closing browser: {e}")
+                except Exception as browser_err:
+                    logger.warning(f"[{self.scraper_type}] Failed to close browser: {browser_err}")
+                finally:
+                    self._browser = None
             
             if self._playwright:
                 try:
                     self._playwright.stop()
-                except Exception as e:
-                    logger.warning(f"[{self.scraper_type}] Error stopping playwright: {e}")
+                except Exception as pw_err:
+                    logger.warning(f"[{self.scraper_type}] Failed to stop Playwright: {pw_err}")
+                finally:
+                    self._playwright = None
             
-            # Force kill again after closing (in case some processes didn't terminate)
-            if force_kill:
-                import time
-                time.sleep(0.5)  # Give processes a moment to terminate
-                self._force_kill_browser_processes()
-            
-            self._browser = None
-            self._context = None
-            self._playwright = None
-            self._browser_process_pid = None
+            self._cancelled = False
             logger.info(f"[{self.scraper_type}] Browser session closed successfully")
         except Exception as e:
             logger.error(f"[{self.scraper_type}] Error closing browser: {e}")

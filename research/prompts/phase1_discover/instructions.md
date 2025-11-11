@@ -41,7 +41,6 @@
     {{"id": 5, "goal_text": "...", "rationale": "...", "uses": ["transcript"], "sources": ["youtube", "bilibili"]}},
     {{"id": 6, "goal_text": "...", "rationale": "...", "uses": ["transcript"], "sources": ["article"]}},
     {{"id": 7, "goal_text": "...", "rationale": "...", "uses": ["transcript_with_comments"], "sources": ["youtube"]}}
-  ],
-  "notes": "确保所有目标之间边界清晰且不重复；根据标记概览的丰富程度，生成尽可能多的研究问题；避免示例化或模板化语言。"
+  ]
 }}
 

@@ -120,6 +120,9 @@ export default {
           backgroundColor: theme('colors.neutral.light-bg'),
           borderRadius: theme('borderRadius.lg'),
           padding: theme('spacing.4'),
+          fontFamily: Array.isArray(theme('fontFamily.mono'))
+            ? theme('fontFamily.mono').join(',')
+            : theme('fontFamily.mono'),
         },
         '.stream-content-text': {
           fontFamily: Array.isArray(theme('fontFamily.mono'))
@@ -172,6 +175,58 @@ export default {
           backgroundColor: theme('colors.primary.100'),
           color: theme('colors.primary.500'),
           cursor: 'pointer',
+        },
+        '.stream-raw-container': {
+          display: 'flex',
+          flexDirection: 'column',
+          backgroundColor: theme('colors.neutral.light-bg'),
+          borderRadius: theme('borderRadius.xl'),
+          border: `1px solid ${theme('colors.neutral.300')}`,
+          boxShadow: theme('boxShadow.xs'),
+          overflow: 'hidden',
+        },
+        '.stream-raw-header': {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: `${theme('spacing.2')} ${theme('spacing.4')}`,
+          backgroundColor: theme('colors.neutral.white'),
+          borderBottom: `1px solid ${theme('colors.neutral.300')}`,
+        },
+        '.stream-raw-header-controls': {
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: theme('spacing.1'),
+        },
+        '.stream-raw-dot': {
+          width: theme('spacing.2'),
+          height: theme('spacing.2'),
+          borderRadius: theme('borderRadius.full'),
+          backgroundColor: theme('colors.neutral.300'),
+          boxShadow: `0 0 0 1px ${theme('colors.neutral.white')}`,
+        },
+        '.stream-raw-dot-red': {
+          backgroundColor: theme('colors.secondary.500'),
+        },
+        '.stream-raw-dot-yellow': {
+          backgroundColor: theme('colors.primary.400'),
+        },
+        '.stream-raw-dot-green': {
+          backgroundColor: theme('colors.supportive.green'),
+        },
+        '.stream-raw-title': {
+          fontSize: theme('fontSize.xs'),
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          color: theme('colors.neutral.500'),
+          fontWeight: theme('fontWeight.medium'),
+        },
+        '.stream-raw-body': {
+          backgroundColor: theme('colors.neutral.light-bg'),
+          padding: theme('spacing.4'),
+          fontFamily: Array.isArray(theme('fontFamily.mono'))
+            ? theme('fontFamily.mono').join(',')
+            : theme('fontFamily.mono'),
         },
       })
     }),

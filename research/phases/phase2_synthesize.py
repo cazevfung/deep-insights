@@ -14,7 +14,8 @@ class Phase2Synthesize(BasePhase):
         phase1_output: Dict[str, Any],
         data_abstract: str,
         user_input: Optional[str] = None,
-        user_topic: Optional[str] = None
+        user_topic: Optional[str] = None,
+        pre_phase_feedback: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Create unified topic while preserving Phase 1 questions directly.
@@ -69,11 +70,25 @@ class Phase2Synthesize(BasePhase):
         if not user_input:
             user_input = self.session.get_metadata("phase1_user_input", "")
 
+        if pre_phase_feedback is None:
+            pre_phase_feedback = self.session.get_metadata("phase_feedback_pre_role", "")
+
         user_context_section = ""
+        if pre_phase_feedback:
+            user_context_section += f"**用户初始指导：**\n{pre_phase_feedback}\n\n"
         if user_topic:
             user_context_section += f"**用户研究主题：**\n{user_topic}\n\n"
         if user_input:
             user_context_section += f"**用户补充说明：**\n{user_input}\n\n"
+        
+        # Get research role from session metadata
+        research_role = self.session.get_metadata("research_role") if self.session else None
+        role_display = ""
+        if research_role:
+            if isinstance(research_role, dict):
+                role_display = research_role.get("role", "")
+            else:
+                role_display = str(research_role)
         
         # Compose messages from externalized prompt templates
         context = {
@@ -81,6 +96,7 @@ class Phase2Synthesize(BasePhase):
             "goals_count": len(all_goals),
             "data_abstract": data_abstract,
             "user_context": user_context_section.strip() if user_context_section else "",
+            "system_role_description": role_display or "资深数据分析专家",
         }
         messages = compose_messages("phase2_synthesize", context=context)
         
@@ -92,7 +108,14 @@ class Phase2Synthesize(BasePhase):
         import time
         api_start_time = time.time()
         self.logger.info(f"[TIMING] Starting API call for Phase 2 at {api_start_time:.3f}")
-        response = self._stream_with_callback(messages)
+        response = self._stream_with_callback(
+            messages,
+            stream_metadata={
+                "component": "synthesis",
+                "phase_label": "2",
+                "goals_count": len(all_goals),
+            },
+        )
         api_elapsed = time.time() - api_start_time
         self.logger.info(f"[TIMING] API call completed in {api_elapsed:.3f}s for Phase 2")
         
@@ -130,7 +153,8 @@ class Phase2Synthesize(BasePhase):
             "component_goals": all_goals,  # Preserve original Phase 1 goals
             "raw_response": response,
             "user_input": user_input or "",
-            "user_topic": user_topic or ""
+            "user_topic": user_topic or "",
+            "user_initial_input": pre_phase_feedback or "",
         }
         
         # Store in session

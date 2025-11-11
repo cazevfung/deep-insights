@@ -24,17 +24,17 @@ foreach ($port in $ports) {
     }
 
     if ($processList.Count -gt 0) {
-        Write-Host "Found $($processList.Count) process(es) using port $port:" -ForegroundColor Yellow
-        foreach ($pid in $processList) {
-                $proc = Get-Process -Id $pid -ErrorAction SilentlyContinue
+        Write-Host "Found $($processList.Count) process(es) using port ${port}:" -ForegroundColor Yellow
+        foreach ($processId in $processList) {
+                $proc = Get-Process -Id $processId -ErrorAction SilentlyContinue
                 if ($proc) {
-                    Write-Host "  - PID $pid : $($proc.ProcessName) ($($proc.Path))" -ForegroundColor Yellow
+                    Write-Host "  - PID $processId : $($proc.ProcessName) ($($proc.Path))" -ForegroundColor Yellow
                     $killed = $false
                     # Try up to 3 times with retries
                     for ($attempt = 1; $attempt -le 3; $attempt++) {
                         try {
-                            Stop-Process -Id $pid -Force -ErrorAction Stop
-                            Write-Host "    ✓ Killed PID $pid" -ForegroundColor Green
+                            Stop-Process -Id $processId -Force -ErrorAction Stop
+                            Write-Host "    ✓ Killed PID $processId" -ForegroundColor Green
                             $totalKilled++
                             $killed = $true
                             break
@@ -44,12 +44,12 @@ foreach ($port in $ports) {
                                 Start-Sleep -Milliseconds 500
                             } else {
                                 # Check if process still exists
-                                $stillExists = Get-Process -Id $pid -ErrorAction SilentlyContinue
+                                $stillExists = Get-Process -Id $processId -ErrorAction SilentlyContinue
                                 if (-not $stillExists) {
-                                    Write-Host "    ✓ Process $pid already terminated" -ForegroundColor Green
+                                    Write-Host "    ✓ Process $processId already terminated" -ForegroundColor Green
                                     $killed = $true
                                 } else {
-                                    Write-Host "    ✗ Failed to kill PID $pid after 3 attempts: $($_.Exception.Message)" -ForegroundColor Red
+                                    Write-Host "    ✗ Failed to kill PID $processId after 3 attempts: $($_.Exception.Message)" -ForegroundColor Red
                                 }
                             }
                         }
@@ -57,13 +57,13 @@ foreach ($port in $ports) {
                     # Verify process is actually killed
                     if ($killed) {
                         Start-Sleep -Milliseconds 500
-                        $verify = Get-Process -Id $pid -ErrorAction SilentlyContinue
+                        $verify = Get-Process -Id $processId -ErrorAction SilentlyContinue
                         if ($verify) {
-                            Write-Host "    ⚠ Warning: PID $pid still appears to be running" -ForegroundColor Yellow
+                            Write-Host "    ⚠ Warning: PID $processId still appears to be running" -ForegroundColor Yellow
                         }
                     }
                 } else {
-                    Write-Host "  - PID $pid : Process no longer exists (already terminated)" -ForegroundColor Gray
+                    Write-Host "  - PID $processId : Process no longer exists (already terminated)" -ForegroundColor Gray
                 }
             }
         } else {
@@ -189,9 +189,9 @@ if ($stillInUse.Count -gt 0) {
     # Try one more aggressive cleanup pass
     foreach ($port in $stillInUse) {
         $processes = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
-        foreach ($pid in $processes) {
+        foreach ($processId in $processes) {
             try {
-                Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+                Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
                 Start-Sleep -Milliseconds 500
             } catch {}
         }

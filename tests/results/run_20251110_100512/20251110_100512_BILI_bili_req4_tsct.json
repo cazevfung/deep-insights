@@ -1,0 +1,64 @@
+{
+  "success": true,
+  "bv_id": "BV1iweMzXEm2",
+  "url": "https://www.bilibili.com/video/BV1iweMzXEm2/",
+  "content": "不知从什么时候开始，很多简单的事情都得换一个高级的说法，卖东西叫分销，挣钱叫变现，写文章叫内容输出，拉人进群叫私域引流，就连A爱写代码也得有个新词叫web coding。人们总是倾向用高级的词汇来掩盖内容的匮乏，今天我们来聊几个AI时代的流行词，提示词、提示词工程上下文，以及那个宣称可以把提示词工程踩在脚下摩擦的上下文工程。大圆模型刚出现的时候，主要就是一个聊天机器人，用户说你好，大语言模型可能会回复我很好，你呢？经过几年的发展，恩的能力已经远远的超过了普通的聊天机器人，但聊天依然是AI最核心也是最实用的功能之一。在聊天这个场景下，用户说的你好就叫做prompt，中文翻译过来就是提示词，所以提示词最基本的定义就是用户发给AI的话对于我很好。你呢？这种四平八稳的回答，虽然能满足大多数人在多数情况下的期望，但这也注定这种回答将会是干巴巴的，毫无特色的。所以即使只是聊天，也可以用上一些聊天技巧嘛。比如说我们可以用提示词给AI设定一个角色。举个例子，你跟他说你来扮演一个猫娘，接下来我说你好，这个时候A就可能回复我，很好，你呢？喵把这种玩法推向极致的一个软件叫做sil他们，为了保证这期视频不被和谐，这里我就不展开多说了，有兴趣的朋友可以自己去搜一下。但是问题来了，你扮演猫娘这种设定并不是用户。",
+  "title": "",
+  "author": "",
+  "publish_date": "",
+  "source": "Bilibili (via SnapAny + Paraformer)",
+  "language": "zh-CN",
+  "word_count": 550,
+  "extraction_method": "snapany_paraformer",
+  "extraction_timestamp": "2025-11-10T18:09:11.577170",
+  "batch_id": "20251110_100512",
+  "link_id": "bili_req4",
+  "error": null,
+  "summary": {
+    "transcript_summary": {
+      "key_facts": [
+        "FACT: The term 'prompt' refers to user input given to an AI, such as 'hello', in a conversational context.",
+        "FACT: Prompt engineering involves structuring inputs to guide AI behavior and improve output quality.",
+        "FACT: Context in AI refers to the surrounding information that helps the model understand and respond appropriately.",
+        "FACT: Context engineering is a newer concept that aims to optimize the input environment beyond just the prompt.",
+        "FACT: Early large language models primarily functioned as basic chatbots with simple responses like 'I'm good, how about you?'",
+        "FACT: AI capabilities have evolved significantly beyond basic chatbot functionality over recent years.",
+        "FACT: Role-playing prompts, such as asking an AI to act as a 'catgirl', can generate more engaging and personalized responses.",
+        "FACT: Tools like Sil have popularized role-based AI interactions by enabling immersive character simulations.",
+        "FACT: The use of advanced terminology like 'content output' or 'private domain引流' reflects a trend toward euphemistic language in digital culture.",
+        "FACT: The shift from simple communication to complex linguistic framing is seen across various domains including marketing and tech."
+      ],
+      "key_opinions": [
+        "OPINION: Overuse of buzzwords masks actual substance and creates unnecessary complexity in communication.",
+        "OPINION: The trend of renaming simple actions with high-level terms diminishes clarity and authenticity.",
+        "OPINION: Prompt engineering is essential for unlocking meaningful AI interactions, not just a gimmick.",
+        "OPINION: Context engineering represents a significant evolution beyond traditional prompt design.",
+        "OPINION: AI role-playing features, while fun, risk reducing the utility of AI if overemphasized.",
+        "OPINION: The proliferation of jargon in tech reflects a desire to appear innovative rather than practical.",
+        "OPINION: Simple conversations with AI are still the most valuable application despite advanced developments."
+      ],
+      "key_datapoints": [
+        "DATA: Early LLMs responded to 'hello' with generic replies like 'I'm good, how about you?'",
+        "DATA: Role-playing prompts can dramatically alter AI response style and tone.",
+        "DATA: Tools like Sil enable highly immersive character-based AI interactions.",
+        "DATA: The term 'prompt' is now widely used to describe any user input to an AI system.",
+        "DATA: Context engineering is emerging as a distinct field focused on optimizing input environments.",
+        "DATA: The evolution of AI from chatbot to multi-functional assistant has been rapid over the past few years."
+      ],
+      "topic_areas": [
+        "AI prompting",
+        "Prompt engineering",
+        "Context engineering",
+        "AI role-playing",
+        "Tech jargon trends",
+        "Language evolution in digital culture",
+        "AI conversation development"
+      ],
+      "word_count": 2,
+      "total_markers": 23
+    },
+    "comments_summary": {},
+    "created_at": "2025-11-10T18:12:14.621487",
+    "model_used": "qwen-flash"
+  }
+}

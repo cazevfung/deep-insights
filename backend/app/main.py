@@ -12,12 +12,17 @@ from loguru import logger
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
+from lib.logging_setup import setup_logging
+
+# Ensure logging configuration is consistent when the app is imported directly
+setup_logging(enable_console=True)
+
 # Initialize logger early
 logger.info("Initializing FastAPI application...")
 
 try:
     from core.config import Config
-    from app.routes import links, workflow, research, session, reports, history
+    from app.routes import links, workflow, research, session, reports, history, exports
     from app.websocket.manager import WebSocketManager
     logger.info("✓ All modules imported successfully")
 except Exception as e:
@@ -77,6 +82,7 @@ try:
     app.include_router(session.router, prefix="/api/sessions", tags=["sessions"])
     app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
     app.include_router(history.router, prefix="/api/history", tags=["history"])
+    app.include_router(exports.router, prefix="/api/exports", tags=["exports"])
     logger.info("✓ All routers included successfully")
 except Exception as e:
     logger.error(f"✗ Failed to include routers: {e}", exc_info=True)
@@ -119,60 +125,9 @@ async def startup_event():
     logger.info("Server is ready to accept requests")
     logger.info("=" * 60)
     
-    # Launch a terminal window to show server logs (Windows only)
-    try:
-        import platform
-        import os
-        
-        if platform.system() == "Windows":
-            # Get the log file path
-            log_file = Path(__file__).parent.parent.parent / "logs" / "backend.log"
-            log_file.parent.mkdir(exist_ok=True, parents=True)
-            
-            # Create the log file if it doesn't exist
-            if not log_file.exists():
-                log_file.touch()
-            
-            # Use a simpler approach - open a CMD window that tails the log file
-            # Create a temporary batch file that tails the log
-            project_root = Path(__file__).parent.parent.parent
-            temp_bat = project_root / "logs" / "tail_logs.bat"
-            temp_bat.parent.mkdir(exist_ok=True, parents=True)
-            
-            bat_content = f'''@echo off
-title Research Tool Backend Server Logs
-color 0F
-echo ============================================================
-echo Research Tool Backend Server - Console Logs
-echo ============================================================
-echo.
-echo This window shows server logs including Playwright/Chromium errors.
-echo Log file: {log_file}
-echo.
-echo Waiting for logs to appear...
-echo.
-if exist "{log_file}" (
-    powershell -Command "Get-Content '{log_file}' -Wait -Tail 100"
-) else (
-    echo Log file not found. Waiting for it to be created...
-    timeout /t 2 /nobreak >nul
-    if exist "{log_file}" (
-        powershell -Command "Get-Content '{log_file}' -Wait -Tail 100"
-    ) else (
-        echo Log file still not found. Please check the server logs.
-        pause
-    )
-)
-'''
-            temp_bat.write_text(bat_content, encoding='utf-8')
-            
-            # Launch the batch file in a new window
-            # Use os.startfile() which is the proper way on Windows
-            os.startfile(str(temp_bat))
-            logger.info("✓ Terminal window opened for viewing logs")
-    except Exception as e:
-        logger.warning(f"Could not open terminal window: {e}")
-        # Don't fail startup if terminal window can't be opened
+    # Log tail window disabled - use the main uvicorn console window instead
+    # The console window spawned by run_server.py contains the actual live uvicorn output
+    pass
 
 
 @app.on_event("shutdown")
