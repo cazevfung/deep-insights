@@ -26,7 +26,7 @@ const StreamTimeline: React.FC<StreamTimelineProps> = ({
 }) => {
   if (items.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-neutral-200 bg-neutral-50 px-4 py-8 text-center text-sm text-neutral-500">
+      <div className="rounded-xl border border-dashed border-neutral-200 bg-neutral-50 px-3 py-8 text-center text-xs text-neutral-500">
         暂无流式内容，发起研究后将实时显示
       </div>
     )
@@ -37,12 +37,12 @@ const StreamTimeline: React.FC<StreamTimelineProps> = ({
   const visibleItems = items.slice(startIndex)
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {hasMore && (
         <button
           type="button"
           onClick={onShowMore}
-          className="w-full rounded-lg border border-neutral-200 bg-neutral-50 py-2 text-sm text-neutral-600 transition hover:border-primary-200 hover:text-primary-600"
+          className="w-full rounded-lg border border-neutral-200 bg-neutral-50 py-1.5 text-xs text-neutral-600 transition hover:border-primary-200 hover:text-primary-600"
         >
           显示更早的消息
         </button>

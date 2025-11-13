@@ -13,6 +13,32 @@ Write-Host ""
 # Kill processes on ports 3000 and 3001
 foreach ($port in $ports) {
     Write-Host "Checking port $port..." -ForegroundColor Cyan
+    # First check if port is actually in use with socket test
+    $portInUse = $false
+    try {
+        $tcpClient = New-Object System.Net.Sockets.TcpClient
+        $tcpClient.ReceiveTimeout = 300
+        $tcpClient.SendTimeout = 300
+        $connect = $tcpClient.BeginConnect("127.0.0.1", $port, $null, $null)
+        $wait = $connect.AsyncWaitHandle.WaitOne(300, $false)
+        if ($wait) {
+            $tcpClient.EndConnect($connect)
+            $portInUse = $true  # Port is in use if we can connect
+            $tcpClient.Close()
+        } else {
+            $tcpClient.Close()
+        }
+    } catch {
+        # Connection refused or timeout means port is free
+        $portInUse = $false
+    }
+    
+    if (-not $portInUse) {
+        Write-Host "No processes found using port $port (socket check)" -ForegroundColor Green
+        continue
+    }
+    
+    # Port is in use, find the process
     $processes = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
     $processList = @()
     if ($processes) {
@@ -26,6 +52,11 @@ foreach ($port in $ports) {
     if ($processList.Count -gt 0) {
         Write-Host "Found $($processList.Count) process(es) using port ${port}:" -ForegroundColor Yellow
         foreach ($processId in $processList) {
+                # Skip PID 0 (system idle process) - it's not a real process using the port
+                if ($processId -eq 0) {
+                    Write-Host "  - PID 0 : System Idle Process (ignoring)" -ForegroundColor Gray
+                    continue
+                }
                 $proc = Get-Process -Id $processId -ErrorAction SilentlyContinue
                 if ($proc) {
                     Write-Host "  - PID $processId : $($proc.ProcessName) ($($proc.Path))" -ForegroundColor Yellow
@@ -176,8 +207,27 @@ Write-Host ""
 Write-Host "Verifying ports are free..." -ForegroundColor Cyan
 $stillInUse = @()
 foreach ($port in $ports) {
-    $check = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue
-    if ($check) {
+    # Use socket-based check instead of Get-NetTCPConnection (which shows stale TIME_WAIT connections)
+    $portFree = $true
+    try {
+        $tcpClient = New-Object System.Net.Sockets.TcpClient
+        $tcpClient.ReceiveTimeout = 300
+        $tcpClient.SendTimeout = 300
+        $connect = $tcpClient.BeginConnect("127.0.0.1", $port, $null, $null)
+        $wait = $connect.AsyncWaitHandle.WaitOne(300, $false)
+        if ($wait) {
+            $tcpClient.EndConnect($connect)
+            $portFree = $false  # Port is in use if we can connect
+            $tcpClient.Close()
+        } else {
+            $tcpClient.Close()
+        }
+    } catch {
+        # Connection refused or timeout means port is free
+        $portFree = $true
+    }
+    
+    if (-not $portFree) {
         $stillInUse += $port
     }
 }
@@ -197,12 +247,30 @@ if ($stillInUse.Count -gt 0) {
         }
     }
     
-    # Final check
+    # Final check using socket-based method
     Start-Sleep -Seconds 1
     $finalCheck = @()
     foreach ($port in $ports) {
-        $check = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue
-        if ($check) {
+        $portFree = $true
+        try {
+            $tcpClient = New-Object System.Net.Sockets.TcpClient
+            $tcpClient.ReceiveTimeout = 300
+            $tcpClient.SendTimeout = 300
+            $connect = $tcpClient.BeginConnect("127.0.0.1", $port, $null, $null)
+            $wait = $connect.AsyncWaitHandle.WaitOne(300, $false)
+            if ($wait) {
+                $tcpClient.EndConnect($connect)
+                $portFree = $false  # Port is in use if we can connect
+                $tcpClient.Close()
+            } else {
+                $tcpClient.Close()
+            }
+        } catch {
+            # Connection refused or timeout means port is free
+            $portFree = $true
+        }
+        
+        if (-not $portFree) {
             $finalCheck += $port
         }
     }

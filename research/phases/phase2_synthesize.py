@@ -66,37 +66,23 @@ class Phase2Synthesize(BasePhase):
             for i, goal in enumerate(all_goals)
         ])
         
-        # Format user context for prompt
-        if not user_input:
-            user_input = self.session.get_metadata("phase1_user_input", "")
-
-        if pre_phase_feedback is None:
-            pre_phase_feedback = self.session.get_metadata("phase_feedback_pre_role", "")
-
-        user_context_section = ""
-        if pre_phase_feedback:
-            user_context_section += f"**用户初始指导：**\n{pre_phase_feedback}\n\n"
-        if user_topic:
-            user_context_section += f"**用户研究主题：**\n{user_topic}\n\n"
-        if user_input:
-            user_context_section += f"**用户补充说明：**\n{user_input}\n\n"
-        
         # Get research role from session metadata
+        from research.prompts.context_formatters import format_research_role_for_context
         research_role = self.session.get_metadata("research_role") if self.session else None
-        role_display = ""
-        if research_role:
-            if isinstance(research_role, dict):
-                role_display = research_role.get("role", "")
-            else:
-                role_display = str(research_role)
+        role_context = format_research_role_for_context(research_role)
+        # Phase 2 synthesize runs AFTER Phase 1, so user_context should be available
+        user_intent = self._get_user_intent_fields(include_post_phase1_feedback=True)
         
         # Compose messages from externalized prompt templates
         context = {
             "goals_list": goals_list,
             "goals_count": len(all_goals),
             "data_abstract": data_abstract,
-            "user_context": user_context_section.strip() if user_context_section else "",
-            "system_role_description": role_display or "资深数据分析专家",
+            "system_role_description": role_context["system_role_description"],
+            "research_role_display": role_context["research_role_display"],
+            "research_role_rationale": role_context["research_role_rationale"],
+            "user_guidance": user_intent["user_guidance"],
+            "user_context": user_intent["user_context"],
         }
         messages = compose_messages("phase2_synthesize", context=context)
         

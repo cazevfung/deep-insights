@@ -1976,8 +1976,34 @@ class Phase3Execute(BasePhase):
             if isinstance(parsed, dict):
                 if "step_id" not in parsed:
                     parsed["step_id"] = step_id
-                if "findings" not in parsed or not isinstance(parsed.get("findings"), dict):
-                    parsed["findings"] = parsed.get("findings", {}) if isinstance(parsed.get("findings"), dict) else {}
+                
+                # Ensure requests and missing_context are lists
+                if "requests" not in parsed or not isinstance(parsed.get("requests"), list):
+                    parsed["requests"] = []
+                if "missing_context" not in parsed or not isinstance(parsed.get("missing_context"), list):
+                    parsed["missing_context"] = []
+                
+                # Check if there are any requests
+                has_requests = (
+                    (parsed.get("requests") and len(parsed["requests"]) > 0) or
+                    (parsed.get("missing_context") and len(parsed["missing_context"]) > 0)
+                )
+                
+                # Handle findings conditionally:
+                # - If requests exist, allow findings to be null/omitted
+                # - If no requests, ensure findings is a dict
+                if has_requests:
+                    # When requests exist, allow findings to be null or omitted
+                    if "findings" not in parsed:
+                        parsed["findings"] = None
+                    elif parsed.get("findings") is not None and not isinstance(parsed.get("findings"), dict):
+                        # If findings is provided but not null/dict, set to null when requests exist
+                        parsed["findings"] = None
+                else:
+                    # When no requests, ensure findings is a dict
+                    if "findings" not in parsed or not isinstance(parsed.get("findings"), dict):
+                        parsed["findings"] = parsed.get("findings", {}) if isinstance(parsed.get("findings"), dict) else {}
+                
                 if "insights" not in parsed or not isinstance(parsed.get("insights"), str):
                     parsed["insights"] = str(parsed.get("insights", ""))
                 if "confidence" not in parsed or not isinstance(parsed.get("confidence"), (int, float)):
@@ -1994,8 +2020,34 @@ class Phase3Execute(BasePhase):
                 if isinstance(parsed, dict):
                     if "step_id" not in parsed:
                         parsed["step_id"] = step_id
-                    if "findings" not in parsed or not isinstance(parsed.get("findings"), dict):
-                        parsed["findings"] = parsed.get("findings", {}) if isinstance(parsed.get("findings"), dict) else {}
+                    
+                    # Ensure requests and missing_context are lists
+                    if "requests" not in parsed or not isinstance(parsed.get("requests"), list):
+                        parsed["requests"] = []
+                    if "missing_context" not in parsed or not isinstance(parsed.get("missing_context"), list):
+                        parsed["missing_context"] = []
+                    
+                    # Check if there are any requests
+                    has_requests = (
+                        (parsed.get("requests") and len(parsed["requests"]) > 0) or
+                        (parsed.get("missing_context") and len(parsed["missing_context"]) > 0)
+                    )
+                    
+                    # Handle findings conditionally:
+                    # - If requests exist, allow findings to be null/omitted
+                    # - If no requests, ensure findings is a dict
+                    if has_requests:
+                        # When requests exist, allow findings to be null or omitted
+                        if "findings" not in parsed:
+                            parsed["findings"] = None
+                        elif parsed.get("findings") is not None and not isinstance(parsed.get("findings"), dict):
+                            # If findings is provided but not null/dict, set to null when requests exist
+                            parsed["findings"] = None
+                    else:
+                        # When no requests, ensure findings is a dict
+                        if "findings" not in parsed or not isinstance(parsed.get("findings"), dict):
+                            parsed["findings"] = parsed.get("findings", {}) if isinstance(parsed.get("findings"), dict) else {}
+                    
                     if "insights" not in parsed or not isinstance(parsed.get("insights"), str):
                         parsed["insights"] = str(parsed.get("insights", ""))
                     if "confidence" not in parsed or not isinstance(parsed.get("confidence"), (int, float)):
@@ -2429,14 +2481,20 @@ class Phase3Execute(BasePhase):
     def _validate_phase3_schema(self, data: Dict[str, Any]) -> None:
         """
         Validate Phase 3 step output using output_schema.json if available.
-        Enhanced to support points_of_interest structure.
+        Enhanced to support points_of_interest structure and conditional findings.
         """
         schema = load_schema("phase3_execute", name="output_schema.json")
         if not schema:
             return
         
-        # Basic required fields
-        required_keys = schema.get("required", ["step_id", "findings", "insights", "confidence"])
+        # Check if there are any requests
+        has_requests = (
+            (data.get("requests") and len(data.get("requests", [])) > 0) or
+            (data.get("missing_context") and len(data.get("missing_context", [])) > 0)
+        )
+        
+        # Basic required fields (findings is conditionally required)
+        required_keys = ["step_id", "insights", "confidence"]
         for key in required_keys:
             if key not in data:
                 raise ValueError(f"Schema validation failed: missing required key '{key}' in step output")
@@ -2444,26 +2502,40 @@ class Phase3Execute(BasePhase):
         # Type checks
         if not isinstance(data.get("step_id"), int):
             raise ValueError("Schema validation failed: 'step_id' must be integer")
-        if not isinstance(data.get("findings"), dict):
-            raise ValueError("Schema validation failed: 'findings' must be object")
         if not isinstance(data.get("insights"), str):
             raise ValueError("Schema validation failed: 'insights' must be string")
         if not isinstance(data.get("confidence"), (int, float)):
             raise ValueError("Schema validation failed: 'confidence' must be number")
         
-        # Validate findings structure (enhanced validation)
-        findings = data.get("findings", {})
+        # Conditional findings validation:
+        # - If requests exist, findings can be null/omitted
+        # - If no requests, findings must be a dict
+        findings = data.get("findings")
+        if has_requests:
+            # When requests exist, findings should be null or omitted
+            if findings is not None and not isinstance(findings, dict):
+                # Allow null, but warn if it's something else
+                self.logger.debug(f"Findings should be null when requests exist, got: {type(findings)}")
+        else:
+            # When no requests, findings must be a dict
+            if findings is None:
+                raise ValueError("Schema validation failed: 'findings' must be object when no requests are present")
+            if not isinstance(findings, dict):
+                raise ValueError("Schema validation failed: 'findings' must be object when no requests are present")
         
-        # Check for summary (recommended but not strictly required for backward compatibility)
-        if "summary" not in findings:
-            self.logger.debug("Findings missing 'summary' field (recommended)")
-        if "article" not in findings:
-            self.logger.warning("Findings missing 'article' field (required for comprehensive answer)")
-        elif not isinstance(findings.get("article"), str):
-            raise ValueError("Schema validation failed: 'article' must be string")
+        # Validate findings structure (only if findings is present and not null)
+        findings = data.get("findings")
+        if findings is not None and isinstance(findings, dict):
+            # Check for summary (recommended but not strictly required for backward compatibility)
+            if "summary" not in findings:
+                self.logger.debug("Findings missing 'summary' field (recommended)")
+            if "article" not in findings:
+                self.logger.warning("Findings missing 'article' field (required for comprehensive answer)")
+            elif not isinstance(findings.get("article"), str):
+                raise ValueError("Schema validation failed: 'article' must be string")
         
-        # Validate points_of_interest if present
-        if "points_of_interest" in findings:
+        # Validate points_of_interest if present (only if findings is a dict)
+        if findings is not None and isinstance(findings, dict) and "points_of_interest" in findings:
             poi = findings["points_of_interest"]
             if not isinstance(poi, dict):
                 raise ValueError("Schema validation failed: 'points_of_interest' must be object")

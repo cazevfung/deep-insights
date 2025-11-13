@@ -1,47 +1,32 @@
-# Transcript Summarization Instructions
+# 转录内容摘要指引
 
-Extract key information from this transcript as **lists of markers** for retrieval purposes.
+从转录文本中提取关键信息，以**标记列表**的形式用于检索。
 
-## Task
+## 任务
 
-Analyze the transcript and extract:
+分析转录内容并提取。**严格按照系统提示中的标记区分标准进行分类。**
 
-1. **key_facts** (List): Factual statements, concrete information, verifiable claims
-   - Format: "FACT: [statement]" (10-50 words each)
-   - Example: "FACT: Player retention dropped 30% after season reset"
-   - Target: 5-15 facts
+### 提取内容
 
-2. **key_opinions** (List): Arguments, viewpoints, perspectives, interpretations
-   - Format: "OPINION: [statement]" (10-50 words each)
-   - Example: "OPINION: The new ranking system is unfair to casual players"
-   - Target: 5-15 opinions
+1. **key_facts**
+2. **key_opinions**
+3. **key_datapoints**
+4. **topic_areas**
 
-3. **key_datapoints** (List): Statistics, numbers, metrics, quantitative information
-   - Format: "DATA: [statistic]" (10-50 words each)
-   - Example: "DATA: Average playtime increased from 2.5 to 3.2 hours per day"
-   - Target: 5-15 datapoints
+## 输出要求
 
-4. **topic_areas** (List): Main topics/themes covered in the transcript
-   - Format: Simple topic names (3-10 words each)
-   - Example: "Game balance updates", "Player feedback analysis"
-   - Target: 3-10 topics
+- 仅输出 JSON 格式
+- `key_facts`/`key_opinions`/`key_datapoints` 每个字段 5-15 条，`topic_areas` 3-10 条
+- 每个标记 10-50 字，信息具体、避免泛泛而谈
 
-## Output Requirements
-
-- Output as JSON only
-- Each list should contain 5-15 items (except topic_areas: 3-10)
-- Each marker: 10-50 words
-- Be specific and informative
-- Avoid vague or generic statements
-
-## JSON Schema
+## JSON 格式
 
 ```json
 {
-  "key_facts": ["FACT: ...", ...],
-  "key_opinions": ["OPINION: ...", ...],
-  "key_datapoints": ["DATA: ...", ...],
-  "topic_areas": ["topic1", "topic2", ...],
+  "key_facts": ["...", ...],
+  "key_opinions": ["...", ...],
+  "key_datapoints": ["...", ...],
+  "topic_areas": ["...", ...],
   "word_count": 12345,
   "total_markers": 15
 }

@@ -184,8 +184,10 @@ class Phase4ContextBundle:
             "phase3_step_synopsis": self.step_overview_text(),
             "evidence_catalog": self.evidence_catalog_text(),
             "scratchpad_digest": self.scratchpad_digest or "暂无结构化发现。",
-            "user_initial_guidance": self.user_initial_guidance or "",
-            "user_priority_notes": self.user_priority_notes or "",
+            "user_initial_guidance": self.user_initial_guidance or "",  # Keep for backward compatibility
+            "user_priority_notes": self.user_priority_notes or "",  # Keep for backward compatibility
+            "user_guidance": self.user_initial_guidance or "",  # New: unified field
+            "user_context": self.user_priority_notes or "",  # New: unified field
             "enable_auxiliary_artifacts": "yes" if self.enable_auxiliary_artifacts else "no",
             "phase3_full_payload": self.phase3_full_payload or "",
             # JSON payloads for downstream prompts

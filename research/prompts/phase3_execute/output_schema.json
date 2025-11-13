@@ -3,8 +3,11 @@
   "properties": {
     "step_id": { "type": "integer" },
     "findings": {
-      "type": "object",
-      "properties": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "properties": {
         "summary": {
           "type": "string",
           "description": "Main analysis summary for this step"
@@ -93,6 +96,8 @@
         }
       },
       "required": ["summary", "article"]
+        }
+      ]
     },
     "insights": { "type": "string" },
     "confidence": { "type": "number" },
@@ -174,7 +179,7 @@
       }
     }
   },
-  "required": ["step_id", "findings", "insights", "confidence"]
+  "required": ["step_id", "insights", "confidence"]
 }
 
 

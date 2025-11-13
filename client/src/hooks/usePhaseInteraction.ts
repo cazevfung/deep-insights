@@ -20,6 +20,7 @@ export interface PhaseTimelineItem {
   isStreaming: boolean
   isCollapsible: boolean
   defaultCollapsed: boolean
+  metadata?: Record<string, any> | null
 }
 
 const roleLabelMap: Record<InteractionRole, string> = {
@@ -30,7 +31,7 @@ const roleLabelMap: Record<InteractionRole, string> = {
 }
 
 const componentLabelMap: Record<string, string> = {
-  transcript: '逐字稿摘要',
+  transcript: '转录摘要',
   comments: '评论摘要',
   role_generation: '角色生成',
   goal_generation: '目标生成',
@@ -43,6 +44,7 @@ const componentLabelMap: Record<string, string> = {
   'phase4-coverage': '覆盖校验',
   'phase4-article': '最终报告写作',
   report_generation: '报告生成',
+  summarization: '内容摘要',
 }
 
 const detectRole = (metadata: Record<string, any> | null | undefined): InteractionRole => {
@@ -238,6 +240,7 @@ export const usePhaseInteraction = () => {
           isStreaming: Boolean(buffer.isStreaming),
           isCollapsible,
           defaultCollapsed,
+          metadata,
         } as PhaseTimelineItem
       })
       .filter((item): item is PhaseTimelineItem => Boolean(item))

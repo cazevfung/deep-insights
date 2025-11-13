@@ -48,6 +48,8 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
   const [isPromptExiting, setIsPromptExiting] = useState(false)
   const [lastProcessedPromptId, setLastProcessedPromptId] = useState<string | null>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  // Track auto-collapse: streamId -> { thresholdMs, startTime, manuallyExpanded }
+  const autoCollapseRef = useRef<Record<string, { thresholdMs: number; startTime: number; manuallyExpanded: boolean }>>({})
   const batchId = useWorkflowStore((state) => state.batchId)
   const sessionId = useWorkflowStore((state) => state.sessionId)
 
@@ -100,6 +102,62 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
     }
   }, [waitingForUser, promptId, lastProcessedPromptId])
 
+  // Initialize auto-collapse tracking for new streaming items
+  useEffect(() => {
+    timelineItems.forEach((item) => {
+      if (item.isStreaming && item.status === 'active' && !autoCollapseRef.current[item.id]) {
+        // Generate random threshold between 2-4 seconds
+        const thresholdMs = 2000 + Math.random() * 2000 // 2000-4000ms
+        autoCollapseRef.current[item.id] = {
+          thresholdMs,
+          startTime: Date.now(),
+          manuallyExpanded: false,
+        }
+        // Start expanded (not collapsed) for streaming items
+        setCollapsedState((prev) => {
+          if (prev[item.id] === undefined) {
+            return { ...prev, [item.id]: false } // false = expanded
+          }
+          return prev
+        })
+      }
+      // Clean up completed streams
+      if (item.status !== 'active' && autoCollapseRef.current[item.id]) {
+        delete autoCollapseRef.current[item.id]
+      }
+    })
+  }, [timelineItems])
+
+  // Auto-collapse logic: check elapsed time and collapse if threshold passed
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCollapsedState((prev) => {
+        const next = { ...prev }
+        let changed = false
+
+        timelineItems.forEach((item) => {
+          const autoCollapse = autoCollapseRef.current[item.id]
+          if (!autoCollapse || autoCollapse.manuallyExpanded) {
+            return // Skip if not tracked or manually expanded
+          }
+
+          if (item.isStreaming && item.status === 'active') {
+            const elapsed = Date.now() - autoCollapse.startTime
+            if (elapsed >= autoCollapse.thresholdMs && !next[item.id]) {
+              // Auto-collapse: set to true (collapsed)
+              next[item.id] = true
+              changed = true
+            }
+          }
+        })
+
+        return changed ? next : prev
+      })
+    }, 100) // Check every 100ms
+
+    return () => clearInterval(interval)
+  }, [timelineItems])
+
   useEffect(() => {
     setCollapsedState((prev) => {
       const next: Record<string, boolean> = {}
@@ -147,10 +205,17 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
     if (item.type === 'status') {
       return
     }
-    setCollapsedState((prev) => ({
-      ...prev,
-      [item.id]: !(prev[item.id] ?? item.defaultCollapsed),
-    }))
+    setCollapsedState((prev) => {
+      const newCollapsed = !(prev[item.id] ?? item.defaultCollapsed)
+      // Mark as manually expanded if user expands it
+      if (autoCollapseRef.current[item.id] && !newCollapsed) {
+        autoCollapseRef.current[item.id].manuallyExpanded = true
+      }
+      return {
+        ...prev,
+        [item.id]: newCollapsed,
+      }
+    })
   }, [])
 
   const hasMoreItems = timelineItems.length > visibleCount
@@ -372,10 +437,10 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
 
   return (
     <div className="flex flex-col rounded-2xl border border-neutral-200 bg-neutral-white shadow-[0_30px_80px_-40px_rgba(15,23,42,0.45)] h-full min-h-0">
-      <header className="px-5 py-4 border-b border-neutral-200 space-y-3 flex-shrink-0">
-        <div className="flex items-center justify-between text-sm font-medium text-neutral-700">
+      <header className="px-3 py-2 border-b border-neutral-200 space-y-2 flex-shrink-0">
+        <div className="flex items-center justify-between text-xs font-medium text-neutral-700">
           <div className="flex items-center gap-2">
-            <span className={`h-2 w-2 rounded-full ${statusIndicatorClass}`} aria-hidden="true" />
+            <span className={`h-1.5 w-1.5 rounded-full ${statusIndicatorClass}`} aria-hidden="true" />
             {statusLabel}
             <span className="text-neutral-300">•</span>
             <span className="text-neutral-500">阶段 {phase ?? '—'}</span>
@@ -383,12 +448,12 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
           <div className="text-xs text-neutral-400">最近更新延迟 {latencyLabel}</div>
         </div>
         {currentAction && (
-          <div className="rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-xs text-primary-700">
+          <div className="rounded-lg border border-primary-200 bg-primary-50 px-2 py-1.5 text-xs text-primary-700">
             当前动作：{currentAction}
           </div>
         )}
         {summarizationProgress && summarizationProgress.totalItems > 0 && (
-          <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-700 space-y-2">
+          <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-2 py-1.5 text-xs text-neutral-700 space-y-1.5">
             <div className="flex items-center justify-between">
               <span className="font-medium text-neutral-600">
                 摘要进度 · {summarizationProgress.stage || '进行中'}
@@ -398,7 +463,7 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
               </span>
             </div>
             <div className="text-neutral-600">{summarizationProgress.message}</div>
-            <div className="h-1.5 w-full rounded-full bg-neutral-200">
+            <div className="h-1 w-full rounded-full bg-neutral-200">
               <div
                 className="h-full rounded-full bg-primary-500 transition-all duration-300 ease-out"
                 style={{
@@ -411,19 +476,9 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
             </div>
           </div>
         )}
-        <div className="flex items-center justify-between text-xs text-neutral-500">
-          <span>共 {timelineItems.length} 条消息</span>
-          <button
-            type="button"
-            onClick={handleCopyRaw}
-            className="text-primary-500 hover:text-primary-600"
-          >
-            复制原始流
-          </button>
-        </div>
       </header>
 
-      <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
+      <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto px-3 py-2">
         <StreamTimeline
           items={timelineItems}
           collapsedState={collapsedState}
@@ -436,41 +491,41 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
         />
       </div>
 
-      <footer className="border-t border-neutral-200 px-5 py-4 space-y-3 flex-shrink-0">
+      <footer className="border-t border-neutral-200 px-3 py-2 space-y-2 flex-shrink-0">
         {hasProceduralPrompt && userInputRequired?.data?.prompt && (
           <div 
-            className={`rounded-lg border-2 border-amber-400 bg-amber-50 px-4 py-3 space-y-2 transition-all duration-300 ${
+            className={`rounded-lg border-2 border-amber-400 bg-amber-50 px-2 py-1.5 space-y-1.5 transition-all duration-300 ${
               isPromptExiting ? 'opacity-0 scale-95 -translate-y-2' : 'opacity-100 scale-100 translate-y-0'
             }`}
           >
             <div className="flex items-start gap-2">
-              <span className="text-amber-600 text-lg">⚠️</span>
+              <span className="text-amber-600 text-base">⚠️</span>
               <div className="flex-1">
-                <div className="font-medium text-amber-900 text-sm mb-1">需要用户输入</div>
-                <div className="text-amber-800 text-sm">{userInputRequired.data.prompt}</div>
+                <div className="font-medium text-amber-900 text-xs mb-0.5">需要用户输入</div>
+                <div className="text-amber-800 text-xs">{userInputRequired.data.prompt}</div>
               </div>
             </div>
             {choiceOptions.length > 0 && (
-              <div className="flex flex-wrap gap-2 pt-2">
+              <div className="flex flex-wrap gap-1.5 pt-1">
                 {choiceOptions.map((choice) => (
                   <button
                     key={choice}
                     type="button"
                     onClick={() => handleChoiceSelect(choice)}
-                    className="px-3 py-1.5 rounded-lg border border-amber-300 bg-amber-100 text-xs font-medium text-amber-900 transition hover:bg-amber-200"
+                    className="px-2 py-1 rounded-lg border border-amber-300 bg-amber-100 text-xs font-medium text-amber-900 transition hover:bg-amber-200"
                   >
                     {choice}
                   </button>
                 ))}
               </div>
             )}
-            <div className="text-xs text-amber-700 pt-1">
+            <div className="text-xs text-amber-700 pt-0.5">
               💡 留空并按 Enter 将使用默认设置
             </div>
           </div>
         )}
 
-        <div className={`rounded-xl border shadow-inner px-3 py-2 transition-colors duration-300 ${
+        <div className={`rounded-xl border shadow-inner px-2 py-1.5 transition-colors duration-300 ${
           hasProceduralPrompt 
             ? 'border-amber-300 bg-amber-50' 
             : 'border-neutral-200 bg-neutral-white'
@@ -484,11 +539,11 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
                 : '向 AI 发送消息以获取实时反馈...'
             }
             onKeyDown={handleKeyDown}
-            rows={hasProceduralPrompt ? 4 : 2}
-            className="w-full resize-none border-0 bg-transparent text-sm text-neutral-700 placeholder:text-neutral-300 focus:outline-none focus:ring-0"
+            rows={hasProceduralPrompt ? 3 : 2}
+            className="w-full resize-none border-0 bg-transparent text-xs text-neutral-700 placeholder:text-neutral-300 focus:outline-none focus:ring-0"
             disabled={!hasProceduralPrompt && (isConversationSending || !batchId)}
           />
-          <div className="flex items-center justify-between pt-2 text-xs text-neutral-400">
+          <div className="flex items-center justify-between pt-1.5 text-xs text-neutral-400">
             <span>{hasProceduralPrompt ? '⏰ 回复阶段提示或留空使用默认' : 'Shift + Enter 换行'}</span>
             <div className="flex items-center gap-2">
               <button

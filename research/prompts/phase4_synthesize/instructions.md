@@ -1,3 +1,7 @@
+**User Intent**
+{user_guidance}
+{user_context}
+
 **任务**：基于以下上下文撰写完整的研究文章。仅输出 Markdown 正文（禁止输出 JSON 或额外说明）。文章必须系统性地回答全部研究目标，并引用证据目录中的 `[EVID-##]`。
 
 {{> style_consultant_cn.md}}

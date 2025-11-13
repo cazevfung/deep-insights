@@ -16,8 +16,8 @@ const StreamStatusStatement: React.FC<StreamStatusStatementProps> = ({ item }) =
   const variantClasses = variantClassMap[item.statusVariant]
 
   return (
-    <div className={`rounded-xl border px-4 py-3 text-sm shadow-[0_8px_24px_-20px_rgba(59,130,246,0.45)] ${variantClasses}`}>
-      <div className="flex flex-wrap items-center gap-2 font-medium">
+    <div className={`rounded-xl border px-3 py-2 text-xs shadow-[0_8px_24px_-20px_rgba(59,130,246,0.45)] ${variantClasses}`}>
+      <div className="flex flex-wrap items-center gap-1.5 font-medium">
         <span>{item.title}</span>
         {item.subtitle && <span className="text-xs text-current/80">{item.subtitle}</span>}
         {item.timestamp && (
@@ -27,7 +27,7 @@ const StreamStatusStatement: React.FC<StreamStatusStatementProps> = ({ item }) =
         )}
       </div>
       {item.message && (
-        <p className="mt-1 text-sm leading-relaxed text-current/90">
+        <p className="mt-0.5 text-xs leading-relaxed text-current/90">
           {item.message}
         </p>
       )}

@@ -273,6 +273,49 @@ export const useWebSocket = (batchId: string) => {
           })
           break
 
+        case 'phase0:summary':
+          // Handle Phase 0 summary data
+          const summaryLinkId = data.link_id || 'unknown'
+          const summaryType = data.summary_type || 'transcript' // 'transcript' or 'comments'
+          const summaryData = data.summary || {}
+          
+          // Create a stream ID for this summary
+          const summaryStreamId = `phase0:summary:${summaryLinkId}:${summaryType}`
+          
+          // Start a stream for this summary
+          startStream(summaryStreamId, {
+            phase: 'phase0',
+            metadata: {
+              component: summaryType,
+              phase_label: '0',
+              phase: 'phase0',
+              link_id: summaryLinkId,
+              summary_type: summaryType,
+              message_type: 'phase0:summary',
+            },
+            startedAt: data.timestamp || new Date().toISOString(),
+          })
+          
+          // Add the summary as JSON to the stream buffer
+          const summaryJson = JSON.stringify(summaryData, null, 2)
+          appendStreamToken(summaryStreamId, summaryJson)
+          
+          // Complete the stream immediately (summary is already complete)
+          completeStream(summaryStreamId, {
+            metadata: {
+              component: summaryType,
+              phase_label: '0',
+              phase: 'phase0',
+              link_id: summaryLinkId,
+              summary_type: summaryType,
+              message_type: 'phase0:summary',
+            },
+            endedAt: data.timestamp || new Date().toISOString(),
+          })
+          
+          console.log(`[Phase 0] Summary received: ${summaryType} for ${summaryLinkId}`, summaryData)
+          break
+
         case 'batch:initialized':
           // Store expected total from batch initialization
           // This is the TOTAL scraping processes that need to run, not just started ones

@@ -1,11 +1,12 @@
-**研究问题（共{goals_count}个）：**
+**User Intent**
+{user_guidance}
+{user_context}
 
+**研究问题（共{goals_count}个）：**
 {goals_list}
 
 **可用数据概览：**
 {data_abstract}
-
-{user_context}
 
 **任务：**
 
@@ -22,8 +23,6 @@
 **禁止事项（非常重要）**：
 - 不得修改、合并或重新表述原始研究问题；它们会被直接继承为后续步骤的行动清单。
 - 不得创建任何新的研究问题或额外目标；只能基于提供的目标进行综合。
-
-{{> json_formatting.md}}
 
 **输出格式（必须是有效的JSON）：**
 {{

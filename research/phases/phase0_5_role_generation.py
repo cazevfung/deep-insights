@@ -33,6 +33,7 @@ class Phase0_5RoleGeneration(BasePhase):
         
         context = {
             "system_role_description": "智能研究助理",  # Default role for Phase 0.5 itself
+            "research_role_rationale": "",  # Empty since this phase generates the role
             "data_abstract": data_abstract,
             "user_topic": (
                 f"**研究主题:**\n{user_topic}" if user_topic else ""

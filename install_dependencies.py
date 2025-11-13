@@ -538,34 +538,48 @@ def check_port_in_use(port):
     import socket
     import errno
 
-    hosts = ['127.0.0.1']
-    if socket.has_ipv6:
-        hosts.append('::1')
-
-    for host in hosts:
-        try:
-            with socket.socket(socket.AF_INET6 if ':' in host else socket.AF_INET, socket.SOCK_STREAM) as sock:
-                sock.settimeout(0.3)
-                result = sock.connect_ex((host, port))
-                if result == 0:
-                    return True  # Connected successfully, port is occupied
-                if result in {
-                    errno.ECONNREFUSED,
-                    errno.EHOSTUNREACH,
-                    errno.ENETUNREACH,
-                } or getattr(socket, 'WSAECONNREFUSED', None) == result:
-                    continue  # No listener on this host
-                if result in {10049, 10047}:  # IPv6 unsupported/addr not available on Windows
-                    continue
-                if result in {errno.ETIMEDOUT} or result == getattr(socket, 'WSAETIMEDOUT', None):
-                    return True
-                if result == getattr(socket, 'WSAEWOULDBLOCK', None):
-                    return True
-        except OSError as e:
-            if e.errno in {errno.EAFNOSUPPORT, errno.EADDRNOTAVAIL} or getattr(e, 'winerror', None) in {10049, 10047}:
-                continue
-            # Any other socket error likely indicates the port is held
-            return True
+    # Only check IPv4 localhost - more reliable and faster
+    host = '127.0.0.1'
+    
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(0.5)  # Slightly longer timeout for reliability
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            result = sock.connect_ex((host, port))
+            if result == 0:
+                return True  # Connected successfully, port is occupied
+            # Connection refused means port is free
+            if result in {
+                errno.ECONNREFUSED,
+                errno.EHOSTUNREACH,
+                errno.ENETUNREACH,
+            } or getattr(socket, 'WSAECONNREFUSED', None) == result:
+                return False  # Port is free
+            # Timeout or other errors - be conservative, assume port might be in use
+            # But only if it's a timeout, not other errors
+            if result in {errno.ETIMEDOUT} or result == getattr(socket, 'WSAETIMEDOUT', None):
+                # Timeout might mean port is in use, but could also be firewall
+                # Try one more time with shorter timeout
+                try:
+                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock2:
+                        sock2.settimeout(0.2)
+                        result2 = sock2.connect_ex((host, port))
+                        if result2 == 0:
+                            return True
+                        if result2 in {errno.ECONNREFUSED} or getattr(socket, 'WSAECONNREFUSED', None) == result2:
+                            return False
+                except:
+                    pass
+                return True  # Assume in use if timeout
+    except OSError as e:
+        # Ignore address family errors, assume port is free
+        if e.errno in {errno.EAFNOSUPPORT, errno.EADDRNOTAVAIL} or getattr(e, 'winerror', None) in {10049, 10047}:
+            return False
+        # Other errors - be conservative
+        return True
+    except Exception:
+        # Any other exception - assume port might be in use to be safe
+        return True
 
     return False
 
@@ -789,6 +803,23 @@ def check_backend_health(port=None, timeout=30):
     print_info("Check the backend server window for startup logs")
     return False
 
+def write_port_info(backend_port, frontend_port):
+    """Write port information to a file that frontend can read."""
+    script_dir = Path(__file__).parent.absolute()
+    port_info_file = script_dir / '.server-ports.json'
+    try:
+        import json
+        port_info = {
+            'backendPort': int(backend_port),  # Ensure it's an integer
+            'frontendPort': int(frontend_port),  # Ensure it's an integer
+            'timestamp': time.time()
+        }
+        with open(port_info_file, 'w', encoding='utf-8') as f:
+            json.dump(port_info, f, indent=2)
+        print_info(f"Wrote port info: backend={backend_port}, frontend={frontend_port}")
+    except Exception as e:
+        print_warning(f"Could not write port info file: {e}")
+
 def start_servers(start_backend=True, start_frontend=True, auto_open_browser=True, restart_backend=False):
     """Start backend and/or frontend servers."""
     print_header("Starting Servers")
@@ -810,6 +841,9 @@ def start_servers(start_backend=True, start_frontend=True, auto_open_browser=Tru
     
     # Start backend server
     if start_backend:
+        # Write initial port info file with default ports (will be updated when backend starts)
+        write_port_info(DEFAULT_BACKEND_PORT, DEFAULT_FRONTEND_PORT)
+        
         if check_port_in_use(backend_port):
             print_warning(f"Port {backend_port} is already in use")
             print_info("Finding an available backend port to use instead...")
@@ -818,6 +852,8 @@ def start_servers(start_backend=True, start_frontend=True, auto_open_browser=Tru
                 backend_port = available_backend_port
                 print_success(f"Found available backend port: {backend_port}")
                 print_info(f"Starting backend server on port {backend_port} instead of {DEFAULT_BACKEND_PORT}")
+                # Update port info immediately with the new port
+                write_port_info(backend_port, DEFAULT_FRONTEND_PORT)
             else:
                 print_error(f"Could not find an available backend port (tried ports {backend_port + 1}-{backend_port + 50})")
                 print_info("Please manually stop the process using the default backend port and try again")
@@ -846,10 +882,25 @@ def start_servers(start_backend=True, start_frontend=True, auto_open_browser=Tru
                     processes.append(process)
                     print_success("Backend server started")
                     
+                    # Write port info to file for frontend to read
+                    write_port_info(backend_port, frontend_port)
+                    
                     # Wait a bit then check health
                     print_info("Waiting for backend server to start...")
                     print_info("Monitoring startup logs for LinkFormatterService initialization...")
                     time.sleep(3)
+                    
+                    # Verify which port the backend actually started on
+                    actual_backend_port = backend_port
+                    for check_port in [backend_port, DEFAULT_BACKEND_PORT]:
+                        if check_backend_health(port=check_port, timeout=5):
+                            actual_backend_port = check_port
+                            if check_port != backend_port:
+                                print_warning(f"Backend is actually running on port {actual_backend_port}, not {backend_port}")
+                                backend_port = actual_backend_port
+                                # Update port info file with actual port
+                                write_port_info(backend_port, frontend_port)
+                            break
                     
                     # Check backend health and LinkFormatterService initialization
                     if check_backend_health(port=backend_port, timeout=30):
@@ -878,10 +929,25 @@ def start_servers(start_backend=True, start_frontend=True, auto_open_browser=Tru
                     processes.append(process)
                     print_success("Backend server started in background")
                     
+                    # Write port info to file for frontend to read
+                    write_port_info(backend_port, frontend_port)
+                    
                     # Wait a bit then check health
                     print_info("Waiting for backend server to start...")
                     print_info("Monitoring startup logs for LinkFormatterService initialization...")
                     time.sleep(3)
+                    
+                    # Verify which port the backend actually started on
+                    actual_backend_port = backend_port
+                    for check_port in [backend_port, DEFAULT_BACKEND_PORT]:
+                        if check_backend_health(port=check_port, timeout=5):
+                            actual_backend_port = check_port
+                            if check_port != backend_port:
+                                print_warning(f"Backend is actually running on port {actual_backend_port}, not {backend_port}")
+                                backend_port = actual_backend_port
+                                # Update port info file with actual port
+                                write_port_info(backend_port, frontend_port)
+                            break
                     
                     # Check backend health and LinkFormatterService initialization
                     if check_backend_health(port=backend_port, timeout=15):
@@ -917,6 +983,10 @@ def start_servers(start_backend=True, start_frontend=True, auto_open_browser=Tru
                     print_info("Please manually stop the process using port 3000 and try again")
                     return processes
             
+            # Ensure port info file is up to date BEFORE starting frontend
+            write_port_info(backend_port, frontend_port)
+            print_info(f"Port info file updated: backend={backend_port}, frontend={frontend_port}")
+            
             print_info("Starting frontend dev server...")
             print_info(f"Frontend will be available at: http://localhost:{frontend_port}")
             
@@ -946,6 +1016,9 @@ def start_servers(start_backend=True, start_frontend=True, auto_open_browser=Tru
                     processes.append(process)
                     print_success("Frontend server starting...")
                     print_info("Check the new window for startup logs")
+                    
+                    # Update port info file with final ports
+                    write_port_info(backend_port, frontend_port)
                 except Exception as e:
                     print_error(f"Failed to start frontend server: {e}")
                     print_info("Try starting manually: cd client && npm run dev")
@@ -967,6 +1040,9 @@ def start_servers(start_backend=True, start_frontend=True, auto_open_browser=Tru
                     )
                     processes.append(process)
                     print_success("Frontend server started in background")
+                    
+                    # Update port info file with final ports
+                    write_port_info(backend_port, frontend_port)
                 except Exception as e:
                     print_error(f"Failed to start frontend server: {e}")
     

@@ -265,8 +265,54 @@ class Phase0Prepare(BasePhase):
                     f"{comments_markers} comment markers"
                 )
                 
-                # Send completion update after item
+                # Send summaries to frontend
                 if hasattr(self, 'ui') and self.ui:
+                    # Send transcript summary if available
+                    transcript_summary = summary.get("transcript_summary", {})
+                    if transcript_summary and transcript_summary.get("total_markers", 0) > 0:
+                        # Check if UI has display_summary method
+                        if hasattr(self.ui, 'display_summary'):
+                            self.ui.display_summary(
+                                link_id=link_id,
+                                summary_type="transcript",
+                                summary_data=transcript_summary
+                            )
+                        else:
+                            # Fallback: send as JSON message
+                            self.logger.warning("UI does not have display_summary method, using display_message fallback")
+                            flattened_transcript = {
+                                **transcript_summary,
+                                "link_id": link_id,
+                                "summary_type": "transcript"
+                            }
+                            self.ui.display_message(
+                                json.dumps(flattened_transcript, ensure_ascii=False),
+                                "info"
+                            )
+                    
+                    # Send comments summary if available
+                    comments_summary = summary.get("comments_summary", {})
+                    if comments_summary and comments_summary.get("total_markers", 0) > 0:
+                        # Check if UI has display_summary method
+                        if hasattr(self.ui, 'display_summary'):
+                            self.ui.display_summary(
+                                link_id=link_id,
+                                summary_type="comments",
+                                summary_data=comments_summary
+                            )
+                        else:
+                            # Fallback: send as JSON message
+                            flattened_comments = {
+                                **comments_summary,
+                                "link_id": link_id,
+                                "summary_type": "comments"
+                            }
+                            self.ui.display_message(
+                                json.dumps(flattened_comments, ensure_ascii=False),
+                                "info"
+                            )
+                    
+                    # Send completion update after item
                     if hasattr(self.ui, 'display_summarization_progress'):
                         self.ui.display_summarization_progress(
                             current_item=idx,

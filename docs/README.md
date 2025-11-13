@@ -2,6 +2,36 @@
 
 This folder is organized for quick navigation. Start here.
 
+---
+
+## 🚨 **NEW: Prompt System Improvement Plan** (2025-11-12)
+
+Comprehensive plan to improve the research tool's prompt system - addressing rigidity, over-complication, and insufficient user intent prioritization.
+
+### Quick Start
+
+1. **[PROMPT_IMPROVEMENTS_SUMMARY.md](./PROMPT_IMPROVEMENTS_SUMMARY.md)** ⭐ **START HERE** (5 min read)
+   - Executive summary of the problem and solution
+   - Expected impact and quick decision framework
+
+2. **[PROMPT_IMPROVEMENT_PLAN.md](./PROMPT_IMPROVEMENT_PLAN.md)** (25 pages)
+   - Complete strategic analysis and root cause analysis
+   - Detailed improvement plans for each phase
+   - Risk mitigation and success metrics
+
+3. **[PROMPT_IMPROVEMENTS_VISUAL_COMPARISON.md](./PROMPT_IMPROVEMENTS_VISUAL_COMPARISON.md)** (20 pages)
+   - Side-by-side before/after comparisons for each phase
+   - Concrete examples showing improvements
+
+4. **[PROMPT_IMPROVEMENT_IMPLEMENTATION_GUIDE.md](./PROMPT_IMPROVEMENT_IMPLEMENTATION_GUIDE.md)** (30 pages)
+   - Step-by-step implementation with specific file changes
+   - Testing protocols and rollback procedures
+   - Complete implementation checklist
+
+**Key Findings:** 60% complexity reduction needed. User intent should be first, not buried. Phase 3 needs major simplification (132→50 lines).
+
+---
+
 ## Structure
 
 - planning/ — Research plans, summaries, upgrades

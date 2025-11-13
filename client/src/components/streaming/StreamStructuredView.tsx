@@ -44,13 +44,26 @@ const StreamStructuredView: React.FC<StreamStructuredViewProps> = ({
   }
 
   // Check if this is Phase 0 summary data
+  // Handle both flat structure (from stream) and nested structure (from backend)
+  const transcriptSummary = root.transcript_summary || root
+  const commentsSummary = root.comments_summary || root
+  const summaryType = root.summary_type || root.type
+  
   const isPhase0Summary = 
-    root.key_facts || root.key_opinions || root.key_datapoints || 
-    root.key_facts_from_comments || root.key_opinions_from_comments || 
-    root.major_themes
+    summaryType === 'transcript' ||
+    summaryType === 'comments' ||
+    transcriptSummary.key_facts || 
+    transcriptSummary.key_opinions || 
+    transcriptSummary.key_datapoints || 
+    transcriptSummary.topic_areas ||
+    commentsSummary.key_facts_from_comments || 
+    commentsSummary.key_opinions_from_comments || 
+    commentsSummary.major_themes
 
   // Render specialized Phase 0 display if detected
   if (isPhase0Summary) {
+    // Pass the appropriate data based on structure
+    // Phase0SummaryDisplay will handle both nested and flat structures
     return (
       <div className="stream-structured-view p-4">
         <Phase0SummaryDisplay data={root} />

@@ -97,10 +97,19 @@ export default {
           '0%': { opacity: '0', transform: 'translateY(-4px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
+        'shine': {
+          '0%': { 
+            backgroundPosition: '-200% 0',
+          },
+          '100%': { 
+            backgroundPosition: '200% 0',
+          },
+        },
       },
       animation: {
         'stream-pulse': 'stream-pulse 1.8s ease-in-out infinite',
         'stream-fade-in': 'stream-fade-in 0.2s ease-out',
+        'shine': 'shine 2.5s ease-in-out infinite',
       },
     },
   },

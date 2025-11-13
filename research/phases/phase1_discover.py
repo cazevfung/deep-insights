@@ -57,6 +57,8 @@ class Phase1Discover(BasePhase):
         
         # Compose messages from externalized prompt templates
         amendment_note = f"\n\n**用户修改意见:**\n{amendment_feedback}" if amendment_feedback else ""
+        # Phase 1 runs BEFORE user provides post-Phase-1 feedback, so don't include user_context
+        user_intent = self._get_user_intent_fields(include_post_phase1_feedback=False)
         context = {
             "marker_overview": marker_overview,  # Use marker_overview instead of data_abstract
             "data_abstract": data_abstract,  # Keep for backward compatibility in prompts
@@ -66,6 +68,8 @@ class Phase1Discover(BasePhase):
             "research_role_display": role_context["research_role_display"],
             "research_role_rationale": role_context["research_role_rationale"],
             "system_role_description": role_context["system_role_description"],  # Add for system prompt
+            "user_guidance": user_intent["user_guidance"],
+            "user_context": user_intent["user_context"],  # Will be empty for Phase 1
             "avoid_list": "",
         }
         messages = compose_messages("phase1_discover", context=context)

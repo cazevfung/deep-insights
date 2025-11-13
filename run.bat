@@ -98,9 +98,9 @@ echo Performing final cleanup check...
 powershell -ExecutionPolicy Bypass -NoProfile -Command "$ErrorActionPreference = 'SilentlyContinue'; $ports = @(3000, 3001); foreach ($port in $ports) { $processes = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique; foreach ($pid in $processes) { Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue } }"
 timeout /T 2 /NOBREAK >nul
 
-REM Final verification - check if ports are free
+REM Final verification - check if ports are free using socket-based method
 echo Verifying ports are free...
-powershell -ExecutionPolicy Bypass -NoProfile -Command "$ErrorActionPreference = 'SilentlyContinue'; $ports = @(3000, 3001); $inUse = @(); foreach ($port in $ports) { $check = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue; if ($check) { $inUse += $port } }; if ($inUse.Count -gt 0) { Write-Host \"WARNING: Ports $($inUse -join ', ') may still be in use\" -ForegroundColor Yellow; exit 1 } else { Write-Host \"All server ports are free\" -ForegroundColor Green; exit 0 }"
+powershell -ExecutionPolicy Bypass -NoProfile -Command "$ErrorActionPreference = 'SilentlyContinue'; $ports = @(3000, 3001); $inUse = @(); foreach ($port in $ports) { $portFree = $true; try { $tcpClient = New-Object System.Net.Sockets.TcpClient; $tcpClient.ReceiveTimeout = 300; $tcpClient.SendTimeout = 300; $connect = $tcpClient.BeginConnect('127.0.0.1', $port, $null, $null); $wait = $connect.AsyncWaitHandle.WaitOne(300, $false); if ($wait) { $tcpClient.EndConnect($connect); $portFree = $false; $tcpClient.Close() } else { $tcpClient.Close() } } catch { $portFree = $true }; if (-not $portFree) { $inUse += $port } }; if ($inUse.Count -gt 0) { Write-Host \"WARNING: Ports $($inUse -join ', ') may still be in use\" -ForegroundColor Yellow; exit 1 } else { Write-Host \"All server ports are free\" -ForegroundColor Green; exit 0 }"
 if errorlevel 1 (
     echo Warning: Some ports may still be in use. Installation will continue anyway.
     echo If you encounter port conflicts, manually kill the processes or restart your computer.

@@ -143,13 +143,11 @@ class Phase2Plan(BasePhase):
                 self.logger.warning(f"Failed to format marker overview for Phase 2: {e}")
         
         # Get research role from session metadata
+        from research.prompts.context_formatters import format_research_role_for_context
         research_role = self.session.get_metadata("research_role") if self.session else None
-        role_display = ""
-        if research_role:
-            if isinstance(research_role, dict):
-                role_display = research_role.get("role", "")
-            else:
-                role_display = str(research_role)
+        role_context = format_research_role_for_context(research_role)
+        # Phase 2 runs AFTER Phase 1, so user_context should be available
+        user_intent = self._get_user_intent_fields(include_post_phase1_feedback=True)
         
         context = {
             "suggested_goals_list": suggested_goals_list,
@@ -161,7 +159,11 @@ class Phase2Plan(BasePhase):
             "quality_info": quality_info,  # Enhancement #4
             "transcript_size_guidance": transcript_size_guidance,  # New: Solution 5
             "marker_overview": marker_overview,  # New: Marker overview for Phase 2
-            "system_role_description": role_display or "资深数据分析专家",
+            "system_role_description": role_context["system_role_description"],
+            "research_role_display": role_context["research_role_display"],
+            "research_role_rationale": role_context["research_role_rationale"],
+            "user_guidance": user_intent["user_guidance"],
+            "user_context": user_intent["user_context"],
         }
         messages = compose_messages("phase2_plan", context=context)
         

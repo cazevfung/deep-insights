@@ -8,22 +8,22 @@
         "key_facts": {
           "type": "array",
           "items": {"type": "string"},
-          "description": "List of factual statements (5-15 items, 10-50 words each)"
+          "description": "List of factual statements"
         },
         "key_opinions": {
           "type": "array",
           "items": {"type": "string"},
-          "description": "List of opinions/arguments (5-15 items, 10-50 words each)"
+          "description": "List of opinions/arguments"
         },
         "key_datapoints": {
           "type": "array",
           "items": {"type": "string"},
-          "description": "List of data points/statistics (5-15 items, 10-50 words each)"
+          "description": "List of data points/statistics"
         },
         "topic_areas": {
           "type": "array",
           "items": {"type": "string"},
-          "description": "List of topics covered (3-10 items)"
+          "description": "List of topics covered"
         },
         "word_count": {
           "type": "integer",
@@ -46,22 +46,22 @@
         "key_facts_from_comments": {
           "type": "array",
           "items": {"type": "string"},
-          "description": "List of facts from comments (5-15 items)"
+          "description": "List of facts from comments"
         },
         "key_opinions_from_comments": {
           "type": "array",
           "items": {"type": "string"},
-          "description": "List of opinions from comments (5-15 items)"
+          "description": "List of opinions from comments"
         },
         "key_datapoints_from_comments": {
           "type": "array",
           "items": {"type": "string"},
-          "description": "List of data points from comments (5-15 items)"
+          "description": "List of data points from comments"
         },
         "major_themes": {
           "type": "array",
           "items": {"type": "string"},
-          "description": "List of discussion themes (3-10 items)"
+          "description": "List of discussion themes"
         },
         "sentiment_overview": {
           "type": "string",
@@ -71,7 +71,7 @@
         "top_engagement_markers": {
           "type": "array",
           "items": {"type": "string"},
-          "description": "High-engagement comments as markers (3-8 items)"
+          "description": "High-engagement comments as markers"
         },
         "total_markers": {
           "type": "integer",

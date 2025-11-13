@@ -86,6 +86,12 @@ def ensure_console_window(args: argparse.Namespace) -> None:
 
     child_env = os.environ.copy()
     child_env["BACKEND_SERVER_CHILD"] = "1"
+    # Ensure port override is passed to child process
+    if args.port is not None:
+        child_env["BACKEND_PORT_OVERRIDE"] = str(args.port)
+    elif os.environ.get("BACKEND_PORT_OVERRIDE"):
+        # Keep existing env var if set
+        pass
 
     command = [sys.executable, str(Path(__file__).resolve())]
     if args.host:

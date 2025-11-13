@@ -4,7 +4,7 @@
   "properties": {
     "research_role": {
       "type": "string",
-      "description": "Generated research role/persona for analysis"
+      "description": "Generated role/persona for analysis"
     },
     "rationale": {
       "type": "string",
@@ -12,4 +12,6 @@
     }
   }
 }
+
+
 

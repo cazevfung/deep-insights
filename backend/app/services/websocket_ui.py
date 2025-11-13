@@ -593,4 +593,32 @@ class WebSocketUI:
             await self.ws_manager.broadcast(self.batch_id, payload)
         except Exception as e:
             logger.error(f"Failed to broadcast summarization progress to batch {self.batch_id}: {e}", exc_info=True)
+    
+    def display_summary(self, link_id: str, summary_type: str, summary_data: dict):
+        """
+        Send summary data to frontend.
+        
+        Args:
+            link_id: Link identifier for the content item
+            summary_type: Type of summary ("transcript" or "comments")
+            summary_data: Summary data (already flattened for UI)
+        """
+        coro = self._send_summary(link_id, summary_type, summary_data)
+        self._schedule_coroutine(coro)
+    
+    async def _send_summary(self, link_id: str, summary_type: str, summary_data: dict):
+        """Async helper to send summary data."""
+        try:
+            payload = {
+                "type": "phase0:summary",
+                "batch_id": self.batch_id,
+                "link_id": link_id,
+                "summary_type": summary_type,  # "transcript" or "comments"
+                "summary": summary_data,  # Flattened summary data
+                "timestamp": datetime.now().isoformat()
+            }
+            logger.debug(f"Broadcasting summary to batch {self.batch_id}: {summary_type} for {link_id}")
+            await self.ws_manager.broadcast(self.batch_id, payload)
+        except Exception as e:
+            logger.error(f"Failed to broadcast summary to batch {self.batch_id}: {e}", exc_info=True)
 

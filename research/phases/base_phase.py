@@ -62,6 +62,37 @@ class BasePhase(ABC):
         if phase_key:
             return phase_key
         return self.__class__.__name__.lower()
+    
+    def _get_user_intent_fields(self, include_post_phase1_feedback: bool = False) -> Dict[str, str]:
+        """
+        Extract user_guidance and user_context from session metadata.
+        Used for unified User Intent section in prompts.
+        
+        Args:
+            include_post_phase1_feedback: If True, include user_context from Phase 1 feedback.
+                                         Only set to True for phases that run AFTER Phase 1.
+        
+        Returns:
+            Dict with 'user_guidance' and 'user_context' fields
+        """
+        # Extract user_guidance (initial guidance before role generation)
+        # This is available from Phase 0.5 onwards
+        user_guidance = self.session.get_metadata("phase_feedback_pre_role", "") or ""
+        
+        # Extract user_context (post-phase feedback, excluding user_topic)
+        # Only available AFTER Phase 1 completes
+        user_context = ""
+        if include_post_phase1_feedback:
+            user_context = (
+                self.session.get_metadata("phase_feedback_post_phase1", "") or
+                self.session.get_metadata("phase1_user_input", "") or
+                ""
+            )
+        
+        return {
+            "user_guidance": user_guidance.strip() if user_guidance else "",
+            "user_context": user_context.strip() if user_context else "",
+        }
 
     def _build_stream_metadata(self, **extra: Any) -> Dict[str, Any]:
         """Build metadata payload for stream start/end notifications."""
@@ -156,15 +187,19 @@ class BasePhase(ABC):
                     stream_metadata_payload.update(stream_metadata)
                 except Exception as exc:
                     self.logger.warning("Failed to merge custom stream metadata: %s", exc)
+            # Ensure phase is in metadata for frontend filtering/display
+            if stream_phase:
+                stream_metadata_payload["phase"] = stream_phase
+                stream_metadata_payload["phase_key"] = stream_phase
             self.ui.display_message("正在调用AI API...", "info")
             stream_id = f"{stream_phase}:{uuid4().hex}"
             self.ui.clear_stream_buffer(stream_id)
             self.ui.notify_stream_start(stream_id, stream_phase, stream_metadata_payload)
-            self.logger.debug(
-                "Stream started",
-                stream_id=stream_id,
-                phase=stream_phase,
-                metadata=stream_metadata_payload,
+            self.logger.info(
+                "[STREAM-START] stream_id=%s phase=%s class=%s",
+                stream_id,
+                stream_phase,
+                self.__class__.__name__,
             )
         
         token_count = 0
@@ -191,7 +226,7 @@ class BasePhase(ABC):
         heartbeat_thread.start()
         
         def callback(token: str):
-            nonlocal token_count, last_update_time, last_token_time
+            nonlocal token_count, last_update_time, last_token_time, stream_id
             
             token_count += 1
             current_time = time.time()

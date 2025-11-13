@@ -1,54 +1,37 @@
-# Comments Summarization Instructions
+# 评论摘要指引
 
-Extract key information from these comments as **lists of markers** for retrieval purposes.
+从评论中提取关键信息，以**标记列表**的形式用于检索。
 
-## Task
+## 任务
 
-Analyze the comments and extract:
+分析评论并提取。**严格按照系统提示中的标记区分标准进行分类。**
 
-1. **key_facts_from_comments** (List): Factual statements mentioned in comments
-   - Format: "FACT: [statement]" (10-50 words each)
-   - Target: 5-15 facts
+### 提取内容
 
-2. **key_opinions_from_comments** (List): Opinions, viewpoints, arguments from comments
-   - Format: "OPINION: [statement]" (10-50 words each)
-   - Target: 5-15 opinions
+1. **key_facts_from_comments**
+2. **key_opinions_from_comments**
+3. **key_datapoints_from_comments**
+4. **major_themes**
+5. **sentiment_overview**
+6. **top_engagement_markers**
 
-3. **key_datapoints_from_comments** (List): Statistics, numbers, metrics mentioned in comments
-   - Format: "DATA: [statistic]" (10-50 words each)
-   - Target: 5-15 datapoints
+## 输出要求
 
-4. **major_themes** (List): Main discussion themes/topics in comments
-   - Format: "Theme: [description]" (10-50 words each)
-   - Target: 3-10 themes
+- 仅输出 JSON 格式
+- `key_facts_from_comments` / `key_opinions_from_comments` / `key_datapoints_from_comments` 各 5-15 条，`major_themes` 3-10 条，`top_engagement_markers` 3-8 条
+- 每个标记 10-50 字，聚焦高互动评论，避免重复描述
 
-5. **sentiment_overview** (String): Overall sentiment
-   - Options: "mostly_positive", "mixed", "mostly_negative"
-   
-6. **top_engagement_markers** (List): High-engagement comments as retrieval signals
-   - Format: "High-engagement comment about [topic]: [summary]" (10-50 words each)
-   - Include comments with high likes/replies
-   - Target: 3-8 markers
-
-## Output Requirements
-
-- Output as JSON only
-- Focus on comments with high engagement (likes, replies)
-- Extract unique insights, not duplicates
-- Each marker: 10-50 words
-- Be specific and informative
-
-## JSON Schema
+## JSON 格式
 
 ```json
 {
   "total_comments": 1000,
-  "key_facts_from_comments": ["FACT: ...", ...],
-  "key_opinions_from_comments": ["OPINION: ...", ...],
-  "key_datapoints_from_comments": ["DATA: ...", ...],
-  "major_themes": ["Theme: ...", ...],
+  "key_facts_from_comments": ["...", ...],
+  "key_opinions_from_comments": ["...", ...],
+  "key_datapoints_from_comments": ["...", ...],
+  "major_themes": ["...", ...],
   "sentiment_overview": "mostly_positive|mixed|mostly_negative",
-  "top_engagement_markers": ["High-engagement comment about X: ...", ...],
+  "top_engagement_markers": ["...", ...],
   "total_markers": 25
 }
 ```
