@@ -21,24 +21,27 @@ class ArticleScraper(BaseScraper):
     
     def validate_url(self, url: str) -> bool:
         """
-        Check if URL is valid (accepts any http/https URL except Reddit).
+        Check if URL is valid (accepts any http/https URL or file:// URL except Reddit).
         
         Args:
             url: URL to validate
-        
+            
         Returns:
             True if valid URL
         """
+        if url.startswith('file://'):
+            return True
         return url.startswith(('http://', 'https://')) and 'reddit.com' not in url
     
     def extract(self, url: str, batch_id: str = None, link_id: str = None) -> Dict:
         """
         Extract content from article.
         Tries Playwright first, falls back to trafilatura.
+        Supports file:// URLs for local files (backward compatible).
         
         Args:
-            url: Article URL
-        
+            url: Article URL or file:// URL
+            
         Returns:
             Dictionary with extraction results
         """
@@ -47,6 +50,24 @@ class ArticleScraper(BaseScraper):
         
         # Set extraction context for progress reporting
         self._set_extraction_context(batch_id, link_id, url)
+        
+        # Handle file:// URLs for local files (NEW feature, backward compatible)
+        # Graceful fallback: If file extraction fails, continue with normal flow
+        if url.startswith('file://'):
+            try:
+                result = self._extract_from_local_file(url)
+                if result.get('success'):
+                    elapsed_time = round(time.time() - start_time, 2)
+                    logger.info(f"[Article] Local file extraction completed in {elapsed_time}s - Success: {result['success']}")
+                    return result
+                else:
+                    # File extraction failed, log and continue with normal flow
+                    logger.warning(f"[Article] Local file extraction failed: {result.get('error', 'Unknown error')}, falling back to normal extraction")
+                    result = None  # Reset to allow normal flow
+            except Exception as e:
+                # Graceful fallback: If file extraction throws exception, continue with normal flow
+                logger.warning(f"[Article] Exception during local file extraction: {e}, falling back to normal extraction")
+                result = None  # Reset to allow normal flow
         
         # Try Playwright first if preference is playwright
         if self.method_preference == 'playwright':
@@ -77,6 +98,128 @@ class ArticleScraper(BaseScraper):
         logger.info(f"[Article] Extraction completed in {elapsed_time}s - Success: {result['success']}")
         
         return result
+    
+    def _extract_from_local_file(self, file_url: str) -> Dict:
+        """
+        Extract content from a local file using file:// URL.
+        
+        This is a NEW feature added for backward compatibility.
+        Returns result dict matching existing extract() return format.
+        
+        Args:
+            file_url: file:// URL pointing to local file
+            
+        Returns:
+            Dictionary with extraction results matching existing format:
+            {
+                'success': bool,
+                'content': str,
+                'metadata': dict,
+                'extraction_timestamp': str,
+                'article_id': str,
+                'error': str (if failed)
+            }
+        """
+        from pathlib import Path
+        
+        try:
+            # Parse file:// URL
+            # file:///C:/path/to/file.md or file:///path/to/file.md
+            file_path = file_url.replace('file:///', '').replace('file://', '')
+            
+            # Handle Windows paths (file:///C:/...)
+            if file_path.startswith('/') and len(file_path) > 1 and file_path[1] == ':':
+                file_path = file_path[1:]  # Remove leading /
+            
+            path = Path(file_path)
+            
+            if not path.exists():
+                logger.error(f"[Article] Local file not found: {file_path}")
+                return {
+                    'success': False,
+                    'error': f'File not found: {file_path}',
+                    'content': '',
+                    'metadata': {
+                        'title': path.stem,
+                        'source': 'local_file',
+                        'url': file_url,
+                        'file_path': str(path)
+                    },
+                    'extraction_timestamp': datetime.now().isoformat(),
+                    'article_id': uuid.uuid4().hex[:12]
+                }
+            
+            # Read file content with progress reporting
+            self._report_progress("loading", 50, f"Reading file: {path.name}")
+            
+            # Try UTF-8 first, fallback to other encodings
+            try:
+                content = path.read_text(encoding='utf-8')
+            except UnicodeDecodeError:
+                # Graceful fallback: Try common encodings
+                for encoding in ['utf-8-sig', 'latin-1', 'cp1252']:
+                    try:
+                        content = path.read_text(encoding=encoding)
+                        logger.info(f"[Article] Successfully read file with {encoding} encoding")
+                        break
+                    except UnicodeDecodeError:
+                        continue
+                else:
+                    # All encodings failed
+                    raise UnicodeDecodeError('utf-8', b'', 0, 1, 'Could not decode file with any encoding')
+            
+            # Extract metadata (matching existing format)
+            word_count = len(content.split())
+            file_size = path.stat().st_size
+            
+            self._report_progress("extracting", 90, f"Extracted {word_count} words from {path.name}")
+            
+            # Return format matches existing extract() return format for backward compatibility
+            return {
+                'success': True,
+                'content': content,
+                'metadata': {
+                    'title': path.stem,
+                    'source': 'local_file',  # NEW field, but optional
+                    'url': file_url,
+                    'file_path': str(path),  # NEW field, but optional
+                    'file_size': file_size,  # NEW field, but optional
+                    'word_count': word_count,
+                    'file_extension': path.suffix,  # NEW field, but optional
+                    'extraction_method': 'local_file_read'  # NEW field, but optional
+                },
+                'extraction_timestamp': datetime.now().isoformat(),
+                'article_id': uuid.uuid4().hex[:12]
+            }
+            
+        except UnicodeDecodeError as e:
+            logger.error(f"[Article] Failed to decode file {file_url}: {e}")
+            return {
+                'success': False,
+                'error': f'Failed to decode file: {str(e)}',
+                'content': '',
+                'metadata': {
+                    'title': path.stem if 'path' in locals() else 'unknown',
+                    'source': 'local_file',
+                    'url': file_url
+                },
+                'extraction_timestamp': datetime.now().isoformat(),
+                'article_id': uuid.uuid4().hex[:12]
+            }
+        except Exception as e:
+            logger.error(f"[Article] Failed to read local file {file_url}: {e}", exc_info=True)
+            return {
+                'success': False,
+                'error': f'Failed to read file: {str(e)}',
+                'content': '',
+                'metadata': {
+                    'title': path.stem if 'path' in locals() else 'unknown',
+                    'source': 'local_file',
+                    'url': file_url
+                },
+                'extraction_timestamp': datetime.now().isoformat(),
+                'article_id': uuid.uuid4().hex[:12]
+            }
     
     def _extract_with_playwright(self, url: str) -> Dict:
         """

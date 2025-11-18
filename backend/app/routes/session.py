@@ -19,6 +19,7 @@ router = APIRouter()
 
 class CreateSessionRequest(BaseModel):
     user_guidance: str  # REQUIRED
+    writing_style: Optional[str] = "professional"  # Optional, defaults to professional
 
 
 class CreateSessionResponse(BaseModel):
@@ -80,6 +81,16 @@ async def create_session(request: CreateSessionRequest):
         # Store user_guidance in session metadata (required, so always store)
         session.set_metadata("phase_feedback_pre_role", user_guidance.strip())
         logger.info(f"Stored user_guidance in new session {session.session_id}")
+        
+        # Store writing_style in session metadata
+        writing_style = request.writing_style or "professional"
+        # Validate writing_style
+        valid_styles = ["professional", "explanatory", "creative", "persuasive"]
+        if writing_style not in valid_styles:
+            logger.warning(f"Invalid writing_style '{writing_style}', defaulting to 'professional'")
+            writing_style = "professional"
+        session.set_metadata("writing_style", writing_style)
+        logger.info(f"Stored writing_style '{writing_style}' in new session {session.session_id}")
         
         # Save session
         session.save()

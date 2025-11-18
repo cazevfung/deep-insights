@@ -8,10 +8,38 @@ import { apiService } from '../services/api'
 const UserGuidancePage: React.FC = () => {
   const navigate = useNavigate()
   const [userGuidance, setUserGuidance] = useState('')
+  const [writingStyle, setWritingStyle] = useState<string>('professional')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { setSessionId } = useWorkflowStore()
   const { addNotification } = useUiStore()
+
+  const styleOptions = [
+    { 
+      id: 'professional', 
+      name: '咨询顾问', 
+      description: '专业、克制、以事实与推理为主',
+      color: '#3B82F6' // blue
+    },
+    { 
+      id: 'explanatory', 
+      name: '教练', 
+      description: '清晰、易懂、循序渐进',
+      color: '#10B981' // green
+    },
+    { 
+      id: 'creative', 
+      name: 'UP主', 
+      description: '生动、有趣、引人入胜',
+      color: '#F59E0B' // amber
+    },
+    { 
+      id: 'persuasive', 
+      name: '销售', 
+      description: '有力、有说服力、强调收益',
+      color: '#EF4444' // red
+    },
+  ]
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) {
@@ -29,8 +57,8 @@ const UserGuidancePage: React.FC = () => {
     setIsLoading(true)
 
     try {
-      // Create session with user guidance (required)
-      const response = await apiService.createSession(trimmedGuidance)
+      // Create session with user guidance (required) and writing style
+      const response = await apiService.createSession(trimmedGuidance, writingStyle)
       
       if (response.session_id) {
         setSessionId(response.session_id)
@@ -57,6 +85,42 @@ const UserGuidancePage: React.FC = () => {
           <br />
           你希望有料到给你提供什么样的洞察？
         </h1>
+      </div>
+
+      {/* Writing Style Selection */}
+      <div className="max-w-2xl mx-auto mb-6">
+        <label className="block text-sm font-medium text-gray-700 mb-3 text-center">
+          选择写作风格
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          {styleOptions.map((style) => (
+            <button
+              key={style.id}
+              type="button"
+              onClick={() => setWritingStyle(style.id)}
+              disabled={isLoading}
+              className={`
+                p-4 rounded-xl border-2 transition-all duration-200 text-left
+                ${writingStyle === style.id
+                  ? 'border-opacity-100 shadow-md transform scale-[1.02]'
+                  : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                }
+                ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+              `}
+              style={{
+                borderColor: writingStyle === style.id ? style.color : undefined,
+                backgroundColor: writingStyle === style.id ? `${style.color}08` : 'white'
+              }}
+            >
+              <div className="font-semibold text-gray-900 mb-1" style={{ color: writingStyle === style.id ? style.color : undefined }}>
+                {style.name}
+              </div>
+              <div className="text-xs text-gray-600">
+                {style.description}
+              </div>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Input Section - Dialog Bubble */}

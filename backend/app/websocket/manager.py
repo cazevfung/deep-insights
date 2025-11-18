@@ -5,20 +5,53 @@ from typing import Dict, Set, Optional
 from fastapi import WebSocket
 import json
 import asyncio
+import os
 from loguru import logger
 
 
 class WebSocketManager:
     """Manages WebSocket connections and broadcasts."""
     
-    def __init__(self):
+    def __init__(self, max_buffer_size: Optional[int] = None):
+        """
+        Initialize WebSocket manager.
+        
+        Args:
+            max_buffer_size: Maximum messages to buffer per batch. If None, will try to read from:
+                1. Environment variable WEBSOCKET_BUFFER_SIZE
+                2. Config file (web.websocket.max_buffer_size)
+                3. Default: 1000 (increased from 100 to handle large batches)
+        """
         self.active_connections: Dict[str, Set[WebSocket]] = {}
         self.batch_rooms: Dict[str, Set[str]] = {}  # batch_id -> connection_ids
         # Store WebSocketUI instances for user input delivery
         self._ui_instances: Dict[str, 'WebSocketUI'] = {}  # batch_id -> WebSocketUI
         # Message buffer for messages sent before clients connect
         self._message_buffer: Dict[str, list] = {}  # batch_id -> list of messages
-        self._max_buffer_size = 100  # Maximum messages to buffer per batch
+        
+        # Determine buffer size from various sources
+        if max_buffer_size is not None:
+            self._max_buffer_size = max_buffer_size
+        else:
+            # Try environment variable first
+            env_buffer_size = os.environ.get('WEBSOCKET_BUFFER_SIZE')
+            if env_buffer_size:
+                try:
+                    self._max_buffer_size = int(env_buffer_size)
+                except ValueError:
+                    logger.warning(f"Invalid WEBSOCKET_BUFFER_SIZE value: {env_buffer_size}, using default")
+                    self._max_buffer_size = 1000
+            else:
+                # Try config file
+                try:
+                    from core.config import Config
+                    config = Config()
+                    self._max_buffer_size = config.get('web.websocket.max_buffer_size', 1000)
+                except Exception:
+                    # Default to 1000 (increased from 100 to handle large batches with many progress updates)
+                    self._max_buffer_size = 1000
+        
+        logger.info(f"WebSocket manager initialized with buffer size: {self._max_buffer_size}")
         self._conversation_service: Optional['ConversationContextService'] = None
     
     def register_ui(self, batch_id: str, ui: 'WebSocketUI'):
@@ -129,12 +162,22 @@ class WebSocketManager:
             if batch_id not in self._message_buffer:
                 self._message_buffer[batch_id] = []
             
-            # Only buffer if buffer isn't full
-            if len(self._message_buffer[batch_id]) < self._max_buffer_size:
-                self._message_buffer[batch_id].append(message)
-                logger.debug(f"Buffered message type {message.get('type')} for batch {batch_id} (buffer size: {len(self._message_buffer[batch_id])})")
-            else:
-                logger.warning(f"Message buffer full for batch {batch_id}, dropping message type {message.get('type')}")
+            # Implement FIFO buffer: remove oldest messages if buffer is full
+            buffer = self._message_buffer[batch_id]
+            if len(buffer) >= self._max_buffer_size:
+                # Remove oldest message(s) to make room
+                # For very high-frequency messages, remove multiple old ones to reduce churn
+                removed_count = max(1, len(buffer) - self._max_buffer_size + 1)
+                removed_messages = buffer[:removed_count]
+                buffer = buffer[removed_count:]
+                self._message_buffer[batch_id] = buffer
+                logger.warning(
+                    f"Message buffer full for batch {batch_id}, removed {removed_count} oldest message(s) "
+                    f"(types: {[m.get('type') for m in removed_messages[:3]]})"
+                )
+            
+            buffer.append(message)
+            logger.debug(f"Buffered message type {message.get('type')} for batch {batch_id} (buffer size: {len(buffer)})")
             
             logger.debug(f"No active connections for batch_id: {batch_id}, message type: {message.get('type')} (buffered)")
             return
@@ -144,7 +187,8 @@ class WebSocketManager:
         
         disconnected = set()
         
-        for websocket in self.active_connections[batch_id]:
+        # Iterate over a copy of the set to avoid "Set changed size during iteration" error
+        for websocket in list(self.active_connections[batch_id]):
             try:
                 await websocket.send_text(json.dumps(message, ensure_ascii=False))
                 logger.debug(f"Successfully sent message type {message.get('type')} to client")

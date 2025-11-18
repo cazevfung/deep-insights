@@ -59,10 +59,15 @@ export interface StreamState {
 export interface StreamBufferState extends StreamState {
   id: string
   raw: string
+  reasoning: string  // 推理内容
   status: 'active' | 'completed' | 'error'
   tokenCount: number
+  reasoningTokenCount: number  // 推理token计数
+  lastReasoningTokenAt?: string | null  // 最后推理token时间
   error?: string | null
   pinned?: boolean
+  jsonData?: Record<string, any> | null  // 实时解析的JSON数据
+  jsonComplete?: boolean  // JSON是否完整
 }
 
 interface StreamCollectionState {
@@ -211,12 +216,18 @@ interface WorkflowState {
       unifying_theme?: string
     } | null
     summarizationProgress: {
+      // EXISTING fields (keep for backward compatibility)
       currentItem: number
       totalItems: number
       linkId: string
       stage: string
       progress: number
       message: string
+      // NEW optional fields
+      completedItems?: number
+      processingItems?: number
+      queuedItems?: number
+      workerId?: number
     } | null
     conversationMessages: ConversationMessage[]
   }
@@ -254,8 +265,10 @@ interface WorkflowState {
   setSynthesizedGoal: (goal: WorkflowState['researchAgentStatus']['synthesizedGoal']) => void
   startStream: (streamId: string, options: { phase?: string | null; metadata?: Record<string, any> | null; startedAt?: string | null }) => void
   appendStreamToken: (streamId: string, token: string) => void
+  appendReasoningToken: (streamId: string, token: string) => void
   completeStream: (streamId: string, metadata?: Partial<StreamBufferState>) => void
   setStreamError: (streamId: string, error: string) => void
+  updateStreamJson: (streamId: string, jsonData: Record<string, any>, isComplete: boolean) => void
   setActiveStream: (streamId: string | null) => void
   pinStream: (streamId: string) => void
   unpinStream: (streamId: string) => void
@@ -291,6 +304,7 @@ const initialState: Omit<WorkflowState, keyof {
   appendStreamToken: any
   completeStream: any
   setStreamError: any
+  updateStreamJson: any
   setActiveStream: any
   pinStream: any
   unpinStream: any
@@ -486,31 +500,60 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
         }
         // If expectedTotal > 0, keep it in the update (will overwrite existing)
       }
+      
+      // CRITICAL FIX: Ensure completed and failed counts only increase (never decrease)
+      // This prevents counts from jumping backwards due to race conditions or out-of-order messages
+      if (updatedStatus.completed !== undefined) {
+        const newCompleted = updatedStatus.completed
+        const currentCompleted = state.scrapingStatus.completed
+        if (newCompleted < currentCompleted) {
+          console.warn(
+            `⚠️ Ignoring decreasing completed count: ${currentCompleted} -> ${newCompleted}. ` +
+            `This indicates a race condition or out-of-order message. Keeping current value.`
+          )
+          delete updatedStatus.completed  // Don't update with lower value
+        }
+      }
+      
+      if (updatedStatus.failed !== undefined) {
+        const newFailed = updatedStatus.failed
+        const currentFailed = state.scrapingStatus.failed
+        if (newFailed < currentFailed) {
+          console.warn(
+            `⚠️ Ignoring decreasing failed count: ${currentFailed} -> ${newFailed}. ` +
+            `This indicates a race condition or out-of-order message. Keeping current value.`
+          )
+          delete updatedStatus.failed  // Don't update with lower value
+        }
+      }
+      
       return {
         scrapingStatus: { ...state.scrapingStatus, ...updatedStatus },
       }
     }),
   updateScrapingItem: (url, status, error) =>
     set((state) => {
+      // CRITICAL FIX: Only update the item in the items array
+      // Do NOT recalculate counts - trust backend counts from scraping:status messages
+      // This prevents counts from jumping around when items array is incomplete or out of sync
       const items = state.scrapingStatus.items.map((item) =>
         item.url === url ? { ...item, status, error } : item
       )
-      const completed = items.filter((i) => i.status === 'completed').length
-      const failed = items.filter((i) => i.status === 'failed').length
-      const inProgress = items.filter((i) => i.status === 'in-progress').length
       
       return {
         scrapingStatus: {
           ...state.scrapingStatus,
           items,
-          completed,
-          failed,
-          inProgress,
+          // Keep existing counts - don't recalculate from items array
+          // Counts are updated from backend scraping:status messages which are authoritative
         },
       }
     }),
   updateScrapingItemProgress: (link_id, url, progress) =>
     set((state) => {
+      // CRITICAL FIX: Only update/add the item in the items array
+      // Do NOT recalculate counts - trust backend counts from scraping:status messages
+      // This prevents counts from jumping around when items array is incomplete or out of sync
       const items = state.scrapingStatus.items.map((item) => {
         // Match by link_id if available, otherwise by url
         const matches = link_id ? item.link_id === link_id : item.url === url
@@ -533,17 +576,12 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
         })
       }
       
-      const completed = items.filter((i) => i.status === 'completed').length
-      const failed = items.filter((i) => i.status === 'failed').length
-      const inProgress = items.filter((i) => i.status === 'in-progress' || i.status === 'pending').length
-      
       return {
         scrapingStatus: {
           ...state.scrapingStatus,
           items,
-          completed,
-          failed,
-          inProgress,
+          // Keep existing counts - don't recalculate from items array
+          // Counts are updated from backend scraping:status messages which are authoritative
         },
       }
     }),
@@ -628,13 +666,16 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
       buffers[streamId] = {
         id: streamId,
         raw: '',
+        reasoning: '',
         status: 'active',
         tokenCount: 0,
+        reasoningTokenCount: 0,
         isStreaming: true,
         phase: options.phase ?? null,
         metadata: options.metadata ?? null,
         startedAt: now,
         lastTokenAt: null,
+        lastReasoningTokenAt: null,
         endedAt: null,
       }
 
@@ -667,15 +708,27 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
       const buffer = buffers[streamId] || {
         id: streamId,
         raw: '',
+        reasoning: '',
         status: 'active' as const,
         tokenCount: 0,
+        reasoningTokenCount: 0,
         isStreaming: true,
         phase: null,
         metadata: null,
         startedAt: new Date().toISOString(),
         lastTokenAt: null,
+        lastReasoningTokenAt: null,
         endedAt: null,
       }
+      
+      // Safety check: prevent duplicate content
+      // If the token is already at the end of the buffer, skip it
+      // This handles edge cases where the backend might send duplicates
+      if (buffer.raw.endsWith(token)) {
+        // Token is already in buffer, skip to prevent duplication
+        return state
+      }
+      
       const lastTokenAt = new Date().toISOString()
       const updatedBuffer: StreamBufferState = {
         ...buffer,
@@ -709,6 +762,53 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
           },
           streamBuffer: streamBufferValue,
           streamingState,
+        },
+      }
+    }),
+  appendReasoningToken: (streamId, token) =>
+    set((state) => {
+      // Debug: log every append to detect duplicates
+      console.log('🔧 appendReasoningToken called:', {
+        streamId: streamId.substring(0, 30),
+        token: token.substring(0, 20),
+        tokenLength: token.length,
+        currentReasoningLength: state.researchAgentStatus.streams.buffers[streamId]?.reasoning?.length || 0,
+      })
+      
+      const buffers = { ...state.researchAgentStatus.streams.buffers }
+      const buffer = buffers[streamId] || {
+        id: streamId,
+        raw: '',
+        reasoning: '',
+        status: 'active' as const,
+        tokenCount: 0,
+        reasoningTokenCount: 0,
+        isStreaming: true,
+        phase: null,
+        metadata: null,
+        startedAt: new Date().toISOString(),
+        lastTokenAt: null,
+        lastReasoningTokenAt: null,
+        endedAt: null,
+      }
+      const lastReasoningTokenAt = new Date().toISOString()
+      const updatedBuffer: StreamBufferState = {
+        ...buffer,
+        reasoning: (buffer.reasoning || '') + token,
+        reasoningTokenCount: (buffer.reasoningTokenCount || 0) + 1,
+        lastReasoningTokenAt,
+        isStreaming: true,
+        status: 'active',
+      }
+      buffers[streamId] = updatedBuffer
+
+      return {
+        researchAgentStatus: {
+          ...state.researchAgentStatus,
+          streams: {
+            ...state.researchAgentStatus.streams,
+            buffers,
+          },
         },
       }
     }),
@@ -788,6 +888,46 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
         },
       }
     }),
+  updateStreamJson: (streamId, jsonData, isComplete) =>
+    set((state) => {
+      const buffers = { ...state.researchAgentStatus.streams.buffers }
+      const buffer = buffers[streamId]
+      if (!buffer) {
+        // If stream doesn't exist, create it
+        buffers[streamId] = {
+          id: streamId,
+          raw: '',
+          reasoning: '',
+          status: 'active' as const,
+          tokenCount: 0,
+          reasoningTokenCount: 0,
+          isStreaming: true,
+          phase: null,
+          metadata: null,
+          startedAt: new Date().toISOString(),
+          lastTokenAt: null,
+          lastReasoningTokenAt: null,
+          endedAt: null,
+          jsonData,
+          jsonComplete: isComplete,
+        }
+      } else {
+        buffers[streamId] = {
+          ...buffer,
+          jsonData,
+          jsonComplete: isComplete,
+        }
+      }
+      return {
+        researchAgentStatus: {
+          ...state.researchAgentStatus,
+          streams: {
+            ...state.researchAgentStatus.streams,
+            buffers,
+          },
+        },
+      }
+    }),
   setActiveStream: (streamId) =>
     set((state) => {
       if (streamId === state.researchAgentStatus.streams.activeStreamId) {
@@ -861,7 +1001,10 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
           buffers[streamId] = {
             ...buffer,
             raw: '',
+            reasoning: '',
             tokenCount: 0,
+            reasoningTokenCount: 0,
+            lastReasoningTokenAt: null,
           }
         }
         const isActive = state.researchAgentStatus.streams.activeStreamId === streamId

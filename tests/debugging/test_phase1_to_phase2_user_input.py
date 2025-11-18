@@ -69,7 +69,6 @@ class MockQwenClient:
                 "synthesized_goal": {
                     "comprehensive_topic": f"综合主题{'[含用户输入]' if user_input_detected else '[无用户输入]'}",
                     "unifying_theme": "统一主题",
-                    "research_scope": "研究范围",
                     "component_questions": ["测试研究目标1", "测试研究目标2"]
                 }
             }, ensure_ascii=False)

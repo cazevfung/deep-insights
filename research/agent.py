@@ -104,6 +104,9 @@ class DeepResearchAgent:
         if not force:
             cached = session.get_phase_artifact(phase_key)
             if cached:
+                # Check if this was completed in streaming mode
+                if cached.get("streaming_mode"):
+                    logger.info("Phase 0 was already completed in streaming mode, returning cached result")
                 return cached
 
         self.ui.display_header("Phase 0: 数据准备")
@@ -224,11 +227,36 @@ class DeepResearchAgent:
 
         self.ui.display_header("Phase 0.5: 生成研究角色")
         phase0_5 = Phase0_5RoleGeneration(self.client, session, ui=self.ui)
-        role_result = phase0_5.execute(
-            combined_abstract,
-            user_topic,
-            user_guidance=pre_role_feedback or None,
-        )
+        try:
+            role_result = phase0_5.execute(
+                combined_abstract,
+                user_topic,
+                user_guidance=pre_role_feedback or None,
+            )
+        except ValueError as e:
+            # Handle JSON parsing errors more gracefully
+            error_msg = str(e)
+            if "Could not parse JSON" in error_msg or "Extra data" in error_msg:
+                logger.warning(f"Phase 0.5 JSON parsing error (recovered): {error_msg[:200]}")
+                # The phase should have handled this with fallbacks, but if it still failed,
+                # create a default role result
+                role_result = {
+                    "research_role": {
+                        "role": "研究助理",
+                        "rationale": "由于响应解析问题，使用默认研究角色"
+                    },
+                    "raw_response": ""
+                }
+                self.ui.display_message("JSON解析遇到问题，已使用默认研究角色", "warning")
+            else:
+                # Re-raise other ValueError exceptions
+                raise
+        except Exception as e:
+            # Log unexpected errors with full context
+            logger.error(f"Phase 0.5 execution failed: {e}", exc_info=True)
+            self.ui.display_message(f"角色生成失败: {str(e)[:100]}", "error")
+            raise
+        
         research_role = role_result.get("research_role", None)
         if research_role:
             role_display = research_role.get("role", "") if isinstance(research_role, dict) else str(research_role)
@@ -643,7 +671,23 @@ class DeepResearchAgent:
             }
 
         except Exception as e:
-            logger.error(f"Research failed: {str(e)}")
-            self.ui.display_message(f"错误: {str(e)}", "error")
+            error_msg = str(e)
+            error_type = type(e).__name__
+            
+            # Provide more context for JSON parsing errors
+            if "Could not parse JSON" in error_msg or "Extra data" in error_msg or "JSONDecodeError" in error_type:
+                logger.error(f"Research failed due to JSON parsing error: {error_msg[:300]}")
+                logger.error("This may indicate the AI model generated malformed JSON or extra content after valid JSON.")
+                self.ui.display_message(
+                    "研究失败: JSON解析错误。系统已尝试多种恢复策略，但仍无法解析响应。",
+                    "error"
+                )
+            else:
+                logger.error(f"Research failed: {error_msg}")
+                self.ui.display_message(f"错误: {error_msg[:200]}", "error")
+            
+            # Log full traceback for debugging
+            import traceback
+            logger.debug(f"Full traceback:\n{traceback.format_exc()}")
             raise
 

@@ -13,10 +13,6 @@
         "unifying_theme": {
           "type": "string",
           "description": "The core theme that unifies all research questions"
-        },
-        "research_scope": {
-          "type": "string",
-          "description": "Description of the research scope and depth"
         }
       }
     }

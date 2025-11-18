@@ -3,7 +3,7 @@ import { useWorkflowStore } from '../stores/workflowStore'
 
 export type InteractionRole = 'assistant' | 'user' | 'system' | 'summary'
 
-export type TimelineItemType = 'status' | 'content'
+export type TimelineItemType = 'status' | 'content' | 'reasoning'
 
 export interface PhaseTimelineItem {
   id: string
@@ -128,14 +128,27 @@ const deriveStepLabel = (metadata: Record<string, any> | null | undefined): stri
   return parts.length > 0 ? parts.join(' · ') : null
 }
 
-const createPreview = (content: string, maxChars = 200): string => {
+const createPreview = (content: string, maxChars = 120): string => {
   if (!content) {
     return ''
   }
-  if (content.length <= maxChars) {
-    return content
+  // Remove markdown formatting for cleaner preview
+  const plainText = content
+    .replace(/#{1,6}\s+/g, '') // Remove headers
+    .replace(/\*\*(.+?)\*\*/g, '$1') // Remove bold
+    .replace(/\*(.+?)\*/g, '$1') // Remove italic
+    .replace(/`(.+?)`/g, '$1') // Remove inline code
+    .replace(/\n+/g, ' ') // Replace newlines with spaces
+    .trim()
+  
+  if (plainText.length <= maxChars) {
+    return plainText
   }
-  return `${content.slice(0, maxChars)}…`
+  // Find last space before maxChars to avoid cutting words
+  const truncated = plainText.slice(0, maxChars)
+  const lastSpace = truncated.lastIndexOf(' ')
+  const cutPoint = lastSpace > maxChars * 0.7 ? lastSpace : maxChars
+  return `${plainText.slice(0, cutPoint)}…`
 }
 
 const getLineCount = (content: string): number => {
@@ -199,35 +212,38 @@ export const usePhaseInteraction = () => {
   const timelineItems = useMemo<PhaseTimelineItem[]>(() => {
     const orderedIds = [...streams.order]
 
-    const streamItems = orderedIds
-      .map((id) => {
-        const buffer = streams.buffers[id]
-        if (!buffer) {
-          return null
-        }
+    const streamItems: PhaseTimelineItem[] = []
+    
+    orderedIds.forEach((id) => {
+      const buffer = streams.buffers[id]
+      if (!buffer) {
+        return
+      }
 
-        const metadata = buffer.metadata ?? null
-        const role = detectRole(metadata)
-        const title = deriveTitle(role, metadata)
-        const phaseLabel = derivePhaseLabel(buffer.phase, metadata)
-        const stepLabel = deriveStepLabel(metadata)
-        const message = (buffer.raw || '').trim()
+      const metadata = buffer.metadata ?? null
+      const role = detectRole(metadata)
+      const title = deriveTitle(role, metadata)
+      const phaseLabel = derivePhaseLabel(buffer.phase, metadata)
+      const stepLabel = deriveStepLabel(metadata)
+      const subtitleParts: string[] = []
+      if (phaseLabel) {
+        subtitleParts.push(`阶段 ${phaseLabel}`)
+      }
+      if (stepLabel) {
+        subtitleParts.push(stepLabel)
+      }
+      const subtitle = subtitleParts.length > 0 ? subtitleParts.join(' · ') : null
+
+      // 正常内容item
+      const message = (buffer.raw || '').trim()
+      if (message) {
         const preview = createPreview(message)
         const lineCount = getLineCount(message)
         const isStatus = isLikelyStatusMessage(message, metadata)
         const isCollapsible = !isStatus && (message.length > 320 || lineCount > 5)
-        const defaultCollapsed = isCollapsible
-        const subtitleParts: string[] = []
-        if (phaseLabel) {
-          subtitleParts.push(`阶段 ${phaseLabel}`)
-        }
-        if (stepLabel) {
-          subtitleParts.push(stepLabel)
-        }
-        const subtitle = subtitleParts.length > 0 ? subtitleParts.join(' · ') : null
-
-        return {
-          id,
+        
+        streamItems.push({
+          id: `${id}:content`,
           type: isStatus ? 'status' : 'content',
           title,
           subtitle,
@@ -240,11 +256,50 @@ export const usePhaseInteraction = () => {
           statusVariant: determineStatusVariant(buffer.status),
           isStreaming: Boolean(buffer.isStreaming),
           isCollapsible,
-          defaultCollapsed,
+          defaultCollapsed: isCollapsible,
           metadata,
-        } as PhaseTimelineItem
-      })
-      .filter((item): item is PhaseTimelineItem => Boolean(item))
+        })
+      }
+
+      // 推理内容item (如果有)
+      // 推理内容永远不折叠，始终显示为文本记录
+      // Create reasoning item if there's content OR if it's currently streaming (to show partial/upcoming content)
+      const reasoning = buffer.reasoning || '' // DO NOT TRIM - we want to show text as it streams in
+      const hasReasoningContent = reasoning.length > 0
+      const isReasoningStreaming = Boolean(buffer.isStreaming)
+      
+      // Debug logging
+      if (hasReasoningContent || isReasoningStreaming) {
+        console.log('🔍 Creating reasoning item:', {
+          id: `${id}:reasoning`,
+          reasoningLength: reasoning.length,
+          reasoningPreview: reasoning.substring(0, 50) || '(empty)',
+          isStreaming: isReasoningStreaming,
+          bufferStatus: buffer.status,
+        })
+      }
+      
+      // Show reasoning item if it has content OR if it's streaming (even without content yet)
+      if (hasReasoningContent || isReasoningStreaming) {
+        streamItems.push({
+          id: `${id}:reasoning`,
+          type: 'reasoning',
+          title: '💭 推理过程',
+          subtitle,
+          message: reasoning, // Show actual reasoning text
+          preview: reasoning ? createPreview(reasoning) : '', // 保留preview用于其他用途，但不用于折叠
+          phaseLabel,
+          stepLabel,
+          timestamp: buffer.lastReasoningTokenAt || buffer.lastTokenAt || buffer.endedAt || buffer.startedAt || null,
+          status: buffer.status,
+          statusVariant: determineStatusVariant(buffer.status),
+          isStreaming: isReasoningStreaming,
+          isCollapsible: false, // 推理内容永远不折叠
+          defaultCollapsed: false, // 推理内容永远不折叠
+          metadata,
+        })
+      }
+    })
 
     const statusMap: Record<string, 'active' | 'completed' | 'error'> = {
       queued: 'active',

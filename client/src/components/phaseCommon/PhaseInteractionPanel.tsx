@@ -42,14 +42,16 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
   const { addNotification } = useUiStore()
   const [draft, setDraft] = useState('')
   const [isConversationSending, setIsConversationSending] = useState(false)
-  const [collapsedState, setCollapsedState] = useState<Record<string, boolean>>({})
-  const [visibleCount, setVisibleCount] = useState(8)
+  const [visibleCount, setVisibleCount] = useState(50) // Not used in summary view, but kept for compatibility
   const [promptSubmitted, setPromptSubmitted] = useState(false)
   const [isPromptExiting, setIsPromptExiting] = useState(false)
   const [lastProcessedPromptId, setLastProcessedPromptId] = useState<string | null>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
-  // Track auto-collapse: streamId -> { thresholdMs, startTime, manuallyExpanded }
-  const autoCollapseRef = useRef<Record<string, { thresholdMs: number; startTime: number; manuallyExpanded: boolean }>>({})
+  const [dismissedItems, setDismissedItems] = useState<Set<string>>(new Set())
+  const [isPinnedToBottom, setIsPinnedToBottom] = useState(true)
+  const [pendingItemCount, setPendingItemCount] = useState(0)
+  const previousVisibleLengthRef = useRef(0)
+  const lastScrollTopRef = useRef(0)
   const batchId = useWorkflowStore((state) => state.batchId)
   const sessionId = useWorkflowStore((state) => state.sessionId)
 
@@ -102,126 +104,140 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
     }
   }, [waitingForUser, promptId, lastProcessedPromptId])
 
-  // Initialize auto-collapse tracking for new streaming items
+  // Helper: Determine if item is critical (for auto-scroll)
+  const isCriticalItem = useCallback((item: PhaseTimelineItem): boolean => {
+    // Reasoning items are always critical - they should always be visible
+    if (item.type === 'reasoning') return true
+    // User prompts, errors, and phase transitions are critical
+    if (item.status === 'error') return true
+    if (item.statusVariant === 'error') return true
+    // Check if it's a user prompt (waiting for user input)
+    if (waitingForUser && item.metadata?.prompt_id) return true
+    return false
+  }, [waitingForUser])
+
+  // Filter out dismissed items
+  const visibleItems = useMemo(() => {
+    return timelineItems.filter(item => !dismissedItems.has(item.id))
+  }, [timelineItems, dismissedItems])
+
+  // Summary view doesn't need visible count management
+
+  const lastVisibleItem = visibleItems[visibleItems.length - 1]
+
+  // Chat-like smart auto-scroll with pin logic
   useEffect(() => {
-    timelineItems.forEach((item) => {
-      if (item.isStreaming && item.status === 'active' && !autoCollapseRef.current[item.id]) {
-        // Generate random threshold between 2-4 seconds
-        const thresholdMs = 2000 + Math.random() * 2000 // 2000-4000ms
-        autoCollapseRef.current[item.id] = {
-          thresholdMs,
-          startTime: Date.now(),
-          manuallyExpanded: false,
-        }
-        // Start expanded (not collapsed) for streaming items
-        setCollapsedState((prev) => {
-          if (prev[item.id] === undefined) {
-            return { ...prev, [item.id]: false } // false = expanded
+    const container = scrollContainerRef.current
+    if (!container) return
+
+    const newItemsCount = Math.max(0, visibleItems.length - previousVisibleLengthRef.current)
+    const pendingIncrement = Math.max(newItemsCount, 1)
+    const isCritical = lastVisibleItem && isCriticalItem(lastVisibleItem)
+
+    if (isCritical) {
+      if (isPinnedToBottom) {
+        container.scrollTo({ top: container.scrollHeight })
+        setPendingItemCount(0)
+      } else {
+        setPendingItemCount((prev) => prev + pendingIncrement)
+      }
+    } else if (isPinnedToBottom) {
+      container.scrollTo({ top: container.scrollHeight })
+      if (newItemsCount > 0) {
+        setPendingItemCount(0)
+      }
+    } else if (newItemsCount > 0) {
+      setPendingItemCount((prev) => prev + newItemsCount)
+    }
+
+    previousVisibleLengthRef.current = visibleItems.length
+  }, [visibleItems.length, lastVisibleItem?.id, isCriticalItem, isPinnedToBottom, lastVisibleItem])
+
+  // Track scroll position with hysteresis for pin state
+  useEffect(() => {
+    const container = scrollContainerRef.current
+    if (!container) return
+    lastScrollTopRef.current = container.scrollTop
+
+    const RELEASE_THRESHOLD = 60
+    const REPIN_THRESHOLD = 40
+
+    const handleScroll = () => {
+      const currentTop = container.scrollTop
+      const previousTop = lastScrollTopRef.current
+      const scrollingUp = currentTop < previousTop
+      lastScrollTopRef.current = currentTop
+
+      if (scrollingUp) {
+        setIsPinnedToBottom(false)
+        return
+      }
+
+      const distanceFromBottom = container.scrollHeight - currentTop - container.clientHeight
+
+      if (distanceFromBottom <= REPIN_THRESHOLD) {
+        setIsPinnedToBottom((prev) => {
+          if (!prev) {
+            setPendingItemCount(0)
+          }
+          return true
+        })
+      } else if (distanceFromBottom > RELEASE_THRESHOLD) {
+        setIsPinnedToBottom((prev) => (prev ? false : prev))
+      }
+    }
+
+    container.addEventListener('scroll', handleScroll, { passive: true })
+    return () => container.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  const handleDismissItem = useCallback((item: PhaseTimelineItem) => {
+    setDismissedItems((prev) => {
+      const next = new Set(prev)
+      next.add(item.id)
+      return next
+    })
+  }, [])
+
+  // Auto-dismiss errors after 5 seconds (only if not manually dismissed)
+  useEffect(() => {
+    const errorItems = visibleItems.filter(
+      item => (item.status === 'error' || item.statusVariant === 'error') && !dismissedItems.has(item.id)
+    )
+
+    const timers = errorItems.map(item => {
+      return setTimeout(() => {
+        setDismissedItems((prev) => {
+          if (!prev.has(item.id)) {
+            const next = new Set(prev)
+            next.add(item.id)
+            return next
           }
           return prev
         })
-      }
-      // Clean up completed streams
-      if (item.status !== 'active' && autoCollapseRef.current[item.id]) {
-        delete autoCollapseRef.current[item.id]
-      }
+      }, 5000)
     })
-  }, [timelineItems])
 
-  // Auto-collapse logic: check elapsed time and collapse if threshold passed
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCollapsedState((prev) => {
-        const next = { ...prev }
-        let changed = false
-
-        timelineItems.forEach((item) => {
-          const autoCollapse = autoCollapseRef.current[item.id]
-          if (!autoCollapse || autoCollapse.manuallyExpanded) {
-            return // Skip if not tracked or manually expanded
-          }
-
-          if (item.isStreaming && item.status === 'active') {
-            const elapsed = Date.now() - autoCollapse.startTime
-            if (elapsed >= autoCollapse.thresholdMs && !next[item.id]) {
-              // Auto-collapse: set to true (collapsed)
-              next[item.id] = true
-              changed = true
-            }
-          }
-        })
-
-        return changed ? next : prev
-      })
-    }, 100) // Check every 100ms
-
-    return () => clearInterval(interval)
-  }, [timelineItems])
-
-  useEffect(() => {
-    setCollapsedState((prev) => {
-      const next: Record<string, boolean> = {}
-      timelineItems.forEach((item) => {
-        const previous = prev[item.id]
-        if (item.type === 'status') {
-          next[item.id] = false
-        } else {
-          // If user has manually toggled, keep their preference
-          // But if it's streaming or never been set, use defaultCollapsed
-          const hasBeenManuallyToggled = typeof previous === 'boolean' && !item.isStreaming
-          next[item.id] = hasBeenManuallyToggled ? previous : item.defaultCollapsed
-        }
-      })
-      return next
-    })
-  }, [timelineItems])
-
-  useEffect(() => {
-    if (timelineItems.length > 0) {
-      setVisibleCount((prev) => Math.max(8, prev))
+    return () => {
+      timers.forEach(timer => clearTimeout(timer))
     }
-  }, [timelineItems.length])
+  }, [visibleItems, dismissedItems])
 
-  // Auto-scroll to bottom when new items are added
-  useEffect(() => {
+  const handleJumpToBottom = useCallback(() => {
     if (!scrollContainerRef.current) return
-
-    const container = scrollContainerRef.current
-    const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150
-
-    // Only auto-scroll if user is already near the bottom (to avoid disrupting manual scrolling)
-    if (isNearBottom || timelineItems.length === 1) {
-      // Use requestAnimationFrame to ensure DOM has updated
-      requestAnimationFrame(() => {
-        container.scrollTo({
-          top: container.scrollHeight,
-          behavior: 'smooth',
-        })
-      })
-    }
-  }, [timelineItems.length, timelineItems[timelineItems.length - 1]?.id])
-
-  const handleToggleCollapse = useCallback((item: PhaseTimelineItem) => {
-    if (item.type === 'status') {
-      return
-    }
-    setCollapsedState((prev) => {
-      const newCollapsed = !(prev[item.id] ?? item.defaultCollapsed)
-      // Mark as manually expanded if user expands it
-      if (autoCollapseRef.current[item.id] && !newCollapsed) {
-        autoCollapseRef.current[item.id].manuallyExpanded = true
-      }
-      return {
-        ...prev,
-        [item.id]: newCollapsed,
-      }
+    scrollContainerRef.current.scrollTo({
+      top: scrollContainerRef.current.scrollHeight,
+      behavior: 'smooth',
     })
+    setIsPinnedToBottom(true)
+    setPendingItemCount(0)
   }, [])
 
-  const hasMoreItems = timelineItems.length > visibleCount
+  const hasMoreItems = visibleItems.length > visibleCount
   const handleShowMore = useCallback(() => {
-    setVisibleCount((prev) => prev + 6)
-  }, [])
+    // Load more messages incrementally
+    setVisibleCount((prev) => Math.min(prev + 10, visibleItems.length))
+  }, [visibleItems.length])
 
   const handleConversationSend = useCallback(async () => {
     console.log('🟣 handleConversationSend called (CONVERSATION MODE - not prompt response!)', {
@@ -406,18 +422,6 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
     }
   }
 
-  const handleCopyItem = useCallback(
-    async (item: PhaseTimelineItem) => {
-      try {
-        await navigator.clipboard.writeText(item.message)
-        addNotification(`已复制 ${item.title}`, 'success')
-      } catch (error) {
-        console.error('Failed to copy timeline item', error)
-        addNotification('复制失败，请稍后再试', 'error')
-      }
-    },
-    [addNotification]
-  )
 
   const handleCopyRaw = useCallback(async () => {
     if (!combinedRaw) {
@@ -434,75 +438,76 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
   }, [combinedRaw, addNotification])
 
   const latencyLabel = formatLatency(latestUpdateAt)
+  const currentActionSingleLine = currentAction?.split('\n')[0] ?? ''
 
   return (
     <div className="flex flex-col rounded-2xl border border-neutral-200 bg-neutral-white shadow-[0_30px_80px_-40px_rgba(15,23,42,0.45)] h-full min-h-0">
-      <header className="px-3 py-2 border-b border-neutral-200 space-y-2 flex-shrink-0">
-        <div className="flex items-center justify-between text-xs font-medium text-neutral-700">
+      <header className="px-3 py-3 border-b border-neutral-200 space-y-2 flex-shrink-0">
+        <div className="flex items-center justify-between text-[10px] font-medium text-neutral-700">
           <div className="flex items-center gap-2">
             <span className={`h-1.5 w-1.5 rounded-full ${statusIndicatorClass}`} aria-hidden="true" />
             {statusLabel}
             <span className="text-neutral-300">•</span>
             <span className="text-neutral-500">阶段 {phase ?? '—'}</span>
           </div>
-          <div className="text-xs text-neutral-400">最近更新延迟 {latencyLabel}</div>
+          <div className="text-[10px] text-neutral-400">最近更新延迟 {latencyLabel}</div>
         </div>
-        {currentAction && (
-          <div className="rounded-lg border border-primary-200 bg-primary-50 px-2 py-1.5 text-xs text-primary-700">
-            当前动作：{currentAction}
-          </div>
-        )}
-        {summarizationProgress && summarizationProgress.totalItems > 0 && (
-          <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-2 py-1.5 text-xs text-neutral-700 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="font-medium text-neutral-600">
-                摘要进度 · {summarizationProgress.stage || '进行中'}
-              </span>
-              <span className="text-neutral-400">
-                {summarizationProgress.currentItem}/{summarizationProgress.totalItems}
-              </span>
-            </div>
-            <div className="text-neutral-600">{summarizationProgress.message}</div>
-            <div className="h-1 w-full rounded-full bg-neutral-200">
-              <div
-                className="h-full rounded-full bg-primary-500 transition-all duration-300 ease-out"
-                style={{
-                  width: `${Math.max(
-                    0,
-                    Math.min(100, Math.round(summarizationProgress.progress ?? 0))
-                  )}%`,
-                }}
-              />
-            </div>
+        {currentActionSingleLine && (
+          <div className="rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-[10px] text-primary-700 whitespace-nowrap overflow-hidden text-ellipsis">
+            当前动作：{currentActionSingleLine}
           </div>
         )}
       </header>
 
-      <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto px-3 py-2">
+      <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto px-3 py-3 relative">
+        {/* New content indicator */}
+        {pendingItemCount > 0 && (
+          <button
+            type="button"
+            onClick={handleJumpToBottom}
+            className="sticky top-2 left-1/2 transform -translate-x-1/2 z-10 rounded-full bg-primary-500 text-white px-3 py-1.5 text-[10px] font-medium shadow-lg hover:bg-primary-600 transition-colors mb-2"
+            style={{ backgroundColor: '#FEC74A' }}
+          >
+            ↓ 新消息 · {pendingItemCount}
+          </button>
+        )}
+        
         <StreamTimeline
-          items={timelineItems}
-          collapsedState={collapsedState}
-          onToggleCollapse={handleToggleCollapse}
-          onCopy={handleCopyItem}
-          activeStreamId={activeStreamId}
+          items={visibleItems}
           visibleCount={visibleCount}
           onShowMore={handleShowMore}
           hasMore={hasMoreItems}
+          onDismiss={handleDismissItem}
         />
+        
+        {/* Jump to bottom button (floating) */}
+        {pendingItemCount > 0 && (
+          <button
+            type="button"
+            onClick={handleJumpToBottom}
+            className="fixed bottom-24 right-8 rounded-full bg-primary-500 text-white p-3 shadow-lg hover:bg-primary-600 transition-colors z-20"
+            style={{ backgroundColor: '#FEC74A' }}
+            aria-label="跳到底部"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+            </svg>
+          </button>
+        )}
       </div>
 
-      <footer className="border-t border-neutral-200 px-3 py-2 space-y-2 flex-shrink-0">
+      <footer className="border-t border-neutral-200 px-3 py-3 space-y-2 flex-shrink-0">
         {hasProceduralPrompt && userInputRequired?.data?.prompt && (
           <div 
-            className={`rounded-lg border-2 border-amber-400 bg-amber-50 px-2 py-1.5 space-y-1.5 transition-all duration-300 ${
+            className={`rounded-lg border-2 border-amber-400 bg-amber-50 px-3 py-2 space-y-1.5 transition-all duration-300 ${
               isPromptExiting ? 'opacity-0 scale-95 -translate-y-2' : 'opacity-100 scale-100 translate-y-0'
             }`}
           >
             <div className="flex items-start gap-2">
               <span className="text-amber-600 text-base">⚠️</span>
               <div className="flex-1">
-                <div className="font-medium text-amber-900 text-xs mb-0.5">需要用户输入</div>
-                <div className="text-amber-800 text-xs">{userInputRequired.data.prompt}</div>
+                <div className="font-medium text-amber-900 text-[10px] mb-0.5">需要用户输入</div>
+                <div className="text-amber-800 text-[10px]">{userInputRequired.data.prompt}</div>
               </div>
             </div>
             {choiceOptions.length > 0 && (
@@ -512,20 +517,20 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
                     key={choice}
                     type="button"
                     onClick={() => handleChoiceSelect(choice)}
-                    className="px-2 py-1 rounded-lg border border-amber-300 bg-amber-100 text-xs font-medium text-amber-900 transition hover:bg-amber-200"
+                    className="px-3 py-1.5 rounded-lg border border-amber-300 bg-amber-100 text-[10px] font-medium text-amber-900 transition hover:bg-amber-200"
                   >
                     {choice}
                   </button>
                 ))}
               </div>
             )}
-            <div className="text-xs text-amber-700 pt-0.5">
+            <div className="text-[10px] text-amber-700 pt-0.5">
               💡 留空并按 Enter 将使用默认设置
             </div>
           </div>
         )}
 
-        <div className={`rounded-xl border shadow-inner px-2 py-1.5 transition-colors duration-300 ${
+        <div className={`rounded-xl border shadow-inner px-3 py-2 transition-colors duration-300 ${
           hasProceduralPrompt 
             ? 'border-amber-300 bg-amber-50' 
             : 'border-neutral-200 bg-neutral-white'
@@ -540,10 +545,10 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
             }
             onKeyDown={handleKeyDown}
             rows={hasProceduralPrompt ? 3 : 2}
-            className="w-full resize-none border-0 bg-transparent text-xs text-neutral-700 placeholder:text-neutral-300 focus:outline-none focus:ring-0"
+            className="w-full resize-none border-0 bg-transparent text-[10px] text-neutral-700 placeholder:text-neutral-300 focus:outline-none focus:ring-0"
             disabled={!hasProceduralPrompt && (isConversationSending || !batchId)}
           />
-          <div className="flex items-center justify-between pt-1.5 text-xs text-neutral-400">
+          <div className="flex items-center justify-between pt-1.5 text-[10px] text-neutral-400">
             <span>{hasProceduralPrompt ? '⏰ 回复阶段提示或留空使用默认' : 'Shift + Enter 换行'}</span>
             <div className="flex items-center gap-2">
               <button
@@ -585,7 +590,7 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
           </div>
         </div>
         {!hasProceduralPrompt && !batchId && (
-          <div className="text-xs text-warning-500 mt-1">请先启动研究工作流，再发送对话消息。</div>
+          <div className="text-[10px] text-warning-500 mt-1">请先启动研究工作流，再发送对话消息。</div>
         )}
       </footer>
     </div>

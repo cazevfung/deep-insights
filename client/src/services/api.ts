@@ -68,9 +68,13 @@ export const apiService = {
   /**
    * Create a new research session with required user guidance
    */
-  createSession: async (userGuidance: string): Promise<CreateSessionResponse> => {
+  createSession: async (
+    userGuidance: string,
+    writingStyle?: string
+  ): Promise<CreateSessionResponse> => {
     const response = await api.post('/sessions/create', {
-      user_guidance: userGuidance
+      user_guidance: userGuidance,
+      writing_style: writingStyle || 'professional'
     })
     return response.data
   },
@@ -156,9 +160,12 @@ export const apiService = {
 
   /**
    * Get session details by batch_id
+   * @param batchId - Batch ID to look up
+   * @param sessionId - Optional session ID for precise lookup (fixes bug where wrong session is returned)
    */
-  getHistorySession: async (batchId: string): Promise<any> => {
-    const response = await api.get(`/history/${batchId}`)
+  getHistorySession: async (batchId: string, sessionId?: string): Promise<any> => {
+    const params = sessionId ? { session_id: sessionId } : {}
+    const response = await api.get(`/history/${batchId}`, { params })
     return response.data
   },
 

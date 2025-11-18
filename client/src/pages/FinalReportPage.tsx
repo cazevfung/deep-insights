@@ -113,14 +113,25 @@ const FinalReportPage: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto h-full flex flex-col">
-      <div className="card h-full flex flex-col p-0">
-        <div className="sticky top-0 bg-neutral-white pb-4 border-b border-neutral-300 mb-4 z-10 px-6 pt-6 rounded-t-lg">
+      {/* Page Title Section */}
+      <div className="pt-8 pb-6">
+        <h1 className="text-2xl md:text-3xl font-semibold text-center text-gray-900 leading-relaxed max-w-3xl mx-auto">
+          研究报告
+        </h1>
+        {reportStale && (
+          <p className="text-center text-sm text-yellow-600 mt-3">
+            提示：最终报告已过期，请重新运行阶段 4 以获取最新结果。
+          </p>
+        )}
+      </div>
+
+      <div className="card h-full flex flex-col p-0 rounded-2xl shadow-lg border border-gray-100">
+        <div className="sticky top-0 bg-neutral-white pb-4 border-b border-neutral-300 mb-4 z-10 px-6 pt-6 rounded-t-2xl">
           <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-xl font-bold text-neutral-black">研究报告</h2>
               {reportStale && (
                 <p className="text-sm text-secondary-500 mt-2">
-                  提示：最终报告已过期，请重新运行阶段 4 以获取最新结果。
+                  报告已过期
                 </p>
               )}
             </div>
@@ -129,7 +140,7 @@ const FinalReportPage: React.FC = () => {
               type="button"
               onClick={handleExport}
               disabled={!sessionId || exporting}
-              className="inline-flex items-center justify-center rounded-full border border-primary-200 bg-primary-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-primary-600 disabled:cursor-not-allowed disabled:border-neutral-200 disabled:bg-neutral-200 disabled:text-neutral-500"
+              className="inline-flex items-center justify-center rounded-xl border border-primary-200 bg-primary-500 px-4 py-2 text-sm font-medium text-white shadow-md transition hover:bg-primary-600 disabled:cursor-not-allowed disabled:border-neutral-200 disabled:bg-neutral-200 disabled:text-neutral-500"
             >
               {exporting ? '导出中...' : '导出 PDF'}
             </button>

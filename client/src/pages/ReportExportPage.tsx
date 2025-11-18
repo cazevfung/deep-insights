@@ -195,7 +195,6 @@ const ReportExportPage: React.FC = () => {
       summary: findings.summary,
       article: findings.article,
       keyClaims: poi.key_claims || [],
-      notableEvidence: poi.notable_evidence || [],
       fiveWhys: analysis.five_whys || [],
       assumptions: analysis.assumptions || [],
       uncertainties: analysis.uncertainties || [],
@@ -303,27 +302,6 @@ const ReportExportPage: React.FC = () => {
                                 </div>
                               </div>
                             )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Notable Evidence */}
-                  {content.notableEvidence.length > 0 && (
-                    <div className="mb-4">
-                      <h4 className="text-sm font-semibold text-neutral-800 mb-2">📊 重要发现</h4>
-                      <div className="space-y-2">
-                        {content.notableEvidence.map((ev: any, i: number) => (
-                          <div key={i} className="bg-neutral-50 rounded p-3">
-                            {ev.evidence_type && (
-                              <span className="inline-block px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-medium rounded mr-2">
-                                {ev.evidence_type}
-                              </span>
-                            )}
-                            <div className="text-sm text-neutral-700 inline prose prose-sm max-w-none prose-p:my-0 prose-strong:text-neutral-700">
-                              <ReactMarkdown>{ev.description}</ReactMarkdown>
-                            </div>
                           </div>
                         ))}
                       </div>

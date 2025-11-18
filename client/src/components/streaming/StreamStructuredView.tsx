@@ -1,6 +1,7 @@
 import React from 'react'
 import { JSONTree } from 'react-json-tree'
 import { useStreamParser } from '../../hooks/useStreamParser'
+import { useWorkflowStore } from '../../stores/workflowStore'
 import Phase0SummaryDisplay from './Phase0SummaryDisplay'
 
 const jsonTheme = {
@@ -33,15 +34,36 @@ const StreamStructuredView: React.FC<StreamStructuredViewProps> = ({
   emptyMessage = '等待完整 JSON…',
   streamId,
 }) => {
-  const { root, status, error } = useStreamParser({ enableRepair, streamId })
+  // Get real-time JSON data from store if available
+  const researchAgentStatus = useWorkflowStore((state) => state.researchAgentStatus)
+  const resolvedStreamId = streamId ?? researchAgentStatus.streams.activeStreamId ?? researchAgentStatus.streams.order[0] ?? null
+  const streamBuffer = resolvedStreamId
+    ? researchAgentStatus.streams.buffers[resolvedStreamId]
+    : null
+  
+  // Prefer real-time JSON data over parsed raw content
+  const realTimeJsonData = streamBuffer?.jsonData
+  const isJsonComplete = streamBuffer?.jsonComplete ?? false
+  
+  // Fallback to parser if no real-time JSON data
+  const { root: parsedRoot, status, error } = useStreamParser({ enableRepair, streamId })
+  
+  // Use real-time JSON data if available, otherwise use parsed root
+  const root = realTimeJsonData ?? parsedRoot
 
-  if (status === 'error') {
+  // Show error only if we don't have real-time JSON data
+  if (!realTimeJsonData && status === 'error') {
     return <p className="text-xs text-supportive-orange">解析失败: {error}</p>
   }
 
-  if (status !== 'valid' || !root) {
-    return <p className="text-sm text-neutral-400">{emptyMessage}</p>
+  // Show loading/empty message if no data available
+  if (!root) {
+    const loadingMessage = realTimeJsonData ? '正在解析 JSON…' : emptyMessage
+    return <p className="text-sm text-neutral-400">{loadingMessage}</p>
   }
+  
+  // Show indicator if JSON is not complete yet
+  const showIncompleteIndicator = realTimeJsonData && !isJsonComplete
 
   // Check if this is Phase 0 summary data
   // Handle both flat structure (from stream) and nested structure (from backend)
@@ -66,6 +88,11 @@ const StreamStructuredView: React.FC<StreamStructuredViewProps> = ({
     // Phase0SummaryDisplay will handle both nested and flat structures
     return (
       <div className="stream-structured-view p-4">
+        {showIncompleteIndicator && (
+          <div className="mb-2 rounded-md bg-yellow-50 px-3 py-2 text-xs text-yellow-800">
+            ⏳ JSON 解析中（部分数据）
+          </div>
+        )}
         <Phase0SummaryDisplay data={root} />
       </div>
     )
@@ -74,6 +101,11 @@ const StreamStructuredView: React.FC<StreamStructuredViewProps> = ({
   // Fallback to JSON tree display for other phases
   return (
     <div className="stream-structured-view">
+      {showIncompleteIndicator && (
+        <div className="mb-2 rounded-md bg-yellow-50 px-3 py-2 text-xs text-yellow-800">
+          ⏳ JSON 解析中（部分数据）
+        </div>
+      )}
       <JSONTree
         data={root}
         theme={jsonTheme}

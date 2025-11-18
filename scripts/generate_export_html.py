@@ -2,6 +2,7 @@
 import json
 import sys
 import base64
+import re
 from pathlib import Path
 from datetime import datetime
 
@@ -98,9 +99,7 @@ def format_bold(text):
     # Then escape HTML
     escaped = escape_html(deduplicated)
     
-    # Then convert **text** to <strong>text</strong>
-    import re
-    # Match **text** pattern (non-greedy)
+    # Then convert **text** to <strong>text</strong> (match **text** pattern, non-greedy)
     formatted = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', escaped)
     
     return formatted
@@ -140,7 +139,6 @@ def extract_content(step):
         "summary": findings.get("summary") if isinstance(findings, dict) else None,
         "article": findings.get("article") if isinstance(findings, dict) else None,
         "key_claims": deduplicate_list(poi.get("key_claims", [])),
-        "notable_evidence": deduplicate_list(poi.get("notable_evidence", [])),
         "five_whys": deduplicate_list(analysis.get("five_whys", [])),
         "assumptions": deduplicate_list(analysis.get("assumptions", [])),
         "uncertainties": deduplicate_list(analysis.get("uncertainties", [])),
@@ -372,7 +370,59 @@ def generate_html(session_id: str, output_path: str):
                 <p class="text-xl font-bold text-neutral-800 whitespace-pre-wrap leading-relaxed">{format_bold(research_objective)}</p>
             </div>
         </section>
-
+"""
+    
+    # Extract and display Key Conclusions (核心结论) from phase 4 report
+    key_conclusions = ""
+    if final_report:
+        # Extract the section between **核心结论** and the first ## heading or ---
+        match = re.search(r'\*\*核心结论\*\*\s*(.*?)(?:\n##|\n---)', final_report, re.DOTALL)
+        if match:
+            key_conclusions = match.group(1).strip()
+    
+    # Display Key Conclusions if found
+    if key_conclusions:
+        html += """
+        <!-- Key Conclusions -->
+        <section class="mb-12 avoid-break">
+            <h2 class="text-xl font-bold text-neutral-800 mb-5">核心结论</h2>
+            <div class="bg-yellow-50 border-l-4 border-primary-500 rounded-lg p-8">
+"""
+        # Parse the key conclusions (numbered list format)
+        for line in key_conclusions.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+            # Check if line starts with a number (e.g., "1. **")
+            if re.match(r'^\d+\.\s+\*\*', line):
+                # Extract title and content
+                parts = line.split('**：', 1)
+                if len(parts) == 2:
+                    title_part = parts[0].replace('**', '').strip()
+                    content = parts[1].strip()
+                    html += f"""
+                <div class="mb-5 last:mb-0">
+                    <p class="font-bold text-lg text-neutral-800 mb-2">{format_bold(title_part)}</p>
+                    <p class="text-neutral-700 leading-relaxed">{format_bold(content)}</p>
+                </div>
+"""
+                else:
+                    # Fallback: just render the line as-is
+                    html += f"""
+                <p class="text-neutral-700 mb-3 leading-relaxed">{format_bold(line)}</p>
+"""
+            else:
+                # Regular paragraph
+                html += f"""
+                <p class="text-neutral-700 mb-3 leading-relaxed">{format_bold(line)}</p>
+"""
+        
+        html += """
+            </div>
+        </section>
+"""
+    
+    html += """
         <!-- Table of Contents -->
         <section class="mb-12 avoid-break">
             <h2 class="text-xl font-bold text-neutral-800 mb-5">目录</h2>
@@ -480,24 +530,6 @@ def generate_html(session_id: str, output_path: str):
                                     <span class="font-medium">证据支持：</span>{format_bold(claim['supporting_evidence'])}
                                 </p>
 """
-                html += "                            </div>\n"
-            html += "                        </div>\n                    </div>\n"
-        
-        # Notable Evidence
-        if content["notable_evidence"]:
-            html += """
-                    <div class="mb-5">
-                        <h4 class="text-base font-semibold text-neutral-800 mb-3 flex items-center">
-                            <i data-lucide="chart-bar" class="w-4 h-4 mr-2"></i>
-                            重要发现
-                        </h4>
-                        <div class="space-y-3">
-"""
-            for ev in content["notable_evidence"]:
-                html += "                            <div class=\"bg-neutral-50 rounded p-4\">\n"
-                if ev.get("evidence_type"):
-                    html += f"                                <span class=\"inline-block px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded mr-2 mb-1\">{format_bold(ev['evidence_type'])}</span>\n"
-                html += f"                                <p class=\"text-neutral-700 leading-relaxed\">{format_bold(ev.get('description', ''))}</p>\n"
                 html += "                            </div>\n"
             html += "                        </div>\n                    </div>\n"
         

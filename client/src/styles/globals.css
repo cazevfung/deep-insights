@@ -266,6 +266,43 @@
     animation: shinyText 2.5s ease-in-out infinite;
   }
 
+  /* Prominent shimmer for streaming processes (like Cursor agent) */
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+
+  /* Shine animation for reasoning content streaming */
+  @keyframes shine {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+
+  .shiny-text-streaming {
+    background: linear-gradient(
+      90deg,
+      #FEC74A 0%,
+      #FEC74A 30%,
+      rgba(255, 255, 255, 0.8) 50%,
+      #FEC74A 70%,
+      #FEC74A 100%
+    );
+    background-size: 200% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: shimmer 2s ease-in-out infinite;
+    font-weight: 500;
+  }
+
   /* Variant: Primary color shine */
   .shiny-text-primary {
     background: linear-gradient(
@@ -321,7 +358,8 @@
     .shiny-text-focus,
     .shiny-text-once,
     .shiny-text-pulse,
-    .shiny-text-active {
+    .shiny-text-active,
+    .shiny-text-streaming {
       animation: none;
       background: none;
       -webkit-text-fill-color: currentColor;

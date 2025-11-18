@@ -35,21 +35,6 @@
                 "required": ["claim"]
               }
             },
-            "notable_evidence": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "evidence_type": {
-                    "type": "string",
-                    "enum": ["example", "data", "quote", "anecdote"]
-                  },
-                  "description": { "type": "string" },
-                  "quote": { "type": "string" }
-                },
-                "required": ["evidence_type", "description"]
-              }
-            },
             "controversial_topics": {
               "type": "array",
               "items": {

@@ -165,6 +165,8 @@ class QwenStreamingClient:
         stream_options: Optional[Dict] = None,
         callback: Optional[Callable[[str], None]] = None,
         enable_thinking: bool = False,
+        thinking_budget: Optional[int] = None,
+        exclude_reasoning_from_yield: bool = False,
     ) -> Iterator[str]:
         """
         Stream completion from Qwen API using SSE protocol with safety fallbacks.
@@ -177,9 +179,12 @@ class QwenStreamingClient:
             stream_options: Optional stream options (e.g., {"include_usage": True})
             callback: Optional callback for each token chunk
             enable_thinking: Enable thinking mode (returns reasoning_content)
+            thinking_budget: Optional thinking budget limit for reasoning tokens
+            exclude_reasoning_from_yield: If True, reasoning_content chunks are sent to callback
+                                         but not yielded (only content chunks are yielded)
 
         Yields:
-            String tokens from the stream
+            String tokens from the stream (only content if exclude_reasoning_from_yield=True)
         """
         target_model = model or self.model
         stream_options = stream_options or {"include_usage": True}
@@ -237,6 +242,8 @@ class QwenStreamingClient:
                     stream_options=stream_options,
                     callback=callback,
                     enable_thinking=enable_thinking,
+                    thinking_budget=thinking_budget,
+                    exclude_reasoning_from_yield=exclude_reasoning_from_yield,
                 ):
                     yield chunk
 
@@ -337,17 +344,31 @@ class QwenStreamingClient:
     def stream_and_collect(
         self,
         messages: List[Dict[str, str]],
+        exclude_reasoning_content: bool = False,
         **kwargs,
     ) -> Tuple[str, Dict]:
         """
         Stream completion and collect full response.
+
+        Args:
+            messages: List of message dicts
+            exclude_reasoning_content: If True, only collect 'content' tokens,
+                                       exclude 'reasoning_content' tokens.
+                                       reasoning_content will still be sent to callback for UI display.
+            **kwargs: Additional arguments passed to stream_completion
 
         Returns:
             (full_response, usage_info)
         """
         content_parts: List[str] = []
 
-        for chunk in self.stream_completion(messages, **kwargs):
+        # Pass exclude_reasoning_from_yield to stream_completion
+        kwargs_with_exclude = {
+            **kwargs,
+            "exclude_reasoning_from_yield": exclude_reasoning_content,
+        }
+
+        for chunk in self.stream_completion(messages, **kwargs_with_exclude):
             content_parts.append(chunk)
 
         full_response = "".join(content_parts)
@@ -369,6 +390,7 @@ class QwenStreamingClient:
 
         Handles partial JSON during streaming by buffering until complete.
         Attempts to find JSON object boundaries.
+        Handles cases where there's extra data after valid JSON.
         """
         buffer = ""
         json_started = False
@@ -397,25 +419,111 @@ class QwenStreamingClient:
                 if brace_count == 0:
                     try:
                         return json.loads(buffer)
-                    except json.JSONDecodeError:
+                    except json.JSONDecodeError as e:
+                        # If it's an "Extra data" error, try to extract just the first JSON object
+                        if "Extra data" in str(e):
+                            try:
+                                # Find the end of the first complete JSON object
+                                end_pos = buffer.rfind("}")
+                                if end_pos > 0:
+                                    first_json = buffer[:end_pos + 1]
+                                    parsed = json.loads(first_json)
+                                    logger.warning(
+                                        f"JSON stream contained extra data after valid JSON. "
+                                        f"Extracted first JSON object (length: {len(first_json)} chars). "
+                                        f"Remaining buffer length: {len(buffer) - end_pos - 1} chars"
+                                    )
+                                    return parsed
+                            except (json.JSONDecodeError, ValueError):
+                                pass
                         continue
 
         # Final attempt: try to extract JSON from buffer
         json_match = re.search(r"\{.*\}", buffer, re.DOTALL)
         if json_match:
+            matched_json = json_match.group()
             try:
-                return json.loads(json_match.group())
-            except json.JSONDecodeError:
-                pass
+                return json.loads(matched_json)
+            except json.JSONDecodeError as e:
+                # If "Extra data" error, try to find the end of the first complete object
+                if "Extra data" in str(e):
+                    try:
+                        # Find the position where extra data starts
+                        error_msg = str(e)
+                        # Extract position from error message like "Extra data: line X column Y (char Z)"
+                        pos_match = re.search(r'\(char (\d+)\)', error_msg)
+                        if pos_match:
+                            extra_data_pos = int(pos_match.group(1))
+                            first_json = matched_json[:extra_data_pos]
+                            parsed = json.loads(first_json)
+                            logger.warning(
+                                f"JSON stream contained extra data after valid JSON. "
+                                f"Extracted first JSON object (length: {len(first_json)} chars). "
+                                f"Extra data starts at position {extra_data_pos}"
+                            )
+                            return parsed
+                    except (json.JSONDecodeError, ValueError, AttributeError):
+                        pass
 
         # Try parsing entire buffer
         try:
             return json.loads(buffer)
         except json.JSONDecodeError as exc:
-            raise ValueError(
-                f"Could not parse JSON from stream. Buffer preview: {buffer[:200]}... "
-                f"Error: {exc}"
+            error_msg = str(exc)
+            buffer_preview = buffer[:500] if len(buffer) > 500 else buffer
+            
+            # Enhanced error message with more context
+            error_details = {
+                "error_type": type(exc).__name__,
+                "error_message": error_msg,
+                "buffer_length": len(buffer),
+                "buffer_preview": buffer_preview,
+            }
+            
+            # Try to extract first valid JSON object as last resort
+            if "Extra data" in error_msg:
+                try:
+                    # Find the end of the first complete JSON object by counting braces
+                    brace_count = 0
+                    json_end = -1
+                    for i, char in enumerate(buffer):
+                        if char == "{":
+                            brace_count += 1
+                        elif char == "}":
+                            brace_count -= 1
+                            if brace_count == 0:
+                                json_end = i
+                                break
+                    
+                    if json_end > 0:
+                        first_json = buffer[:json_end + 1]
+                        parsed = json.loads(first_json)
+                        logger.warning(
+                            f"JSON stream contained extra data. Successfully extracted first JSON object "
+                            f"(length: {len(first_json)} chars, remaining: {len(buffer) - json_end - 1} chars)"
+                        )
+                        return parsed
+                except (json.JSONDecodeError, ValueError, IndexError):
+                    pass
+                
+                # If we still can't parse, provide detailed error
+                error_details["suggestion"] = (
+                    "The stream contains valid JSON followed by extra content. "
+                    "This may indicate the model generated multiple JSON objects or additional text."
+                )
+            
+            # Format detailed error message
+            error_str = (
+                f"Could not parse JSON from stream.\n"
+                f"Error: {error_details['error_type']}: {error_details['error_message']}\n"
+                f"Buffer length: {error_details['buffer_length']} characters\n"
+                f"Buffer preview (first 500 chars):\n{error_details['buffer_preview']}"
             )
+            
+            if "suggestion" in error_details:
+                error_str += f"\nSuggestion: {error_details['suggestion']}"
+            
+            raise ValueError(error_str)
 
     def get_usage_info(self) -> Dict[str, int]:
         """Get current token usage information."""
@@ -547,6 +655,8 @@ class QwenStreamingClient:
         stream_options: Optional[Dict[str, Any]],
         callback: Optional[Callable[[str], None]],
         enable_thinking: bool,
+        thinking_budget: Optional[int] = None,
+        exclude_reasoning_from_yield: bool = False,
     ) -> Iterator[str]:
         payload: Dict[str, Any] = {
             "model": model,
@@ -562,10 +672,16 @@ class QwenStreamingClient:
             payload["stream_options"] = stream_options
 
         if enable_thinking:
-            payload["extra_body"] = {"enable_thinking": True}
+            extra_body = {"enable_thinking": True}
+            if thinking_budget is not None:
+                extra_body["thinking_budget"] = thinking_budget
+            payload["extra_body"] = extra_body
+            logger.debug(f"🧠 Thinking mode enabled: extra_body={extra_body}")
 
         url = self.base_url.rstrip("/") + "/chat/completions"
         logger.debug("Starting streaming request to %s (%s)", url, model)
+        if enable_thinking:
+            logger.debug(f"🔍 Request payload (thinking enabled): {json.dumps(payload, indent=2, ensure_ascii=False)}")
 
         with self.session.post(url, data=json.dumps(payload), stream=True, timeout=300) as resp:
             if resp.status_code != 200:
@@ -634,19 +750,61 @@ class QwenStreamingClient:
                 if not choices:
                     continue
                 delta = (choices[0] or {}).get("delta", {})
+                choice = choices[0] or {}
 
-                if enable_thinking and delta.get("reasoning_content"):
-                    piece = delta.get("reasoning_content") or ""
-                    if piece:
+                # Debug: Log delta and event structure when thinking is enabled
+                if enable_thinking:
+                    logger.debug(f"🔍 Event keys: {list(event.keys())}")
+                    logger.debug(f"🔍 Choice keys: {list(choice.keys())}")
+                    logger.debug(f"🔍 Delta keys: {list(delta.keys())}, Delta: {delta}")
+
+                # Handle reasoning content (thinking phase)
+                # Check multiple possible field names and locations for reasoning content
+                # IMPORTANT: Check if field EXISTS (not just truthy), as API may send null/empty
+                reasoning_piece = None
+                if enable_thinking:
+                    # Try different possible field names in delta - check if field exists
+                    for field_name in ["reasoning_content", "reasoning", "thinking", "think"]:
+                        if field_name in delta:
+                            value = delta.get(field_name)
+                            # Accept non-empty strings (empty string or None means no reasoning)
+                            if value and isinstance(value, str) and len(value) > 0:
+                                reasoning_piece = value
+                                break
+                    
+                    # Also check choice object directly if not found in delta
+                    if reasoning_piece is None:
+                        for field_name in ["reasoning_content", "reasoning", "thinking", "think"]:
+                            if field_name in choice:
+                                value = choice.get(field_name)
+                                if value and isinstance(value, str) and len(value) > 0:
+                                    reasoning_piece = value
+                                    break
+                    
+                    if reasoning_piece:
+                        logger.debug(f"🧠 Found reasoning content: {reasoning_piece[:50]}...")
                         if callback:
-                            callback(piece)
-                        yield piece
+                            # Call with reasoning_content set, content="None"
+                            # Pass the token for buffer management (backend only uses it internally)
+                            callback(reasoning_piece, reasoning_content=reasoning_piece, content="None")
+                        # Only yield reasoning_content if not excluding it
+                        if not exclude_reasoning_from_yield:
+                            yield reasoning_piece
 
-                piece = delta.get("content") or ""
-                if piece:
+                # Handle regular content (response phase)
+                # Check if content field exists in delta
+                content_piece = None
+                if "content" in delta:
+                    content_value = delta.get("content")
+                    if content_value and isinstance(content_value, str) and len(content_value) > 0:
+                        content_piece = content_value
+                
+                if content_piece:
                     if callback:
-                        callback(piece)
-                    yield piece
+                        # Call with content set, reasoning_content="None" (string sentinel)
+                        # Pass the token for buffer management (backend only uses it internally)
+                        callback(content_piece, reasoning_content="None", content=content_piece)
+                    yield content_piece
 
     def _stream_via_fallback(
         self,

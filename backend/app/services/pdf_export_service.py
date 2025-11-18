@@ -55,13 +55,6 @@ class KeyClaim:
 
 
 @dataclass
-class NotableEvidence:
-    """Notable evidence with type label."""
-    evidence_type: str
-    description: str
-
-
-@dataclass
 class FiveWhyItem:
     """Five Whys analysis item."""
     level: int
@@ -83,7 +76,6 @@ class StepContent:
     summary: Optional[str]
     article: Optional[str]
     key_claims: List[KeyClaim]
-    notable_evidence: List[NotableEvidence]
     analysis: AnalysisDetails
     insights: Optional[str]
 
@@ -531,10 +523,6 @@ class PdfExportService:
             elements.extend(self._build_key_claims_section(content.key_claims))
             elements.append(Spacer(1, 8))
         
-        if content.notable_evidence:
-            elements.extend(self._build_notable_evidence_section(content.notable_evidence))
-            elements.append(Spacer(1, 8))
-        
         if content.article:
             elements.append(self._build_content_section("📄 深度文章", content.article))
             elements.append(Spacer(1, 8))
@@ -588,29 +576,6 @@ class PdfExportService:
                 claim_paras.append(Spacer(1, 6))
             
             elements.extend(claim_paras)
-        
-        return elements
-
-    def _build_notable_evidence_section(self, evidence_list: List[NotableEvidence]) -> List:
-        """Build notable evidence section."""
-        elements = [
-            Paragraph('<b>📊 重要发现</b>', self.styles["Label"]),
-            Spacer(1, 4)
-        ]
-        
-        for evidence in evidence_list:
-            if evidence.evidence_type:
-                elements.append(
-                    Paragraph(
-                        f'• [{evidence.evidence_type}] {self._format_inline(evidence.description)}',
-                        self.styles["Body"]
-                    )
-                )
-            else:
-                elements.append(
-                    Paragraph(f'• {self._format_inline(evidence.description)}', self.styles["Body"])
-                )
-            elements.append(Spacer(1, 4))
         
         return elements
 
@@ -755,7 +720,6 @@ def _extract_step_cards(session) -> List[StepCard]:
             summary=findings.get("summary") if isinstance(findings, dict) else None,
             article=findings.get("article") if isinstance(findings, dict) else None,
             key_claims=_extract_key_claims(poi.get("key_claims", [])),
-            notable_evidence=_extract_notable_evidence(poi.get("notable_evidence", [])),
             analysis=AnalysisDetails(
                 five_whys=_extract_five_whys(analysis_details.get("five_whys", [])),
                 assumptions=analysis_details.get("assumptions", []) if isinstance(analysis_details, dict) else [],
@@ -784,18 +748,6 @@ def _extract_key_claims(claims_data: list) -> List[KeyClaim]:
             result.append(KeyClaim(
                 claim=str(claim.get("claim", "")),
                 supporting_evidence=claim.get("supporting_evidence")
-            ))
-    return result
-
-
-def _extract_notable_evidence(evidence_data: list) -> List[NotableEvidence]:
-    """Extract notable evidence from data."""
-    result = []
-    for ev in evidence_data:
-        if isinstance(ev, dict):
-            result.append(NotableEvidence(
-                evidence_type=str(ev.get("evidence_type", "")),
-                description=str(ev.get("description", ""))
             ))
     return result
 

@@ -8,7 +8,10 @@ from typing import Dict, Any, List, Optional, Set, Iterable
 from research.phases.base_phase import BasePhase
 from research.data_loader import ResearchDataLoader
 from research.prompts import compose_messages, load_schema
-from research.prompts.context_formatters import format_research_role_for_context
+from research.prompts.context_formatters import (
+    format_research_role_for_context,
+    format_synthesized_goal_for_context,
+)
 from research.retrieval_handler import RetrievalHandler
 from core.config import Config
 from research.utils.marker_formatter import format_marker_overview
@@ -19,6 +22,7 @@ from research.retrieval.vector_retrieval_service import (
 )
 from research.embeddings.embedding_client import EmbeddingClient, EmbeddingConfig
 from research.session import StepDigest
+from research.utils.json_sanitizer import sanitize_json_stream_text
 
 
 class Phase3Execute(BasePhase):
@@ -134,6 +138,7 @@ class Phase3Execute(BasePhase):
         self._vector_seen_chunks: Dict[int, Set[str]] = defaultdict(set)
         self._vector_full_items: Dict[int, bool] = defaultdict(bool)
         self._shared_role_context: Dict[str, str] = {}
+        self._synthesized_goal_context: Dict[str, str] = {}
     
     def _has_vector_service(self) -> bool:
         return self.vector_service is not None and getattr(self.vector_service, "enabled", True)
@@ -185,6 +190,16 @@ class Phase3Execute(BasePhase):
             "research_role_display": role_display,
         }
         self._shared_role_context = dict(shared_role_context)
+
+        synthesized_goal_obj: Dict[str, Any] = {}
+        if hasattr(self, "session") and self.session:
+            try:
+                meta_goal = self.session.get_metadata("synthesized_goal", {})
+            except Exception:
+                meta_goal = {}
+            if isinstance(meta_goal, dict):
+                synthesized_goal_obj = meta_goal
+        self._synthesized_goal_context = format_synthesized_goal_for_context(synthesized_goal_obj)
 
         all_findings = []
         
@@ -1196,6 +1211,19 @@ class Phase3Execute(BasePhase):
         
         return required_data
     
+    def _get_writing_style_name(self) -> str:
+        """Get writing style name for dynamic partial resolution."""
+        if not self.session:
+            return "consultant"
+        writing_style = self.session.get_metadata("writing_style", "professional")
+        style_file_map = {
+            'professional': 'consultant',
+            'explanatory': 'explanatory',
+            'creative': 'creative',
+            'persuasive': 'persuasive',
+        }
+        return style_file_map.get(writing_style, 'consultant')
+
     def _get_transcript_content(
         self,
         batch_data: Dict[str, Any],
@@ -1510,7 +1538,7 @@ class Phase3Execute(BasePhase):
         """Execute a single step using two-stage workflow: context request then analysis generation."""
         safe_summary = scratchpad_summary if scratchpad_summary != "暂无发现。" else "暂无之前的发现。"
         safe_data_chunk = self._safe_truncate_data_chunk(data_chunk, required_data, chunk_strategy)
-        digest_context = self.session.aggregate_step_digests(
+        digest_context = self.session.aggregate_all_phase3_outputs(
             step_id,
             token_cap=self._digest_token_cap if isinstance(self._digest_token_cap, int) else None,
         )
@@ -1560,7 +1588,18 @@ class Phase3Execute(BasePhase):
             "user_context": user_intent["user_context"],  # For consistency
             "cumulative_digest": digest_context,
             "novelty_guidance": novelty_guidance,
+            "writing_style": self._get_writing_style_name(),  # For dynamic partial resolution
         }
+
+        goal_context = getattr(self, "_synthesized_goal_context", {}) or {}
+        if goal_context:
+            context.setdefault("synthesized_goal_topic", goal_context.get("synthesized_topic", ""))
+            context.setdefault("synthesized_goal_unifying_theme", goal_context.get("unifying_theme", ""))
+            context.setdefault("unifying_theme", goal_context.get("unifying_theme", ""))
+            context.setdefault("component_questions_list", goal_context.get("component_questions_list", ""))
+            context.setdefault("component_questions_count", goal_context.get("component_questions_count", "0"))
+            for key, value in goal_context.items():
+                context.setdefault(key, value)
         
         # ===================================================================
         # STAGE 1: Context Request (Request-Only)
@@ -1587,6 +1626,7 @@ class Phase3Execute(BasePhase):
                 "step_id": step_id,
                 "goal": goal,
                 "required_data": required_data,
+                "enable_json_streaming": True,  # Enable real-time JSON parsing
                 "chunk_strategy": chunk_strategy,
                 "vector_enabled": bool(allow_vector),
             },
@@ -1667,6 +1707,7 @@ class Phase3Execute(BasePhase):
                 "step_id": step_id,
                 "goal": goal,
                 "required_data": required_data,
+                "enable_json_streaming": True,  # Enable real-time JSON parsing
                 "chunk_strategy": chunk_strategy,
                 "vector_enabled": bool(allow_vector),
             },
@@ -2496,9 +2537,12 @@ class Phase3Execute(BasePhase):
             self.logger.warning(f"[PHASE3-ANALYSIS-GENERATION] Empty response_text for step {step_id}")
             raise ValueError(f"Step {step_id}: Analysis generation must return findings, got empty response")
         
+        # Prepare sanitized text to guard against raw control characters
+        sanitized_text = sanitize_json_stream_text(response_text)
+
         # Try to parse using analysis_generation schema
         try:
-            parsed = self.client.parse_json_from_stream(iter([response_text]))
+            parsed = self.client.parse_json_from_stream(iter([sanitized_text]))
             if parsed is None or not isinstance(parsed, dict):
                 raise ValueError(f"parse_json_from_stream returned {type(parsed).__name__}, expected dict")
             
@@ -2565,7 +2609,7 @@ class Phase3Execute(BasePhase):
             # Fallback: try to extract findings from raw response
             import re
             try:
-                json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+                json_match = re.search(r'\{.*\}', sanitized_text, re.DOTALL)
                 if json_match:
                     parsed = json.loads(json_match.group())
                     if isinstance(parsed, dict):

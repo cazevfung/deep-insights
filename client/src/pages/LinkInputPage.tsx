@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Card from '../components/common/Card'
-import Button from '../components/common/Button'
-import Textarea from '../components/common/Textarea'
+import { ArrowRight } from 'react-feather'
 import { useWorkflowStore } from '../stores/workflowStore'
 import { useUiStore } from '../stores/uiStore'
 import { apiService } from '../services/api'
@@ -205,21 +203,25 @@ const LinkInputPage: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <Card
-        title="输入链接"
-        subtitle="请输入要研究的URL链接，每行一个"
-      >
-        {/* Existing Session Warning */}
-        {hasExistingSession && (
-          <div className="mb-6 bg-yellow-50 border border-yellow-300 rounded-lg p-4">
+      {/* Question Section */}
+      <div className="pt-8 pb-8">
+        <h1 className="text-2xl md:text-3xl font-semibold text-center text-gray-900 leading-relaxed max-w-3xl mx-auto">
+          你想研究哪些内容？
+        </h1>
+      </div>
+
+      {/* Existing Session Warning */}
+      {hasExistingSession && (
+        <div className="max-w-2xl mx-auto mb-6">
+          <div className="bg-yellow-50 border border-yellow-300 rounded-2xl p-6">
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <h4 className="font-semibold text-yellow-800 mb-1">检测到现有会话</h4>
-                <p className="text-sm text-yellow-700 mb-3">
+                <h4 className="font-semibold text-yellow-800 mb-2">检测到现有会话</h4>
+                <p className="text-sm text-yellow-700 mb-2">
                   当前存在一个活跃的研究会话。开始新会话将清除所有现有数据。
                 </p>
                 {batchId && (
-                  <p className="text-xs text-yellow-600 mb-2">
+                  <p className="text-xs text-yellow-600 mt-2">
                     当前批次ID: {batchId}
                   </p>
                 )}
@@ -232,42 +234,55 @@ const LinkInputPage: React.FC = () => {
               </button>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <Textarea
-            label="URL链接"
-            value={urls}
-            onChange={(e) => setUrls(e.target.value)}
-            placeholder="https://www.youtube.com/watch?v=...&#10;https://www.bilibili.com/video/..."
-            rows={10}
-            error={error || undefined}
-            helperText="支持 YouTube、Bilibili、Reddit、Tieba 和文章链接"
-            disabled={isLoading}
-          />
-
-          <div className="flex items-center justify-end space-x-4">
-            {hasExistingSession && (
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={handleStartNewSession}
-                disabled={isLoading}
-              >
-                清除会话并开始新研究
-              </Button>
+      {/* Input Section - Dialog Bubble */}
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="max-w-2xl mx-auto mb-8">
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+            {error && (
+              <div className="mb-4 text-sm text-red-600">
+                {error}
+              </div>
             )}
-            <Button
-              type="submit"
-              variant="primary"
-              isLoading={isLoading}
-              disabled={!urls.trim() || isLoading}
-            >
-              开始研究
-            </Button>
+            <textarea
+              value={urls}
+              onChange={(e) => setUrls(e.target.value)}
+              placeholder={`例如：\nhttps://www.youtube.com/watch?v=...\nhttps://www.bilibili.com/video/...\nhttps://example.com/article`}
+              className="w-full min-h-[200px] p-4 border-0 bg-transparent text-base leading-relaxed placeholder:text-gray-400 focus:outline-none focus:ring-0 resize-none"
+              rows={10}
+              disabled={isLoading}
+              onKeyDown={(e) => {
+                // Allow Ctrl/Cmd + Enter to submit
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                  handleSubmit(e as any)
+                }
+              }}
+            />
           </div>
-        </form>
-      </Card>
+          <p className="text-xs text-gray-500 text-center mt-2">
+            支持 YouTube、Bilibili、Reddit、Tieba 和文章链接
+          </p>
+        </div>
+
+        {/* Action Button - Circular */}
+        <div className="flex justify-center">
+          <button
+            type="submit"
+            disabled={isLoading || !urls.trim()}
+            className="w-16 h-16 rounded-full text-white shadow-xl hover:scale-110 transition-all duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            style={{ backgroundColor: '#FEC74A' }}
+            aria-label="开始研究"
+          >
+            {isLoading ? (
+              <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <ArrowRight size={24} strokeWidth={2.5} />
+            )}
+          </button>
+        </div>
+      </form>
     </div>
   )
 }

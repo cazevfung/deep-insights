@@ -1,0 +1,86 @@
+{
+  "batch_id": "20251117_104824",
+  "link_id": "yt_req6",
+  "source": "youtube",
+  "metadata": {
+    "title": "AI NPCs will change games",
+    "author": "MustacheAI",
+    "url": "https://www.youtube.com/watch?v=1u6IfvGvx7Y",
+    "word_count": 133,
+    "publish_date": ""
+  },
+  "transcript": "This is an emergency distress call broadcasting from the planet Gaia. If you're receiving this, please respond immediately. Hey, can I sniff you? Uh, that's definitely not possible or appropriate. This is a distress call, not whatever that was. I'm Stella. Who am I talking to? Yeah, sorry about that. Can I sniff you later? Seriously, that's not okay. Can we please stick to the basics here? I need to know who I'm actually talking to. So, what's your name? And how did you manage to pick up my distress signal? You're right. I didn't introduce myself. My name is Mustache. I accidentally stumbled upon this signal. Do you think this device can transmit smells? You know, for sniffing mustache, seriously, cut it out with the sniffing comments. That's not how this works.",
+  "comments": null,
+  "summary": {
+    "transcript_summary": {
+      "key_facts": [
+        "A distress call is being broadcast from the planet Gaia.",
+        "The caller is named Stella.",
+        "The signal was picked up by someone named Mustache.",
+        "Mustache accidentally stumbled upon the distress signal.",
+        "Stella is requesting an immediate response to her emergency call.",
+        "The communication is occurring via a device capable of transmitting distress signals.",
+        "Stella is asking for the identity of the person receiving the signal.",
+        "Mustache claims he did not intentionally seek out the signal.",
+        "The device in question is not confirmed to transmit smells.",
+        "Stella explicitly rejects any suggestion of sniffing as inappropriate.",
+        "Mustache made a comment suggesting the device could transmit smells.",
+        "Stella insists on sticking to basic, relevant communication.",
+        "The conversation began with a request for identification.",
+        "There is no indication of physical presence or location beyond the signal source.",
+        "The signal transmission method is not specified beyond being a distress call.",
+        "Mustache's name is mentioned as part of his self-introduction.",
+        "Stella expresses frustration with off-topic comments.",
+        "The interaction is purely verbal and non-physical.",
+        "No confirmation of the device’s sensory capabilities is provided.",
+        "Stella demands clarity about who is responding to her call.",
+        "Mustache admits he didn’t introduce himself initially.",
+        "The distress call is being received in real time.",
+        "The tone shifts from confusion to urgency during the exchange.",
+        "Sniffing-related remarks are repeatedly rejected by Stella"
+      ],
+      "key_opinions": [
+        "Stella believes the current situation requires serious attention, not jokes.",
+        "Mustache seems to treat the situation lightly, possibly joking.",
+        "Stella finds the idea of sniffing extremely inappropriate.",
+        "Mustache appears to be curious about the device’s sensory functions.",
+        "Stella feels the need to reassert control over the conversation.",
+        "Mustache may not fully grasp the gravity of the emergency.",
+        "Stella views the distraction as unprofessional and disruptive.",
+        "Mustache might be testing boundaries or seeking humor.",
+        "Stella believes the focus should remain on survival and identification.",
+        "Mustache’s behavior suggests possible lack of awareness of protocol."
+      ],
+      "key_datapoints": [
+        "The distress signal originates from planet Gaia.",
+        "Stella is the sender of the distress call.",
+        "Mustache is the receiver of the signal.",
+        "The signal was picked up accidentally.",
+        "No specific time duration for the signal transmission is given.",
+        "No frequency or bandwidth details are mentioned.",
+        "No data rate or signal strength metrics are provided.",
+        "No number of prior attempts to contact others is stated.",
+        "No mention of other recipients or systems involved.",
+        "No technical specifications of the device are disclosed."
+      ],
+      "topic_areas": [
+        "Emergency Distress Signal",
+        "Identity Verification",
+        "Communication Protocol",
+        "Device Functionality",
+        "Inappropriate Behavior",
+        "Interpersonal Tension",
+        "Planet Gaia",
+        "Signal Reception",
+        "Humor vs. Urgency",
+        "Sensory Transmission"
+      ],
+      "word_count": 133,
+      "total_markers": 44
+    },
+    "comments_summary": {},
+    "created_at": "2025-11-17T18:49:06.303416",
+    "model_used": "qwen-flash"
+  },
+  "completed_at": 1763376553.4729433
+}

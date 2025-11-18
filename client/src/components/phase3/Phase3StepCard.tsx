@@ -6,7 +6,6 @@ import { Phase3StepViewModel, StepRerunState } from '../../hooks/usePhase3Steps'
 interface Phase3StepCardProps {
   step: Phase3StepViewModel
   onToggleExpand: (stepId: number) => void
-  onToggleRawData: (stepId: number) => void
   onRerun: (stepId: number, regenerateReport: boolean) => void
   rerunState: StepRerunState
 }
@@ -29,7 +28,7 @@ const StepBadge: React.FC<{ active: boolean; label: number | string }> = ({ acti
 )
 
 const PlaceholderCard: React.FC<{ step: Phase3StepViewModel }> = ({ step }) => (
-  <div className="border border-dashed border-neutral-300 rounded-lg p-4 bg-neutral-50">
+  <div className="border border-dashed border-gray-300 rounded-xl p-4 bg-gray-50">
     <div className="flex items-start gap-3">
       <StepBadge active={false} label={step.id} />
       <div className="w-1 bg-neutral-300/60 rounded-full self-stretch ml-0.5 mr-3" />
@@ -49,7 +48,6 @@ const PlaceholderCard: React.FC<{ step: Phase3StepViewModel }> = ({ step }) => (
 const Phase3StepCard: React.FC<Phase3StepCardProps> = ({
   step,
   onToggleExpand,
-  onToggleRawData,
   onRerun,
   rerunState,
 }) => {
@@ -58,7 +56,6 @@ const Phase3StepCard: React.FC<Phase3StepCardProps> = ({
   }
 
   const handleToggle = () => onToggleExpand(step.id)
-  const handleToggleRaw = () => onToggleRawData(step.id)
   const handleRerun = (regenerateReport: boolean) => onRerun(step.id, regenerateReport)
 
   const showSummary = Boolean(step.summaryPreview)
@@ -71,15 +68,19 @@ const Phase3StepCard: React.FC<Phase3StepCardProps> = ({
   return (
     <div
       className={classNames(
-        'rounded-xl border transition-all duration-200',
-        'bg-neutral-white shadow-sm hover:shadow-md',
+        'border transition-all duration-200',
+        'rounded-xl',
+        'bg-white shadow-sm hover:shadow-md',
         step.isActive
           ? 'border-primary-200 shadow-[0_20px_45px_-24px_rgba(59,130,246,0.6)] ring-1 ring-primary-300/50'
-          : 'border-neutral-200'
+          : 'border-gray-200'
       )}
       data-active={step.isActive || undefined}
     >
-      <div className="p-4 flex gap-4 items-start">
+      <div className={classNames(
+        'sticky top-0 z-10 p-4 flex gap-4 items-start bg-white',
+        step.isExpanded ? 'rounded-t-xl border-b border-neutral-100' : 'rounded-xl'
+      )}>
         <StepBadge active={step.isActive} label={step.id} />
         <div
           className={classNames(
@@ -157,9 +158,6 @@ const Phase3StepCard: React.FC<Phase3StepCardProps> = ({
             <Phase3StepContent
               content={step.content}
               confidence={step.confidence}
-              showRawData={step.showRawData}
-              onToggleRawData={handleToggleRaw}
-              rawStep={step.rawStep}
             />
           </div>
         </div>

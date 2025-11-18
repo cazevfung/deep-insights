@@ -7,6 +7,7 @@ from typing import Optional
 import asyncio
 import platform
 import subprocess
+import threading
 from pathlib import Path
 from app.services.workflow_service import WorkflowService
 from app.websocket.manager import WebSocketManager
@@ -128,6 +129,10 @@ class StepRerunResponse(BaseModel):
     status: str
 
 
+# FIX RACE #7: Track active workflows to prevent duplicate execution for same batch
+_active_workflows = set()
+_active_workflows_lock = threading.Lock()
+
 @router.post("/start", response_model=StartWorkflowResponse)
 async def start_workflow(request: StartWorkflowRequest, background_tasks: BackgroundTasks):
     """
@@ -161,6 +166,21 @@ async def start_workflow(request: StartWorkflowRequest, background_tasks: Backgr
             logger.error("batch_id is required but not provided")
             raise HTTPException(status_code=400, detail="batch_id is required")
         
+        # FIX RACE #7: Check if workflow already started for this batch
+        with _active_workflows_lock:
+            if batch_id in _active_workflows:
+                logger.warning(f"⚠️ Workflow already active for batch {batch_id}, ignoring duplicate request")
+                # Return the existing workflow ID but don't start a new task
+                workflow_id = f"workflow_{batch_id}"
+                return StartWorkflowResponse(
+                    workflow_id=workflow_id,
+                    batch_id=batch_id,
+                    status="already_started",
+                )
+            # Mark batch as active
+            _active_workflows.add(batch_id)
+            logger.info(f"✓ Marked batch {batch_id} as active (total active: {len(_active_workflows)})")
+        
         workflow_id = f"workflow_{batch_id}"
         
         # Start workflow in background using BackgroundTasks (runs after response is sent)
@@ -168,6 +188,9 @@ async def start_workflow(request: StartWorkflowRequest, background_tasks: Backgr
             background_tasks.add_task(run_workflow_task, batch_id)
             logger.info(f"Added workflow task to background: workflow_id={workflow_id}, batch_id={batch_id}")
         except Exception as task_error:
+            # Remove from active set if task scheduling fails
+            with _active_workflows_lock:
+                _active_workflows.discard(batch_id)
             logger.error(f"Failed to add background task: {task_error}", exc_info=True)
             raise HTTPException(status_code=500, detail=f"Failed to schedule workflow task: {str(task_error)}")
         
@@ -244,6 +267,9 @@ async def run_workflow_task(batch_id: str):
         
         if workflow_service is None:
             logger.error("Workflow service is None in background task")
+            # FIX RACE #7: Clean up active workflows set
+            with _active_workflows_lock:
+                _active_workflows.discard(batch_id)
             return
         
         await workflow_service.run_workflow(batch_id)
@@ -260,6 +286,11 @@ async def run_workflow_task(batch_id: str):
                 })
         except Exception as broadcast_error:
             logger.error(f"Failed to broadcast error: {broadcast_error}")
+    finally:
+        # FIX RACE #7: Always clean up active workflows set when task completes
+        with _active_workflows_lock:
+            _active_workflows.discard(batch_id)
+            logger.info(f"✓ Removed batch {batch_id} from active workflows (remaining: {len(_active_workflows)})")
 
 
 @router.get("/batch/{batch_id}/total")

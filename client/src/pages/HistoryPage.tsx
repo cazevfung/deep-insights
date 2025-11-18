@@ -179,10 +179,10 @@ const HistoryPage: React.FC = () => {
     }
   }
 
-  const handleResume = async (batchId: string) => {
+  const handleResume = async (batchId: string, sessionId?: string) => {
     try {
-      // Load session data
-      const sessionData = (await apiService.getHistorySession(batchId)) as HistorySessionDetail
+      // Load session data - pass sessionId for precise lookup if available
+      const sessionData = (await apiService.getHistorySession(batchId, sessionId)) as HistorySessionDetail
       
       // Restore workflow state
       setBatchId(batchId)
@@ -240,10 +240,10 @@ const HistoryPage: React.FC = () => {
     }
   }
 
-  const handleView = async (batchId: string) => {
+  const handleView = async (batchId: string, sessionId?: string) => {
     try {
-      // Load session data
-      const sessionData = (await apiService.getHistorySession(batchId)) as HistorySessionDetail
+      // Load session data - pass sessionId for precise lookup if available
+      const sessionData = (await apiService.getHistorySession(batchId, sessionId)) as HistorySessionDetail
       
       // Restore workflow state
       setBatchId(batchId)
@@ -282,17 +282,18 @@ const HistoryPage: React.FC = () => {
     }
   }
 
-  const handleExportPdf = async (batchId: string) => {
+  const handleExportPdf = async (batchId: string, sessionId?: string) => {
     setExportingBatchId(batchId)
     try {
-      const sessionData = (await apiService.getHistorySession(batchId)) as HistorySessionDetail
-      const sessionId = sessionData.session_id
-      if (!sessionId) {
+      // Load session data - pass sessionId for precise lookup if available
+      const sessionData = (await apiService.getHistorySession(batchId, sessionId)) as HistorySessionDetail
+      const resolvedSessionId = sessionData.session_id
+      if (!resolvedSessionId) {
         throw new Error('未找到会话ID，无法导出PDF')
       }
 
       // Export HTML using the new API
-      const result = await apiService.exportSessionHtml(sessionId)
+      const result = await apiService.exportSessionHtml(resolvedSessionId)
       
       // Open the HTML file in a new window
       window.open(result.file_url, '_blank')
@@ -341,31 +342,40 @@ const HistoryPage: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <Card title="研究历史" subtitle="查看和管理之前的研究会话">
+      {/* Page Title Section */}
+      <div className="pt-8 pb-6">
+        <h1 className="text-2xl md:text-3xl font-semibold text-center text-gray-900 leading-relaxed max-w-3xl mx-auto">
+          研究历史
+        </h1>
+      </div>
+
+      <Card>
         <div className="space-y-4">
           {/* Filters */}
-          <div className="flex items-center gap-4 pb-4 border-b border-neutral-300">
-            <div className="flex-1">
-              <input
-                type="text"
-                placeholder="搜索批次ID或主题..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-              />
-            </div>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-            >
+          <div className="bg-white border border-gray-100 rounded-2xl shadow-md p-6 mb-6">
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <input
+                  type="text"
+                  placeholder="搜索批次ID或主题..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
               <option value="all">全部状态</option>
               <option value="completed">已完成</option>
               <option value="in-progress">某种努力中</option>
               <option value="failed">OMG出错了</option>
               <option value="cancelled">已取消</option>
             </select>
-          </div>
+              </div>
+            </div>
 
           {/* Loading State */}
           {loading && (
@@ -394,7 +404,7 @@ const HistoryPage: React.FC = () => {
                   {filteredSessions.map((session) => (
                     <div
                       key={session.batch_id}
-                      className="bg-neutral-white border border-neutral-300 rounded-lg p-4 hover:shadow-md transition-shadow"
+                      className="bg-white border border-gray-100 rounded-2xl p-6 hover:shadow-md transition-shadow"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
@@ -431,7 +441,7 @@ const HistoryPage: React.FC = () => {
                           <Button
                             variant="secondary"
                             size="sm"
-                            onClick={() => handleExportPdf(session.batch_id)}
+                            onClick={() => handleExportPdf(session.batch_id, session.session_id)}
                             isLoading={exportingBatchId === session.batch_id}
                             disabled={exportingBatchId !== null && exportingBatchId !== session.batch_id}
                           >
@@ -441,7 +451,7 @@ const HistoryPage: React.FC = () => {
                             <Button
                               variant="secondary"
                               size="sm"
-                              onClick={() => handleView(session.batch_id)}
+                              onClick={() => handleView(session.batch_id, session.session_id)}
                             >
                               查看报告
                             </Button>
@@ -450,7 +460,7 @@ const HistoryPage: React.FC = () => {
                             <Button
                               variant="primary"
                               size="sm"
-                              onClick={() => handleResume(session.batch_id)}
+                              onClick={() => handleResume(session.batch_id, session.session_id)}
                             >
                               继续
                             </Button>

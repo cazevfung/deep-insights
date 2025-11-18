@@ -32,6 +32,42 @@ Comprehensive plan to improve the research tool's prompt system - addressing rig
 
 ---
 
+## 🚀 **NEW: Server Migration Plan** (2025-01-XX)
+
+Comprehensive plan to migrate the Research Tool from a local file-based system to a cloud-hosted, multi-user platform with authentication, authorization, and report sharing capabilities.
+
+### Quick Start
+
+1. **[SERVER_MIGRATION_SUMMARY.md](./SERVER_MIGRATION_SUMMARY.md)** ⭐ **START HERE** (10 min read)
+   - Quick overview of migration goals and phases
+   - Key components and architecture decisions
+   - Migration checklist and timeline
+
+2. **[SERVER_MIGRATION_PLAN.md](./SERVER_MIGRATION_PLAN.md)** (40+ pages)
+   - Complete migration strategy and architecture design
+   - Database schema and API specifications
+   - Authentication, authorization, and report sharing systems
+   - Security considerations and deployment strategy
+   - Risk assessment and testing strategy
+
+3. **[SERVER_MIGRATION_IMPLEMENTATION_GUIDE.md](./SERVER_MIGRATION_IMPLEMENTATION_GUIDE.md)** (30+ pages)
+   - Step-by-step implementation with code examples
+   - Database setup and migration scripts
+   - Authentication and authorization implementation
+   - Report sharing implementation
+   - Frontend integration examples
+   - Deployment configuration
+
+**Key Features:**
+- User authentication with JWT tokens and refresh tokens
+- User isolation (users only see their own reports)
+- Report sharing with multiple share types (public, unlisted, private, password-protected)
+- PostgreSQL database with Redis cache
+- Cloud deployment with Docker containers
+- Comprehensive security measures
+
+---
+
 ## Structure
 
 - planning/ — Research plans, summaries, upgrades

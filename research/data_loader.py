@@ -180,6 +180,190 @@ class ResearchDataLoader:
         logger.info(f"Loaded {len(link_data)} content items from batch {batch_id}")
         return link_data
     
+    def load_scraped_data_for_link(self, link_id: str, batch_id: str, max_retries: int = 10, retry_delay: float = 0.5) -> Optional[Dict[str, Any]]:
+        """
+        Load scraped data for a single link_id from batch results.
+        
+        This is used in streaming mode to load data incrementally as items finish scraping.
+        Includes retry logic to handle race conditions where files may not be saved yet.
+        
+        Args:
+            link_id: Link identifier (e.g., "yt_demo1")
+            batch_id: Batch identifier (e.g., "251029_150500")
+            max_retries: Maximum number of retry attempts (default: 10)
+            retry_delay: Initial delay between retries in seconds (default: 0.5, uses exponential backoff)
+            
+        Returns:
+            Data structure for this link_id, or None if not found:
+            {
+                "transcript": {...},  # or "article"
+                "comments": [...],
+                "metadata": {...},
+                "source": "youtube" | "bilibili" | "reddit" | "article"
+            }
+        """
+        import time
+        
+        batch_dir = self.results_base_path / f"run_{batch_id}"
+        
+        # Retry logic: wait for batch directory and files to be created
+        for attempt in range(max_retries):
+            if not batch_dir.exists():
+                if attempt < max_retries - 1:
+                    wait_time = retry_delay * (2 ** attempt)  # Exponential backoff
+                    logger.debug(f"Batch directory not found (attempt {attempt + 1}/{max_retries}), waiting {wait_time:.2f}s: {batch_dir}")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logger.warning(f"Batch directory not found after {max_retries} attempts: {batch_dir}")
+                    return None
+            
+            # Directory exists, check if files are available and stable
+            matching_files = list(batch_dir.glob(f"*_{link_id}_*.json"))
+            
+            if not matching_files:
+                if attempt < max_retries - 1:
+                    wait_time = retry_delay * (2 ** attempt)
+                    logger.debug(f"No files found for link_id={link_id} (attempt {attempt + 1}/{max_retries}), waiting {wait_time:.2f}s")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logger.warning(f"No files found for link_id={link_id} after {max_retries} attempts in {batch_dir}")
+                    return None
+            
+            # Check if files are stable (not being written)
+            files_stable = True
+            for file_path in matching_files:
+                if not file_path.exists():
+                    files_stable = False
+                    break
+                # Check if file was recently modified (within last 0.5 seconds)
+                try:
+                    mtime = file_path.stat().st_mtime
+                    if time.time() - mtime < 0.5:
+                        files_stable = False
+                        break
+                except OSError:
+                    files_stable = False
+                    break
+            
+            if not files_stable and attempt < max_retries - 1:
+                wait_time = retry_delay * (2 ** attempt)
+                logger.debug(f"Files for link_id={link_id} not yet stable (attempt {attempt + 1}/{max_retries}), waiting {wait_time:.2f}s")
+                time.sleep(wait_time)
+                continue
+            
+            # Files exist and are stable, proceed with loading
+            break
+        
+        # Final check: ensure we have files before proceeding
+        matching_files = list(batch_dir.glob(f"*_{link_id}_*.json"))
+        if not matching_files:
+            logger.warning(f"No files found for link_id={link_id} in {batch_dir} after retries")
+            return None
+        
+        logger.info(f"Loading data for link_id={link_id} from batch {batch_id} (found {len(matching_files)} file(s))")
+        
+        # Initialize result structure
+        result = {
+            "transcript": None,
+            "comments": [],
+            "metadata": {},
+            "source": None,
+            "data_availability": {
+                "has_transcript": False,
+                "has_comments": False,
+                "transcript_word_count": 0,
+                "comment_count": 0
+            }
+        }
+        
+        # Find all JSON files for this link_id
+        # Pattern: {batch_id}_{SOURCE}_{link_id}_{type}.json
+        files_found = False
+        
+        for file_path in batch_dir.glob(f"*_{link_id}_*.json"):
+            files_found = True
+            file_name = file_path.stem
+            parts = file_name.split('_')
+            
+            if len(parts) < 4:
+                logger.warning(f"Unexpected filename format: {file_name}")
+                continue
+            
+            # Extract source prefix and file type
+            source_prefix = parts[2]  # YT, BILI, RD, etc.
+            file_type = parts[-1]  # tsct, cmts, cmt, etc.
+            
+            # Map source prefix to source type
+            source_mapping = {
+                "YT": "youtube",
+                "BILI": "bilibili",
+                "RD": "reddit",
+                "ARTICLE": "article"
+            }
+            source = source_mapping.get(source_prefix, source_prefix.lower())
+            result["source"] = source  # Will be overwritten if multiple files, but that's OK
+            
+            # Load JSON file
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                # Process based on file type
+                if file_type in ["tsct", "article"]:
+                    # Transcript or article content
+                    transcript_content = data.get("content", "")
+                    result["transcript"] = transcript_content
+                    
+                    # Update availability metadata
+                    word_count = len(transcript_content.split()) if transcript_content else 0
+                    result["data_availability"]["has_transcript"] = bool(transcript_content)
+                    result["data_availability"]["transcript_word_count"] = word_count
+                    
+                    result["metadata"].update({
+                        "title": data.get("title", ""),
+                        "author": data.get("author", ""),
+                        "url": data.get("url", ""),
+                        "word_count": data.get("word_count", word_count),
+                        "publish_date": data.get("publish_date", ""),
+                    })
+                    
+                    # Check if summary exists in file
+                    if "summary" in data:
+                        result["summary"] = data["summary"]
+                
+                elif file_type in ["cmts", "cmt"]:
+                    # Comments data
+                    comments = data.get("comments") or []
+                    if source == "youtube":
+                        # YouTube: comments is a list of strings
+                        if comments and isinstance(comments[0], dict) and "content" in comments[0]:
+                            comments = [c.get("content", "") for c in comments]
+                        result["comments"] = comments
+                    elif source == "bilibili":
+                        # Bilibili: comments is a list of objects with content and likes
+                        result["comments"] = comments
+                    elif source == "reddit":
+                        # Reddit: comments are embedded in content
+                        if "comments" in data:
+                            result["comments"] = comments
+                    
+                    # Update availability metadata
+                    result["data_availability"]["has_comments"] = bool(comments)
+                    result["data_availability"]["comment_count"] = len(comments)
+            
+            except Exception as e:
+                logger.error(f"Error loading file {file_path}: {str(e)}")
+                continue
+        
+        if not files_found:
+            logger.warning(f"No files found for link_id={link_id} in batch {batch_id}")
+            return None
+        
+        logger.debug(f"Loaded data for link_id={link_id}: transcript={bool(result['transcript'])}, comments={len(result['comments'])}")
+        return result
+    
     def create_abstract(
         self, 
         data: Dict[str, Any],

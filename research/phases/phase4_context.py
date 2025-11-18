@@ -140,6 +140,7 @@ class Phase4ContextBundle:
     research_plan: List[Dict[str, Any]]
     enable_auxiliary_artifacts: bool = False
     phase3_full_payload: str = ""
+    writing_style: str = "consultant"  # For dynamic partial resolution
 
     def component_questions_text(self) -> str:
         if not self.component_questions:
@@ -209,6 +210,8 @@ class Phase4ContextBundle:
             "research_role_rationale": self.research_role.get("rationale", ""),
             "synthesized_goal_topic": self.synthesized_goal_context.get("synthesized_topic", ""),
             "synthesized_goal_scope": self.synthesized_goal_context.get("research_scope", ""),
+            "synthesized_goal_unifying_theme": self.synthesized_goal_context.get("unifying_theme", ""),
+            "unifying_theme": self.synthesized_goal_context.get("unifying_theme", ""),
             "component_questions_text": self.component_questions_text(),
             "goal_alignment_table": self.goal_alignment_text(),
             "phase3_overall_summary": self.phase3_text_blocks.get("phase3_overall_summary", ""),
@@ -238,6 +241,7 @@ class Phase4ContextBundle:
             "evidence_catalog_json": json.dumps([record.to_dict() for record in self.evidence], ensure_ascii=False),
             "goal_alignment_json": json.dumps([row.to_dict() for row in self.goal_alignment], ensure_ascii=False),
             "research_plan_json": json.dumps(self.research_plan or [], ensure_ascii=False),
+            "writing_style": self.writing_style,  # For dynamic partial resolution
         }
         return context
 
@@ -304,6 +308,16 @@ def build_phase4_context_bundle(
     if not user_priority_notes and isinstance(phase1_5_output, dict):
         user_priority_notes = phase1_5_output.get("user_input", "")
 
+    # Get writing style for dynamic partial resolution
+    writing_style = session.get_metadata("writing_style", "professional") if session else "professional"
+    style_file_map = {
+        'professional': 'consultant',
+        'explanatory': 'explanatory',
+        'creative': 'creative',
+        'persuasive': 'persuasive',
+    }
+    writing_style_name = style_file_map.get(writing_style, 'consultant')
+
     phase3_text_blocks, structured_steps = format_phase3_for_synthesis(phase3_output, research_plan)
     steps, evidence_records = _extract_phase3_structures(phase3_output, structured_steps, research_plan)
 
@@ -332,6 +346,7 @@ def build_phase4_context_bundle(
         research_plan=research_plan,
         enable_auxiliary_artifacts=enable_auxiliary_artifacts,
         phase3_full_payload=phase3_full_payload,
+        writing_style=writing_style_name,
     )
 
     return bundle

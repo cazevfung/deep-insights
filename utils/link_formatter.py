@@ -89,11 +89,87 @@ def clean_url(url: str) -> str:
         return url
 
 
+def is_local_file_path(url_or_path: str) -> bool:
+    """
+    Check if input is a local file path.
+    
+    NEW function for backward compatibility - existing URL handling unchanged.
+    This function is conservative to avoid false positives with URLs.
+    
+    Args:
+        url_or_path: URL or file path string
+        
+    Returns:
+        True if it's a local file path, False otherwise
+    """
+    if not url_or_path or not isinstance(url_or_path, str):
+        return False
+    
+    url_or_path = url_or_path.strip()
+    
+    # Check for file:// protocol (explicit local file)
+    if url_or_path.startswith('file://'):
+        return True
+    
+    # Check for absolute Windows path (C:\ or \\)
+    if len(url_or_path) >= 3:
+        if url_or_path[1] == ':' or url_or_path.startswith('\\\\'):
+            return True
+    
+    # Check for relative path with common file extensions
+    # Conservative: Only if it doesn't look like a URL
+    if not url_or_path.startswith(('http://', 'https://', 'ftp://', 'ftps://')):
+        if any(url_or_path.endswith(ext) for ext in ['.md', '.txt', '.html', '.htm', '.pdf']):
+            # Additional check: doesn't contain URL-like patterns
+            if '://' not in url_or_path and '.' not in url_or_path.split('/')[-1].split('\\')[-1][:4]:
+                return True
+    
+    return False
+
+
+def normalize_file_path(path: str) -> str:
+    """
+    Convert local file path to file:// URL.
+    
+    NEW function for backward compatibility - existing URL handling unchanged.
+    
+    Args:
+        path: Local file path (absolute or relative)
+        
+    Returns:
+        file:// URL string
+        
+    Raises:
+        ValueError: If path cannot be resolved
+    """
+    from pathlib import Path
+    
+    if not path:
+        raise ValueError("Path cannot be empty")
+    
+    # Already a file:// URL, return as-is
+    if path.startswith('file://'):
+        return path
+    
+    try:
+        # Convert to absolute path (handles relative paths)
+        abs_path = Path(path).resolve()
+        
+        # Convert to file:// URL (use forward slashes for cross-platform compatibility)
+        return f"file:///{abs_path.as_posix()}"
+    except Exception as e:
+        raise ValueError(f"Failed to normalize file path '{path}': {e}")
+
+
 def infer_type_and_prefix(url: str) -> Tuple[str, str]:
     """Infer link type and id prefix from URL host.
 
     Returns (type, prefix). Unknown domains default to ("article", "art").
     """
+    # Check if it's a local file path first
+    if is_local_file_path(url):
+        return "article", "art"
+    
     try:
         host = urlparse(url).netloc.lower()
     except Exception:
@@ -106,11 +182,36 @@ def infer_type_and_prefix(url: str) -> Tuple[str, str]:
 
 
 def build_item(url: str, index_for_type: int) -> Dict[str, str]:
-    """Create a single link item dict matching tests/data/test_links.json format.
+    """
+    Create a single link item dict matching tests/data/test_links.json format.
+
+    BACKWARD COMPATIBLE: Existing URL handling unchanged.
+    NEW: Supports local file paths (graceful fallback if detection fails).
 
     id pattern: {prefix}_req{n}, where n is 1-based per type within this run.
     """
-    cleaned_url = clean_url(url.strip())
+    url = url.strip()
+    
+    # NEW: Check if it's a local file path (backward compatible addition)
+    # Graceful fallback: If detection fails or normalization fails, use existing URL handling
+    try:
+        if is_local_file_path(url):
+            try:
+                # Normalize to file:// URL
+                normalized_url = normalize_file_path(url)
+                # Treat as article type (consistent with existing behavior for unknown URLs)
+                item_id = f"art_req{index_for_type}"
+                return {"id": item_id, "type": "article", "url": normalized_url}
+            except (ValueError, Exception) as e:
+                # Graceful fallback: If normalization fails, treat as regular URL
+                # This ensures backward compatibility - existing URLs continue to work
+                pass
+    except Exception:
+        # Graceful fallback: If detection throws exception, use existing URL handling
+        pass
+    
+    # EXISTING URL handling (unchanged for backward compatibility)
+    cleaned_url = clean_url(url)
     link_type, prefix = infer_type_and_prefix(cleaned_url)
     item_id = f"{prefix}_req{index_for_type}"
     return {"id": item_id, "type": link_type, "url": cleaned_url}

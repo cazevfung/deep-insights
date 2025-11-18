@@ -1,0 +1,20 @@
+{
+  "success": true,
+  "video_id": "lVdajtNpaGI",
+  "url": "https://www.youtube.com/watch?v=lVdajtNpaGI",
+  "comments": [
+    "感謝李老師的教學， 每年都有在 Follow 李老師的課程， 最近有在用 AutoGen 寫 AI Agent， 這堂課真的受用無窮， 把原本一知半解的部分都搞懂了， 讓我現在對 AI Agent 的開發更得心應手。",
+    "### ML 課程 Multi-agent 系統 冰箱老師指揮： - 助教 agent 剪輯影片 - 助教 agent 教 RAG 實作 - 請太太 agent 拍蜥蜴照片 - AI agent 操縱電腦 - 網軍 agent 洗讚和留言 (沒)"
+  ],
+  "num_comments": 2,
+  "title": "【生成式人工智慧與機器學習導論2025】第 2 講：上下文工程 (Context Engineering) — AI Agent 背後的關鍵技術",
+  "author": "Hung-yi Lee",
+  "publish_date": "",
+  "source": "YouTube",
+  "word_count": 44,
+  "extraction_method": "youtube_comments",
+  "extraction_timestamp": "2025-11-15T16:06:41.517229",
+  "batch_id": "20251115_080615",
+  "link_id": "yt_req1_comments",
+  "error": null
+}

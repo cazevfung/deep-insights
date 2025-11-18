@@ -173,6 +173,31 @@ class ResearchSession:
         
         return session
     
+    @classmethod
+    def create_or_load(cls, session_id: str, base_path: Optional[Path] = None) -> 'ResearchSession':
+        """
+        Load existing session or create a new one if it doesn't exist.
+        
+        Args:
+            session_id: Session identifier (also used as batch_id)
+            base_path: Base path for sessions
+            
+        Returns:
+            ResearchSession instance (either loaded or newly created)
+        """
+        try:
+            # Try to load existing session
+            session = cls.load(session_id, base_path)
+            logger.info(f"Loaded existing session: {session_id}")
+            return session
+        except FileNotFoundError:
+            # Create new session if it doesn't exist
+            session = cls(session_id=session_id, base_path=base_path)
+            # Set batch_id in metadata
+            session.set_metadata("batch_id", session_id)
+            logger.info(f"Created new session: {session_id}")
+            return session
+    
     def update_scratchpad(
         self, 
         step_id: int, 
@@ -433,6 +458,264 @@ class ResearchSession:
             lines.append("...（已截断，更多历史内容未展示）")
 
         return "\n".join(lines) if lines else "暂无前序摘要。"
+    
+    def aggregate_all_phase3_outputs(
+        self,
+        upto_step_id: Optional[int] = None,
+        *,
+        token_cap: Optional[int] = None,
+    ) -> str:
+        """
+        Render cumulative digest text including ALL phase 3 step outputs.
+        Combines both digest summaries and full outputs from phase artifacts.
+
+        Args:
+            upto_step_id: exclusive upper bound (current step id).
+            token_cap: maximum tokens to include (approximate, 4 chars per token).
+        """
+        char_cap = None
+        if isinstance(token_cap, int) and token_cap > 0:
+            char_cap = max(200, token_cap * 4)
+
+        lines: List[str] = []
+        used = 0
+
+        # Get phase 3 artifact containing all step outputs
+        phase3_artifact = self.get_phase_artifact("phase3", {}) or {}
+        phase3_result = phase3_artifact.get("phase3_result", {}) if isinstance(phase3_artifact, dict) else {}
+        findings_list = phase3_result.get("findings", []) if isinstance(phase3_result, dict) else []
+
+        # Filter findings by step_id if upto_step_id is provided
+        filtered_findings = []
+        if upto_step_id is not None:
+            for finding in findings_list:
+                if isinstance(finding, dict):
+                    step_id = finding.get("step_id")
+                    if step_id is not None and isinstance(step_id, int) and step_id < upto_step_id:
+                        filtered_findings.append(finding)
+        else:
+            filtered_findings = findings_list
+
+        # Sort by step_id
+        filtered_findings.sort(key=lambda x: x.get("step_id", 0) if isinstance(x, dict) else 0)
+
+        # Track which step_ids we've processed from artifacts
+        processed_step_ids = set()
+        for finding in filtered_findings:
+            step_id = finding.get("step_id")
+            if step_id is not None:
+                processed_step_ids.add(step_id)
+
+        # Format each step output from artifacts (full outputs)
+        for finding in filtered_findings:
+            if not isinstance(finding, dict):
+                continue
+
+            step_id = finding.get("step_id")
+            findings_data = finding.get("findings", {})
+            
+            if not isinstance(findings_data, dict):
+                continue
+
+            # Get goal from digest if available, or use a placeholder
+            digest = self.step_digests.get(step_id) if step_id is not None else None
+            goal_text = digest.goal_text if digest and digest.goal_text else f"步骤 {step_id}"
+
+            # Header
+            header = f"步骤 {step_id}：{goal_text}".strip()
+            if char_cap and used + len(header) + 1 > char_cap:
+                break
+            lines.append(header)
+            used += len(header) + 1
+
+            # Summary
+            summary = findings_data.get("summary", "")
+            if isinstance(summary, str) and summary.strip():
+                summary_line = f"  摘要：{summary.strip()}"
+                if char_cap and used + len(summary_line) + 1 > char_cap:
+                    break
+                lines.append(summary_line)
+                used += len(summary_line) + 1
+
+            # Article (full article content)
+            article = findings_data.get("article", "")
+            if isinstance(article, str) and article.strip():
+                article_line = f"  完整文章：{article.strip()}"
+                if char_cap:
+                    # Truncate article if needed
+                    remaining = char_cap - used - len("  完整文章：\n")
+                    if remaining < len(article_line):
+                        article_line = f"  完整文章：{article[:remaining]}..."
+                    if used + len(article_line) + 1 > char_cap:
+                        break
+                lines.append(article_line)
+                used += len(article_line) + 1
+
+            # Points of Interest
+            poi = findings_data.get("points_of_interest", {})
+            if isinstance(poi, dict):
+                poi_sections = []
+                for key, values in poi.items():
+                    if not isinstance(values, list):
+                        continue
+                    for entry in values:
+                        if isinstance(entry, dict):
+                            # Extract text from various fields
+                            text = (
+                                entry.get("claim") or 
+                                entry.get("topic") or 
+                                entry.get("example") or 
+                                entry or 
+                                ""
+                            )
+                            if isinstance(text, str) and text.strip():
+                                poi_sections.append(f"{key}: {text.strip()}")
+                        elif isinstance(entry, str) and entry.strip():
+                            poi_sections.append(f"{key}: {entry.strip()}")
+                
+                if poi_sections:
+                    poi_text = " | ".join(poi_sections[:10])  # Limit to 10 items
+                    poi_line = f"  兴趣点：{poi_text}"
+                    if char_cap and used + len(poi_line) + 1 > char_cap:
+                        break
+                    lines.append(poi_line)
+                    used += len(poi_line) + 1
+
+            # Analysis Details
+            analysis_details = findings_data.get("analysis_details", {})
+            if isinstance(analysis_details, dict):
+                # Five whys
+                five_whys = analysis_details.get("five_whys", [])
+                if isinstance(five_whys, list) and five_whys:
+                    why_texts = []
+                    for why_entry in five_whys[:3]:  # Limit to first 3 levels
+                        if isinstance(why_entry, dict):
+                            question = why_entry.get("question", "")
+                            answer = why_entry.get("answer", "")
+                            if question and answer:
+                                why_texts.append(f"{question} → {answer}")
+                    if why_texts:
+                        why_line = f"  分析：{' | '.join(why_texts)}"
+                        if char_cap and used + len(why_line) + 1 > char_cap:
+                            break
+                        lines.append(why_line)
+                        used += len(why_line) + 1
+
+                # Assumptions
+                assumptions = analysis_details.get("assumptions", [])
+                if isinstance(assumptions, list) and assumptions:
+                    assump_text = " | ".join(str(a) for a in assumptions[:5] if a)
+                    if assump_text:
+                        assump_line = f"  假设：{assump_text}"
+                        if char_cap and used + len(assump_line) + 1 > char_cap:
+                            break
+                        lines.append(assump_line)
+                        used += len(assump_line) + 1
+
+                # Uncertainties
+                uncertainties = analysis_details.get("uncertainties", [])
+                if isinstance(uncertainties, list) and uncertainties:
+                    uncert_text = " | ".join(str(u) for u in uncertainties[:5] if u)
+                    if uncert_text:
+                        uncert_line = f"  不确定性：{uncert_text}"
+                        if char_cap and used + len(uncert_line) + 1 > char_cap:
+                            break
+                        lines.append(uncert_line)
+                        used += len(uncert_line) + 1
+
+            # Insights
+            insights = finding.get("insights", "")
+            if isinstance(insights, str) and insights.strip():
+                insights_line = f"  洞察：{insights.strip()}"
+                if char_cap and used + len(insights_line) + 1 > char_cap:
+                    break
+                lines.append(insights_line)
+                used += len(insights_line) + 1
+
+            # Confidence
+            confidence = finding.get("confidence")
+            if confidence is not None:
+                conf_line = f"  信心度：{confidence:.2f}"
+                if char_cap and used + len(conf_line) + 1 > char_cap:
+                    break
+                lines.append(conf_line)
+                used += len(conf_line) + 1
+
+            # Add separator between steps
+            if char_cap and used + 2 > char_cap:
+                break
+            lines.append("")
+            used += 1
+
+            if char_cap and used >= char_cap:
+                break
+
+        # Also include digests for steps that aren't in artifacts yet (for steps completed during current execution)
+        digests = self.get_step_digests_before(upto_step_id or 0) if upto_step_id else [
+            digest for _, digest in sorted(self.step_digests.items(), key=lambda item: item[0])
+        ]
+        
+        for digest in digests:
+            # Skip if we already processed this step from artifacts
+            if digest.step_id in processed_step_ids:
+                continue
+            
+            # Only include if it's before the current step
+            if upto_step_id is not None and digest.step_id >= upto_step_id:
+                continue
+            
+            # Format digest (summary format)
+            header = f"步骤 {digest.step_id}：{digest.goal_text}".strip()
+            if char_cap and used + len(header) + 1 > char_cap:
+                break
+            lines.append(header)
+            used += len(header) + 1
+
+            if digest.summary:
+                summary_line = f"  摘要：{digest.summary.strip()}"
+                if char_cap and used + len(summary_line) + 1 > char_cap:
+                    break
+                lines.append(summary_line)
+                used += len(summary_line) + 1
+
+            poi_text = "; ".join(digest.points_of_interest[:10]) if digest.points_of_interest else ""
+            if poi_text:
+                poi_line = f"  兴趣点：{poi_text}"
+                if char_cap and used + len(poi_line) + 1 > char_cap:
+                    break
+                lines.append(poi_line)
+                used += len(poi_line) + 1
+
+            if digest.notable_evidence:
+                for evidence in digest.notable_evidence[:5]:
+                    description = evidence.get("description") or evidence.get("quote") or ""
+                    if not description:
+                        continue
+                    ev_line = f"    证据：{description}"
+                    if char_cap and used + len(ev_line) + 1 > char_cap:
+                        break
+                    lines.append(ev_line)
+                    used += len(ev_line) + 1
+                if char_cap and used >= char_cap:
+                    break
+
+            # Add separator
+            if char_cap and used + 2 > char_cap:
+                break
+            lines.append("")
+            used += 1
+
+            if char_cap and used >= char_cap:
+                break
+
+        if char_cap and used >= char_cap:
+            lines.append("...（已截断，更多历史内容未展示）")
+
+        if not lines:
+            # Final fallback
+            return "暂无前序摘要。"
+
+        return "\n".join(lines)
     
     def set_metadata(self, key: str, value: Any):
         """Update metadata."""

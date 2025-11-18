@@ -73,6 +73,17 @@ class Phase2Finalize(BasePhase):
         # Phase 2 finalize runs AFTER Phase 1, so user_context should be available
         user_intent = self._get_user_intent_fields(include_post_phase1_feedback=True)
         
+        # Get writing style from session metadata
+        writing_style = self.session.get_metadata("writing_style", "professional") if self.session else "professional"
+        # Map style identifier to file name
+        style_file_map = {
+            'professional': 'consultant',
+            'explanatory': 'explanatory',
+            'creative': 'creative',
+            'persuasive': 'persuasive',
+        }
+        style_name = style_file_map.get(writing_style, 'consultant')
+        
         # Compose messages from externalized prompt templates
         context = {
             "goals_list": goals_list,
@@ -83,6 +94,7 @@ class Phase2Finalize(BasePhase):
             "research_role_rationale": role_context["research_role_rationale"],
             "user_guidance": user_intent["user_guidance"],
             "user_context": user_intent["user_context"],
+            "writing_style": style_name,  # For dynamic partial resolution
         }
         messages = compose_messages("phase2_finalize", context=context)
         
@@ -100,6 +112,7 @@ class Phase2Finalize(BasePhase):
                 "component": "finalization",
                 "phase_label": "2",
                 "goals_count": len(all_goals),
+                "enable_json_streaming": True,  # Enable real-time JSON parsing
             },
         )
         api_elapsed = time.time() - api_start_time
@@ -130,8 +143,7 @@ class Phase2Finalize(BasePhase):
         synthesized_goal = {
             "comprehensive_topic": synthesized_goal_raw.get("comprehensive_topic", ""),
             "component_questions": component_questions,  # Use Phase 1 questions directly
-            "unifying_theme": synthesized_goal_raw.get("unifying_theme", ""),
-            "research_scope": synthesized_goal_raw.get("research_scope", "")
+            "unifying_theme": synthesized_goal_raw.get("unifying_theme", "")
         }
         
         result = {

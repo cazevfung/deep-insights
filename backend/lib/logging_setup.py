@@ -35,6 +35,43 @@ class _InterceptHandler(logging.Handler):
         logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
 
 
+def _websocket_debug_filter(record) -> bool:
+    """Filter out DEBUG logs from websocket manager to reduce noise."""
+    # Skip DEBUG logs from the websocket manager module
+    if record["level"].name == "DEBUG" and record["name"] == "app.websocket.manager":
+        return False
+    return True
+
+
+def _safe_rotation_function(message, file) -> bool:
+    """
+    Custom rotation function that handles network drive errors gracefully.
+    
+    Returns True if rotation should occur, False otherwise.
+    This is safer than the default rotation check for network drives.
+    """
+    try:
+        # Try to check file size - this may fail on network drives
+        current_pos = file.tell()
+        try:
+            file.seek(0, 2)  # Seek to end
+            size = file.tell()
+            file.seek(current_pos)  # Restore position
+            # Rotate if file is larger than 10 MB
+            return size > 10 * 1024 * 1024
+        except OSError:
+            # If seek fails (e.g., on network drive), don't rotate
+            # Just try to restore position if possible
+            try:
+                file.seek(current_pos)
+            except OSError:
+                pass
+            return False
+    except Exception:
+        # If anything else fails, don't rotate
+        return False
+
+
 def _setup_stdlib_interception() -> None:
     """Route stdlib logging (incl. uvicorn) through Loguru sinks."""
     intercept_handler = _InterceptHandler()
@@ -76,14 +113,48 @@ def setup_logging(
         )
 
     LOG_FILE.parent.mkdir(exist_ok=True, parents=True)
-    logger.add(
-        str(LOG_FILE),
-        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
-        level="DEBUG",
-        rotation="10 MB",
-        retention="7 days",
-        enqueue=True,  # Safe when uvicorn reload/workers spawn new processes.
-    )
+    # Check if log file is on a network drive (UNC path)
+    is_network_drive = str(LOG_FILE).startswith("\\\\") or "\\\\" in str(LOG_FILE.resolve())
+    
+    try:
+        if is_network_drive:
+            # For network drives, use custom rotation function that handles errors gracefully
+            logger.add(
+                str(LOG_FILE),
+                format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+                level="DEBUG",
+                rotation=_safe_rotation_function,
+                retention="7 days",
+                enqueue=True,  # Safe when uvicorn reload/workers spawn new processes.
+                filter=_websocket_debug_filter,  # Filter out noisy websocket DEBUG logs
+                catch=True,  # Catch errors in the sink to prevent crashes
+            )
+        else:
+            # For local drives, use standard rotation
+            logger.add(
+                str(LOG_FILE),
+                format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+                level="DEBUG",
+                rotation="10 MB",
+                retention="7 days",
+                enqueue=True,  # Safe when uvicorn reload/workers spawn new processes.
+                filter=_websocket_debug_filter,  # Filter out noisy websocket DEBUG logs
+                catch=True,  # Catch errors in the sink to prevent crashes
+            )
+    except Exception as e:
+        # If file logging fails (e.g., network drive issues), try without rotation
+        logger.warning(f"Failed to add file sink with rotation: {e}. Trying without rotation.")
+        try:
+            logger.add(
+                str(LOG_FILE),
+                format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+                level="DEBUG",
+                enqueue=True,
+                filter=_websocket_debug_filter,
+                catch=True,
+            )
+        except Exception as e2:
+            logger.error(f"Failed to add file sink even without rotation: {e2}. File logging disabled.")
 
     if intercept_stdlib:
         _setup_stdlib_interception()

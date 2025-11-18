@@ -1,7 +1,7 @@
 """
 WebSocket UI adapter for DeepResearchAgent.
 """
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, Dict, Any
 import asyncio
 import threading
 import queue
@@ -26,6 +26,8 @@ class WebSocketUI:
         self.ws_manager = websocket_manager
         self.batch_id = batch_id
         self.stream_buffers: dict[str, str] = {}
+        # Track the last sent position for each stream to prevent duplicate sends
+        self._stream_sent_positions: dict[str, int] = {}
         self.main_loop = main_loop
         self.conversation_service = conversation_service
         self._loop_lock = threading.Lock()
@@ -200,25 +202,76 @@ class WebSocketUI:
         
         self.display_message(message, "info")
     
-    def display_stream(self, token: str, stream_id: str):
-        """Stream token via WebSocket."""
+    def display_stream(self, token: str, stream_id: str, reasoning_content: str = "None", content: str = "None"):
+        """Stream token via WebSocket.
+        
+        Per Alibaba Cloud SSE standard, tokens are incremental deltas.
+        Position tracking ensures each piece is only sent once to prevent duplication.
+        
+        Args:
+            token: Token text (legacy, for backward compatibility)
+            stream_id: Stream identifier
+            reasoning_content: Reasoning/thinking content (Qwen protocol)
+            content: Regular response content (Qwen protocol)
+        """
         if not stream_id:
             logger.warning("display_stream called without stream_id; defaulting to 'default'")
             stream_id = "default"
+        
+        # Get current buffer and last sent position
         existing = self.stream_buffers.get(stream_id, "")
-        self.stream_buffers[stream_id] = existing + token
-        coro = self._send_stream_token(token, stream_id)
+        last_sent_pos = self._stream_sent_positions.get(stream_id, 0)
+        
+        # Append delta token to buffer (SSE sends incremental chunks)
+        new_buffer = existing + token
+        
+        # Extract only the content that hasn't been sent yet
+        # This prevents duplicates if the same token is received multiple times
+        unsent_content = new_buffer[last_sent_pos:]
+        
+        # Check if we have new reasoning_content or content to send
+        # Even if unsent_content is empty, we should send if reasoning_content or content is not "None"
+        has_reasoning = reasoning_content != "None" and len(reasoning_content) > 0
+        has_content = content != "None" and len(content) > 0
+        has_new_token = len(unsent_content) > 0
+        
+        # Debug logging to detect duplicate sends
+        logger.debug(f"📤 display_stream: stream_id={stream_id}, token_len={len(token)}, unsent_len={len(unsent_content)}, reasoning={reasoning_content[:20] if reasoning_content != 'None' else 'None'}, content={content[:20] if content != 'None' else 'None'}, has_reasoning={has_reasoning}, has_content={has_content}")
+        
+        # Only skip if we have no new content AND no reasoning/content to send
+        if not has_new_token and not has_reasoning and not has_content:
+            # No new content to send, skip
+            logger.debug(f"⏭️ Skipping - no new content for {stream_id}")
+            return
+        
+        # Update buffer and sent position (only if we have new token content)
+        if has_new_token:
+            self.stream_buffers[stream_id] = new_buffer
+            self._stream_sent_positions[stream_id] = len(new_buffer)
+        
+        # Send the unsent content (or empty string if no new token) with Qwen protocol fields
+        # The frontend will use reasoning_content and content fields if they're not "None"
+        coro = self._send_stream_token(unsent_content if has_new_token else "", stream_id, reasoning_content, content)
         self._schedule_coroutine(coro)
         if self.conversation_service:
-            self.conversation_service.append_stream_token(self.batch_id, stream_id, token)
+            self.conversation_service.append_stream_token(self.batch_id, stream_id, unsent_content)
     
-    async def _send_stream_token(self, token: str, stream_id: str):
-        """Async helper to send stream token."""
+    async def _send_stream_token(self, token: str, stream_id: str, reasoning_content: str = "None", content: str = "None"):
+        """Async helper to send stream token following Qwen SSE protocol.
+        
+        Protocol:
+        - 若reasoning_content不为 None，content 为 None，则当前处于思考阶段
+        - 若reasoning_content为 None，content 不为 None，则当前处于回复阶段
+        - 若两者均为 None，则阶段与前一包一致
+        """
         try:
             await self.ws_manager.broadcast(self.batch_id, {
                 "type": "research:stream_token",
-                "token": token,
                 "stream_id": stream_id,
+                "reasoning_content": reasoning_content,
+                "content": content,
+                # Keep token for backward compatibility
+                "token": token,
             })
         except Exception as e:
             logger.error(f"Failed to broadcast stream token: {e}")
@@ -228,8 +281,9 @@ class WebSocketUI:
         if not stream_id:
             logger.warning("notify_stream_start called without stream_id; defaulting to 'default'")
             stream_id = "default"
-        # Reset buffer for this stream
+        # Reset buffer and sent position for this stream
         self.stream_buffers[stream_id] = ""
+        self._stream_sent_positions[stream_id] = 0
         coro = self._send_stream_start(stream_id, phase, metadata)
         self._schedule_coroutine(coro)
         if self.conversation_service:
@@ -277,8 +331,10 @@ class WebSocketUI:
         """Clear the streaming buffer."""
         if stream_id is None:
             self.stream_buffers.clear()
+            self._stream_sent_positions.clear()
         else:
             self.stream_buffers.pop(stream_id, None)
+            self._stream_sent_positions.pop(stream_id, None)
     
     def get_stream_buffer(self, stream_id: Optional[str] = None) -> str:
         """Get current stream buffer contents."""
@@ -289,6 +345,34 @@ class WebSocketUI:
             last_stream_id = next(reversed(self.stream_buffers))
             return self.stream_buffers.get(last_stream_id, "")
         return self.stream_buffers.get(stream_id, "")
+    
+    def display_json_update(self, stream_id: str, json_data: Dict[str, Any], is_complete: bool = False):
+        """
+        Send structured JSON update to frontend for real-time display.
+        
+        Args:
+            stream_id: Stream identifier
+            json_data: Parsed JSON data (may be partial)
+            is_complete: Whether the JSON object is complete
+        """
+        if not stream_id:
+            logger.warning("display_json_update called without stream_id; defaulting to 'default'")
+            stream_id = "default"
+        coro = self._send_json_update(stream_id, json_data, is_complete)
+        self._schedule_coroutine(coro)
+    
+    async def _send_json_update(self, stream_id: str, json_data: Dict[str, Any], is_complete: bool):
+        """Async helper to send JSON update."""
+        try:
+            await self.ws_manager.broadcast(self.batch_id, {
+                "type": "research:json_update",
+                "stream_id": stream_id,
+                "json_data": json_data,
+                "is_complete": is_complete,
+                "timestamp": datetime.now().isoformat(),
+            })
+        except Exception as e:
+            logger.error(f"Failed to broadcast JSON update: {e}")
     
     def notify_phase_change(self, phase: str, phase_name: str = None):
         """Notify frontend of phase transition."""
@@ -558,12 +642,35 @@ class WebSocketUI:
         total_items: int,
         link_id: str,
         stage: str,
-        message: str
+        message: str,
+        progress: Optional[float] = None,
+        completed_items: Optional[int] = None,
+        processing_items: Optional[int] = None,
+        queued_items: Optional[int] = None,
+        worker_id: Optional[int] = None,
     ):
-        """Send summarization progress update."""
-        progress = (current_item / total_items) * 100 if total_items > 0 else 0
+        """
+        Send summarization progress update.
+        
+        Args:
+            current_item: Current item count (for backward compatibility)
+            total_items: Total items count
+            link_id: Link identifier
+            stage: Current stage (queued, processing, completed, error, reused)
+            message: Status message
+            progress: Progress percentage (0-100). If None, calculated from current_item/total_items
+            completed_items: Number of completed items (optional)
+            processing_items: Number of items currently being processed (optional)
+            queued_items: Number of items in queue (optional)
+            worker_id: Worker ID processing current item (optional)
+        """
+        # Calculate progress if not provided (backward compatibility)
+        if progress is None:
+            progress = (current_item / total_items) * 100 if total_items > 0 else 0
+        
         coro = self._send_summarization_progress(
-            current_item, total_items, link_id, stage, message, progress
+            current_item, total_items, link_id, stage, message, progress,
+            completed_items, processing_items, queued_items, worker_id
         )
         self._schedule_coroutine(coro)
     
@@ -574,21 +681,37 @@ class WebSocketUI:
         link_id: str,
         stage: str,
         message: str,
-        progress: float
+        progress: float,
+        completed_items: Optional[int] = None,
+        processing_items: Optional[int] = None,
+        queued_items: Optional[int] = None,
+        worker_id: Optional[int] = None,
     ):
         """Async helper to send summarization progress."""
         try:
             payload = {
                 "type": "summarization:progress",
                 "batch_id": self.batch_id,
+                # EXISTING fields (keep for backward compatibility)
                 "current_item": current_item,
                 "total_items": total_items,
                 "link_id": link_id,
                 "stage": stage,
                 "progress": progress,
                 "message": message,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
+            
+            # NEW optional fields (only include if not None)
+            if completed_items is not None:
+                payload["completed_items"] = completed_items
+            if processing_items is not None:
+                payload["processing_items"] = processing_items
+            if queued_items is not None:
+                payload["queued_items"] = queued_items
+            if worker_id is not None:
+                payload["worker_id"] = worker_id
+            
             logger.debug(f"Broadcasting summarization progress to batch {self.batch_id}: {message}")
             await self.ws_manager.broadcast(self.batch_id, payload)
         except Exception as e:

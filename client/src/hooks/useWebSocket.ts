@@ -6,6 +6,9 @@ import { useUiStore } from '../stores/uiStore'
 const wsConnections = new Map<string, WebSocket>()
 const wsConnectionRefs = new Map<string, Set<React.RefObject<WebSocket | null>>>()
 
+// Track if we've already set up the message handler for a connection
+const wsMessageHandlersSet = new Set<string>()
+
 export const useWebSocket = (batchId: string) => {
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectAttemptsRef = useRef(0)
@@ -25,8 +28,10 @@ export const useWebSocket = (batchId: string) => {
     setSynthesizedGoal,
     startStream,
     appendStreamToken,
+    appendReasoningToken,
     completeStream,
     setStreamError,
+    updateStreamJson,
     setActiveStream,
     pinStream,
     unpinStream,
@@ -85,6 +90,7 @@ export const useWebSocket = (batchId: string) => {
                   }
                   wsConnections.delete(stableBatchId)
                   wsConnectionRefs.delete(stableBatchId)
+                  wsMessageHandlersSet.delete(stableBatchId)
                 }
               }, 1000) // 1 second delay to allow reconnection
             } else {
@@ -97,6 +103,7 @@ export const useWebSocket = (batchId: string) => {
               }
               wsConnections.delete(stableBatchId)
               wsConnectionRefs.delete(stableBatchId)
+              wsMessageHandlersSet.delete(stableBatchId)
             }
           }
         } else {
@@ -137,6 +144,9 @@ export const useWebSocket = (batchId: string) => {
       }
       wsConnectionRefs.get(stableBatchId)!.add(wsRef)
       
+      // Don't attach duplicate message handlers - they're already set up
+      console.log(`Message handler already attached for batchId ${stableBatchId}, skipping`)
+      
       return cleanup
     }
 
@@ -167,15 +177,23 @@ export const useWebSocket = (batchId: string) => {
           addNotification('已连接到服务器', 'success')
         }
 
-        ws.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data)
-            console.log('WebSocket message received:', data.type, data)
-            console.log('Full WebSocket message data:', JSON.stringify(data, null, 2))
-            handleMessage(data)
-          } catch (error) {
-            console.error('Failed to parse WebSocket message:', error, 'Raw data:', event.data)
+        // Only set up message handler once per connection to prevent duplicate processing
+        if (!wsMessageHandlersSet.has(stableBatchId)) {
+          console.log(`Setting up message handler for batchId ${stableBatchId}`)
+          wsMessageHandlersSet.add(stableBatchId)
+          
+          ws.onmessage = (event) => {
+            try {
+              const data = JSON.parse(event.data)
+              console.log('WebSocket message received:', data.type, data)
+              console.log('Full WebSocket message data:', JSON.stringify(data, null, 2))
+              handleMessage(data)
+            } catch (error) {
+              console.error('Failed to parse WebSocket message:', error, 'Raw data:', event.data)
+            }
           }
+        } else {
+          console.log(`Message handler already exists for batchId ${stableBatchId}, skipping setup`)
         }
 
         ws.onerror = (error) => {
@@ -194,6 +212,7 @@ export const useWebSocket = (batchId: string) => {
           if (wsConnections.get(stableBatchId) === ws) {
             wsConnections.delete(stableBatchId)
             wsConnectionRefs.delete(stableBatchId)
+            wsMessageHandlersSet.delete(stableBatchId)
           }
           
           // Don't reconnect if manually closed
@@ -261,12 +280,18 @@ export const useWebSocket = (batchId: string) => {
           // Update summarization progress
           updateResearchAgentStatus({
             summarizationProgress: {
+              // EXISTING fields (keep for backward compatibility)
               currentItem: data.current_item || 0,
               totalItems: data.total_items || 0,
               linkId: data.link_id || '',
               stage: data.stage || '',
               progress: data.progress || 0,
               message: data.message || '',
+              // NEW optional fields (only include if present)
+              ...(data.completed_items !== undefined && { completedItems: data.completed_items }),
+              ...(data.processing_items !== undefined && { processingItems: data.processing_items }),
+              ...(data.queued_items !== undefined && { queuedItems: data.queued_items }),
+              ...(data.worker_id !== undefined && { workerId: data.worker_id }),
             },
             // Also update currentAction to show the message
             currentAction: data.message || null,
@@ -344,6 +369,10 @@ export const useWebSocket = (batchId: string) => {
           break
 
         case 'scraping:status':
+          // CRITICAL: This message contains AUTHORITATIVE counts from the backend
+          // These counts are calculated from the backend's complete state and should be trusted
+          // Do NOT recalculate counts from the items array - it may be incomplete or out of sync
+          
           // Normalize status format in items (handle both snake_case and kebab-case)
           const normalizedItems = (data.items || []).map((item: any) => ({
             ...item,
@@ -358,9 +387,9 @@ export const useWebSocket = (batchId: string) => {
           
           const statusUpdate: any = {
             total: data.total || 0,  // Keep for backward compatibility (started processes)
-            completed: data.completed || 0,
-            failed: data.failed || 0,
-            inProgress: data.inProgress || 0,
+            completed: data.completed || 0,  // AUTHORITATIVE: Backend's completed count
+            failed: data.failed || 0,  // AUTHORITATIVE: Backend's failed count
+            inProgress: data.inProgress || 0,  // AUTHORITATIVE: Backend's in-progress count (only actual in-progress, not pending)
             items: normalizedItems,
             // Use completion rate and flags from backend (calculated against expected_total)
             completionRate: data.completion_rate ?? 0.0,
@@ -511,9 +540,81 @@ export const useWebSocket = (batchId: string) => {
 
         case 'research:stream_token':
           if (data.stream_id) {
-            appendStreamToken(data.stream_id, data.token || '')
+            // Protocol from Alibaba Cloud Qwen API:
+            // - 若reasoning_content不为 None，content 为 None，则当前处于思考阶段
+            // - 若reasoning_content为 None，content 不为 None，则当前处于回复阶段
+            // - 若两者均为 None，则阶段与前一包一致
+            
+            // Check if field is "not None" - only check for the string "None"
+            const isNotNone = (value: any) => value !== 'None'
+            
+            const hasReasoningContent = isNotNone(data.reasoning_content)
+            const hasContent = isNotNone(data.content)
+            
+            console.log('🔍 Token packet:', {
+              hasReasoningContent,
+              hasContent,
+              reasoning_raw: data.reasoning_content,
+              content_raw: data.content,
+              reasoning_preview: typeof data.reasoning_content === 'string' ? data.reasoning_content.substring(0, 30) : data.reasoning_content,
+              content_preview: typeof data.content === 'string' ? data.content.substring(0, 30) : data.content,
+              token: data.token?.substring(0, 30) || 'null',
+            })
+            
+            // Thinking phase: reasoning_content is not None, content is None
+            if (hasReasoningContent && !hasContent) {
+              console.log('💭 THINKING PHASE - Reasoning token:', data.reasoning_content.substring(0, 30))
+              appendReasoningToken(data.stream_id, data.reasoning_content)
+            }
+            // Response phase: content is not None, reasoning_content is None  
+            else if (hasContent && !hasReasoningContent) {
+              console.log('💬 RESPONSE PHASE - Content token:', data.content.substring(0, 30))
+              appendStreamToken(data.stream_id, data.content)
+            }
+            // Both present: this shouldn't happen according to protocol, but handle it
+            else if (hasReasoningContent && hasContent) {
+              console.warn('⚠️ Both reasoning and content present (unusual):', {
+                reasoning: data.reasoning_content.substring(0, 20),
+                content: data.content.substring(0, 20),
+              })
+              appendReasoningToken(data.stream_id, data.reasoning_content)
+              appendStreamToken(data.stream_id, data.content)
+            }
+            // Both None: phase continues from previous packet
+            // Check if we have a legacy 'token' field - treat as regular content by default
+            else if (data.token) {
+              console.log('⚠️ Legacy token field (treating as content):', data.token.substring(0, 30))
+              // Treat as regular content (not reasoning) by default
+              appendStreamToken(data.stream_id, data.token)
+            }
+            
+            // Also support delta format (for compatibility)
+            if (data.delta) {
+              const hasReasoningDelta = isNotNone(data.delta.reasoning_content)
+              const hasContentDelta = isNotNone(data.delta.content)
+              
+              if (hasReasoningDelta && !hasContentDelta) {
+                console.log('💭 THINKING PHASE - Reasoning delta:', data.delta.reasoning_content.substring(0, 30))
+                appendReasoningToken(data.stream_id, data.delta.reasoning_content)
+              } else if (hasContentDelta && !hasReasoningDelta) {
+                console.log('💬 RESPONSE PHASE - Content delta:', data.delta.content.substring(0, 30))
+                appendStreamToken(data.stream_id, data.delta.content)
+              }
+            }
           } else {
             console.warn('Received stream token without stream_id, ignoring')
+          }
+          break
+
+        case 'research:json_update':
+          if (data.stream_id && data.json_data) {
+            console.log('[JSON Update]', data.stream_id, {
+              isComplete: data.is_complete,
+              jsonData: data.json_data,
+            })
+            updateStreamJson(data.stream_id, data.json_data, data.is_complete || false)
+          } else {
+            console.warn('Received json_update without stream_id or json_data, ignoring', data)
           }
           break
 

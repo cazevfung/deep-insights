@@ -391,6 +391,14 @@ def _collect_session_records() -> List[Dict[str, Any]]:
     return records
 
 
+def _find_session_by_session_id(session_id: str) -> Optional[Dict[str, Any]]:
+    """Find a session record by session ID (most precise lookup)."""
+    for record in _collect_session_records():
+        if record["session_id"] == session_id:
+            return record
+    return None
+
+
 def _find_session_by_batch(batch_id: str) -> Optional[Dict[str, Any]]:
     """Find the most recent session record for a given batch ID."""
     sessions = [
@@ -485,16 +493,34 @@ async def list_history(
 
 
 @router.get("/{batch_id}")
-async def get_history_session(batch_id: str) -> Dict[str, Any]:
-    """Return detailed session information for a batch."""
+async def get_history_session(
+    batch_id: str,
+    session_id: Optional[str] = Query(default=None, description="Optional session_id for precise lookup")
+) -> Dict[str, Any]:
+    """Return detailed session information for a batch.
+    
+    If session_id is provided, it will be used for precise lookup.
+    Otherwise, falls back to finding the most recent session for the batch_id.
+    """
     try:
-        record = _find_session_by_batch(batch_id)
+        # If session_id is provided, use it for precise lookup (fixes bug where wrong session is returned)
+        if session_id:
+            record = _find_session_by_session_id(session_id)
+            # Verify that the session_id matches the batch_id to prevent mismatches
+            if record and record["batch_id"] != batch_id:
+                logger.warning(
+                    f"Session {session_id} has batch_id {record['batch_id']} but request specified {batch_id}. "
+                    f"Using session_id for lookup."
+                )
+        else:
+            record = _find_session_by_batch(batch_id)
+        
         if not record:
             raise HTTPException(status_code=404, detail="Session not found")
 
         metadata = record["metadata"]
         session_data = record["session_data"]
-        session_id = record["session_id"]
+        resolved_session_id = record["session_id"]
         status = record["status"]
 
         scraping_status = _build_scraping_status(metadata, status)
@@ -503,7 +529,7 @@ async def get_history_session(batch_id: str) -> Dict[str, Any]:
 
         details = {
             "batch_id": batch_id,
-            "session_id": session_id,
+            "session_id": resolved_session_id,
             "status": status,
             "raw_status": record["raw_status"],
             "created_at": record["created_at"],

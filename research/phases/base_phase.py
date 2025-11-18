@@ -3,11 +3,14 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
 from uuid import uuid4
+
 from loguru import logger
 
 from research.client import QwenStreamingClient
 from research.progress_tracker import ProgressTracker
 from research.session import ResearchSession
+from research.utils.json_sanitizer import sanitize_json_stream_text
+from research.utils.streaming_json_parser import StreamingJSONParser
 
 
 class BasePhase(ABC):
@@ -125,6 +128,10 @@ class BasePhase(ABC):
                         f"Phase config loaded: model={self.phase_model}, "
                         f"enable_thinking={self.phase_enable_thinking}, stream={self.phase_stream}"
                     )
+                    if self.phase_enable_thinking:
+                        self.logger.debug(f"✅ Reasoning/thinking mode ENABLED for {phase_key}")
+                    else:
+                        self.logger.debug(f"❌ Reasoning/thinking mode DISABLED for {phase_key}")
                 else:
                     self.logger.warning(f"No phase config found for {phase_key}, using defaults")
                     self.phase_model = None
@@ -225,19 +232,50 @@ class BasePhase(ABC):
         heartbeat_thread = threading.Thread(target=heartbeat_worker, daemon=True)
         heartbeat_thread.start()
         
-        def callback(token: str):
-            nonlocal token_count, last_update_time, last_token_time, stream_id
+        # Initialize streaming JSON parser if enabled for this phase
+        json_parser = None
+        enable_json_streaming = stream_metadata and stream_metadata.get("enable_json_streaming", False)
+        if enable_json_streaming and self.ui and stream_id:
+            def on_json_update(parsed_data: Dict[str, Any], is_complete: bool):
+                """Callback for JSON updates from streaming parser."""
+                if self.ui and stream_id:
+                    self.ui.display_json_update(stream_id, parsed_data, is_complete)
+            
+            json_parser = StreamingJSONParser(on_update=on_json_update)
+        
+        def callback(token: str, reasoning_content: str = "None", content: str = "None"):
+            """
+            Streaming callback supporting Qwen protocol.
+            
+            Args:
+                token: Token text (legacy, for backward compatibility)
+                reasoning_content: Reasoning/thinking content from Qwen API
+                content: Regular response content from Qwen API
+            """
+            nonlocal token_count, last_update_time, last_token_time, stream_id, json_parser
             
             token_count += 1
             current_time = time.time()
             last_token_time = current_time  # Update last token time
+            
+            # Debug logging to detect duplicate calls
+            logger.debug(f"📞 Callback called: token='{token[:20]}...', reasoning='{reasoning_content[:20] if reasoning_content != 'None' else 'None'}', content='{content[:20] if content != 'None' else 'None'}'")
             
             # Update progress tracker
             if self.progress_tracker:
                 self.progress_tracker.stream_update(token)
             
             if self.ui and stream_id:
-                self.ui.display_stream(token, stream_id)
+                self.ui.display_stream(token, stream_id, reasoning_content, content)
+            
+            # Try to parse JSON incrementally if enabled
+            if json_parser:
+                try:
+                    sanitized_token = sanitize_json_stream_text(token)
+                    json_parser.feed(sanitized_token)
+                except Exception as e:
+                    # Don't fail the stream if JSON parsing fails
+                    self.logger.debug(f"Streaming JSON parse error (non-fatal): {e}")
             
             # Send periodic progress updates to UI
             if self.ui and (token_count % 10 == 0 or current_time - last_update_time >= update_interval):
@@ -275,9 +313,18 @@ class BasePhase(ABC):
                 self.logger.warning(f"Failed to log prompt payload: {e}")
 
         try:
+            # For Phase 4 article generation, exclude reasoning_content from final text
+            # reasoning_content will still be sent to callback for UI display
+            exclude_reasoning = (
+                self._get_phase_config_key() == "phase4" and
+                stream_metadata and
+                stream_metadata.get("component") == "phase4-article"
+            )
+            
             response, usage = self.client.stream_and_collect(
                 messages,
                 callback=callback,
+                exclude_reasoning_content=exclude_reasoning,
                 **final_kwargs
             )
         finally:

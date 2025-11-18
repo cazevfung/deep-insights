@@ -670,6 +670,7 @@ def run_all_scrapers_direct(
         }
     
     # Define scraper configurations
+    # v3: Only transcript scrapers are used; comment scrapers have been removed.
     scraper_configs = [
         {
             'scraper_class': YouTubeScraper,
@@ -679,22 +680,8 @@ def run_all_scrapers_direct(
             'kwargs': {'headless': False}
         },
         {
-            'scraper_class': YouTubeCommentsScraper,
-            'scraper_name': 'youtubecomments',
-            'link_type': 'youtube',
-            'links': link_types['youtube'],
-            'kwargs': {'headless': False}
-        },
-        {
             'scraper_class': BilibiliScraper,
             'scraper_name': 'bilibili',
-            'link_type': 'bilibili',
-            'links': link_types['bilibili'],
-            'kwargs': {}
-        },
-        {
-            'scraper_class': BilibiliCommentsScraper,
-            'scraper_name': 'bilibilicomments',
             'link_type': 'bilibili',
             'links': link_types['bilibili'],
             'kwargs': {}
@@ -819,5 +806,258 @@ def run_all_scrapers_direct(
         'passed': passed,
         'total': total,
         'success': passed > 0  # At least one scraper succeeded
+    }
+
+
+def run_all_scrapers_direct_v2(
+    progress_callback: Optional[Callable[[dict], None]] = None,
+    batch_id: Optional[str] = None,
+    cancellation_checker: Optional[Callable[[], bool]] = None,
+    worker_pool_size: int = 8
+) -> Dict[str, Any]:
+    """
+    Run all scrapers using the new centralized control center with dynamic worker pool.
+    
+    This version uses a centralized control center that maintains a constant pool
+    of active workers (default 8) and dynamically assigns tasks from a unified queue.
+    When a worker completes, it immediately picks up the next task, ensuring
+    maximum efficiency and resource utilization.
+    
+    Args:
+        progress_callback: Optional callable(message: dict) for progress updates.
+                          Will be called with progress messages as scrapers run.
+        batch_id: Optional batch ID. If not provided, will be loaded from TestLinksLoader.
+        cancellation_checker: Optional function that returns True if cancelled.
+        worker_pool_size: Number of parallel workers (default: 8)
+        
+    Returns:
+        Dict with batch_id, success status, and results
+    """
+    from backend.lib.scraping_control_center import (
+        ScrapingControlCenter,
+        ScrapingTask,
+        TaskStatus
+    )
+    
+    workflow_start_time = time.time()
+    
+    if progress_callback:
+        _safe_callback_invoke(
+            progress_callback,
+            {
+                'type': 'scraping:start',
+                'message': '开始抓取内容...',
+                'batch_id': batch_id
+            },
+            batch_id or 'unknown',
+            'workflow'
+        )
+    else:
+        logger.info("Starting all scrapers with control center...")
+    
+    # Load test links
+    try:
+        loader = TestLinksLoader()
+        loaded_batch_id = loader.get_batch_id()
+        batch_id = batch_id or loaded_batch_id
+    except Exception as e:
+        logger.error(f"Failed to load test links: {e}")
+        return {
+            'batch_id': batch_id or 'unknown',
+            'success': False,
+            'error': f'Failed to load test links: {e}'
+        }
+    
+    # Get links by type
+    link_types = {
+        'youtube': loader.get_links('youtube'),
+        'bilibili': loader.get_links('bilibili'),
+        'reddit': loader.get_links('reddit'),
+        'article': loader.get_links('article'),
+    }
+    
+    total_links = sum(len(links) for links in link_types.values())
+    
+    if progress_callback:
+        _safe_callback_invoke(
+            progress_callback,
+            {
+                'type': 'scraping:discover',
+                'message': f'发现 {total_links} 个链接',
+                'total_links': total_links,
+                'batch_id': batch_id
+            },
+            batch_id,
+            'workflow'
+        )
+    
+    if total_links == 0:
+        logger.warning("No links found in test links file")
+        return {
+            'batch_id': batch_id,
+            'success': False,
+            'error': 'No links found',
+            'passed': 0,
+            'total': 0
+        }
+    
+    # Create tasks for all links
+    tasks: List[ScrapingTask] = []
+    task_id_counter = 0
+    
+    # YouTube links - v3: create transcript tasks only (no comment scraping)
+    for link in link_types['youtube']:
+        task_id_counter += 1
+        tasks.append(ScrapingTask(
+            task_id=f"task_{task_id_counter:06d}",
+            link_id=link['id'],
+            url=link['url'],
+            link_type='youtube',
+            scraper_type='youtube',
+            batch_id=batch_id
+        ))
+    
+    # Bilibili links - v3: create transcript tasks only (no comment scraping)
+    for link in link_types['bilibili']:
+        task_id_counter += 1
+        tasks.append(ScrapingTask(
+            task_id=f"task_{task_id_counter:06d}",
+            link_id=link['id'],
+            url=link['url'],
+            link_type='bilibili',
+            scraper_type='bilibili',
+            batch_id=batch_id
+        ))
+    
+    # Article links
+    for link in link_types['article']:
+        task_id_counter += 1
+        tasks.append(ScrapingTask(
+            task_id=f"task_{task_id_counter:06d}",
+            link_id=link['id'],
+            url=link['url'],
+            link_type='article',
+            scraper_type='article',
+            batch_id=batch_id
+        ))
+    
+    # Reddit links
+    for link in link_types['reddit']:
+        task_id_counter += 1
+        tasks.append(ScrapingTask(
+            task_id=f"task_{task_id_counter:06d}",
+            link_id=link['id'],
+            url=link['url'],
+            link_type='reddit',
+            scraper_type='reddit',
+            batch_id=batch_id
+        ))
+    
+    logger.info(f"Created {len(tasks)} tasks for {total_links} links")
+    
+    # Create control center
+    control_center = ScrapingControlCenter(
+        worker_pool_size=worker_pool_size,
+        progress_callback=progress_callback,
+        cancellation_checker=cancellation_checker
+    )
+    
+    # Add all tasks
+    control_center.add_tasks(tasks)
+    
+    # Start control center
+    control_center.start()
+    
+    # Wait for completion
+    try:
+        completed = control_center.wait_for_completion()
+        
+        if not completed:
+            logger.warning("Control center did not complete all tasks")
+    except KeyboardInterrupt:
+        logger.info("Interrupted by user, shutting down...")
+        control_center.shutdown(wait=True, timeout=30.0)
+        raise
+    except Exception as e:
+        logger.error(f"Error during execution: {e}", exc_info=True)
+        control_center.shutdown(wait=True, timeout=30.0)
+        raise
+    finally:
+        # Shutdown control center
+        control_center.shutdown(wait=True, timeout=30.0)
+    
+    # Collect results for statistics
+    all_tasks = control_center.state_tracker.get_all_tasks()
+    all_results = []
+    
+    for task in all_tasks:
+        if task.result:
+            all_results.append(task.result)
+    
+    # NOTE: Results are now saved incrementally in _handle_worker_completion
+    # via _save_single_result, so we don't need to save them again here.
+    # This prevents duplication and ensures files are available immediately.
+    
+    # Calculate success rate
+    passed = sum(1 for r in all_results if r.get('success'))
+    total = len(all_results)
+    
+    workflow_elapsed = time.time() - workflow_start_time
+    
+    # Get statistics
+    stats = control_center.get_statistics()
+    logger.info(
+        f"Control center statistics: "
+        f"completed={stats['tasks']['completed']}, "
+        f"failed={stats['tasks']['failed']}, "
+        f"race_conditions={stats['race_conditions_detected']}, "
+        f"elapsed={stats['elapsed_seconds']:.2f}s"
+    )
+    
+    if progress_callback:
+        _safe_callback_invoke(
+            progress_callback,
+            {
+                'type': 'scraping:complete',
+                'message': f'抓取完成: {passed}/{total} 成功',
+                'passed': passed,
+                'total': total,
+                'batch_id': batch_id
+            },
+            batch_id,
+            'workflow'
+        )
+        
+        # Wait a bit for final status updates to be processed
+        logger.debug(f"[VERIFY] Waiting 0.5s for status updates to process before verification...")
+        time.sleep(0.5)
+        
+        # Send request to verify completion
+        logger.info(f"[VERIFY] Sending verify_completion request for batch {batch_id}")
+        _safe_callback_invoke(
+            progress_callback,
+            {
+                'type': 'scraping:verify_completion',
+                'batch_id': batch_id,
+                'message': 'Verifying all scraping processes are complete...'
+            },
+            batch_id,
+            'workflow'
+        )
+    else:
+        logger.info(f"Scrapers Summary: {passed}/{total} passed")
+    
+    if DEBUG_MODE:
+        logger.info(
+            f"[DEBUG] Control center stats: {stats}, "
+            f"workflow_elapsed={workflow_elapsed:.2f}s"
+        )
+    
+    return {
+        'batch_id': batch_id,
+        'passed': passed,
+        'total': total,
+        'success': passed > 0,  # At least one scraper succeeded
+        'statistics': stats
     }
 

@@ -20,6 +20,7 @@ import {
   XCircle,
   ChevronDown,
   ChevronUp,
+  MessageCircle,
 } from 'react-feather'
 
 /**
@@ -47,6 +48,7 @@ export type IconName =
   | 'x-circle'
   | 'chevron-down'
   | 'chevron-up'
+  | 'message-circle'
 
 /**
  * Icon mapping from names to components
@@ -73,6 +75,7 @@ const iconMap: Record<IconName, React.ComponentType<any>> = {
   'x-circle': XCircle,
   'chevron-down': ChevronDown,
   'chevron-up': ChevronUp,
+  'message-circle': MessageCircle,
 }
 
 /**

@@ -3,17 +3,12 @@ import ReactMarkdown from 'react-markdown'
 import { Icon } from '../common/Icon'
 import {
   Phase3StepContentModel,
-  Phase3StepEvidence,
   Phase3StepKeyClaim,
-  FiveWhyItem,
 } from '../../hooks/usePhase3Steps'
 
 interface Phase3StepContentProps {
   content: Phase3StepContentModel
   confidence?: number | null
-  showRawData: boolean
-  onToggleRawData: () => void
-  rawStep?: unknown
 }
 
 const baseSectionClass = 'bg-neutral-50 rounded-lg p-4'
@@ -55,88 +50,22 @@ const KeyClaims: React.FC<{ claims: Phase3StepKeyClaim[] }> = ({ claims }) => {
       <div className="space-y-3">
         {claims.map((claim, index) => (
           <div key={index} className="bg-white rounded-lg p-4 border border-neutral-200">
-            <div className="font-medium text-neutral-800 mb-2">{claim.claim}</div>
+            <div className="font-medium text-neutral-800 mb-2">
+              <ReactMarkdown>{claim.claim}</ReactMarkdown>
+            </div>
             {claim.supportingEvidence && (
-              <div className="text-sm text-neutral-600 mt-2">
+              <div className="text-sm text-neutral-500">
                 <span className="font-medium">论据：</span>
-                <div className="prose prose-sm max-w-none prose-p:my-1 prose-strong:text-neutral-600">
-                  <ReactMarkdown>{claim.supportingEvidence}</ReactMarkdown>
-                </div>
+                {/* Render markdown inline to avoid a line break after the label */}
+                <ReactMarkdown
+                  components={{ p: 'span' }}
+                >
+                  {(claim.supportingEvidence || '').trim()}
+                </ReactMarkdown>
               </div>
             )}
           </div>
         ))}
-      </div>
-    </div>
-  )
-}
-
-const NotableEvidence: React.FC<{ evidence: Phase3StepEvidence[] }> = ({ evidence }) => {
-  if (!evidence.length) {
-    return null
-  }
-
-  return (
-    <div className={baseSectionClass}>
-      <h4 className="font-semibold text-neutral-800 mb-3 flex items-center">
-        <Icon name="chart" size={18} strokeWidth={2} className="mr-2" />
-        重要发现
-      </h4>
-      <div className="space-y-3">
-        {evidence.map((item, index) => (
-          <div key={index} className="bg-white rounded-lg p-4 border border-neutral-200">
-            <div className="flex items-start">
-              <span className="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded mr-3 mt-1">
-                {item.evidenceType}
-              </span>
-              <div className="text-neutral-700 flex-1 prose prose-sm max-w-none prose-p:my-1 prose-strong:text-neutral-700">
-                <ReactMarkdown>{item.description}</ReactMarkdown>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-const FiveWhysTable: React.FC<{ items: FiveWhyItem[] }> = ({ items }) => {
-  if (!items.length) {
-    return null
-  }
-
-  return (
-    <div className={subSectionClass}>
-      <h5 className="font-medium text-neutral-800 mb-3">Five Whys</h5>
-      <div className="overflow-x-auto">
-        <table className="min-w-full bg-white border border-neutral-300 rounded-lg">
-          <thead>
-            <tr className="bg-neutral-200">
-              <th className="px-4 py-2 text-left text-sm font-semibold text-neutral-800 border-b border-neutral-300">
-                问题
-              </th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-neutral-800 border-b border-neutral-300">
-                回答
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item, index) => (
-              <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-neutral-50'}>
-                <td className="px-4 py-3 text-sm text-neutral-700 border-b border-neutral-200">
-                  <div className="prose prose-sm max-w-none prose-p:my-1 prose-strong:text-neutral-700">
-                    <ReactMarkdown>{item.question}</ReactMarkdown>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-sm text-neutral-700 border-b border-neutral-200">
-                  <div className="prose prose-sm max-w-none prose-p:my-1 prose-strong:text-neutral-700">
-                    <ReactMarkdown>{item.answer}</ReactMarkdown>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       </div>
     </div>
   )
@@ -157,16 +86,46 @@ const AnalysisSection: React.FC<{ content: Phase3StepContentModel['analysis'] }>
         Q&A
       </h4>
       <div className="space-y-4">
-        <FiveWhysTable items={content.fiveWhys} />
+        {!!content.fiveWhys.length && (
+          <div className={subSectionClass}>
+            <h5 className="font-medium text-neutral-800 mb-3">Five Whys</h5>
+            <div className="overflow-x-auto rounded-lg overflow-hidden">
+              <table className="w-full border-separate border-spacing-0 bg-white">
+                <tbody>
+              {content.fiveWhys.map((item, index) => {
+                    const isFirst = index === 0
+                    const isLast = index === content.fiveWhys.length - 1
+                    return (
+                    <tr 
+                      key={index} 
+                      className="hover:bg-neutral-50"
+                    >
+                      <td className={`py-3 px-3 text-sm text-neutral-700 font-medium align-top whitespace-pre-wrap border-b border-neutral-200 ${
+                        isFirst ? 'rounded-tl-lg' : ''
+                      } ${isLast ? 'rounded-bl-lg border-b-0' : ''}`}>
+                        <ReactMarkdown>{item.question}</ReactMarkdown>
+                      </td>
+                      <td className={`py-3 px-3 text-sm text-neutral-700 align-top whitespace-pre-wrap border-b border-neutral-200 ${
+                        isFirst ? 'rounded-tr-lg' : ''
+                      } ${isLast ? 'rounded-br-lg border-b-0' : ''}`}>
+                        <ReactMarkdown>{item.answer}</ReactMarkdown>
+                      </td>
+                    </tr>
+              )})}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
         {!!content.assumptions.length && (
           <div className={subSectionClass}>
             <h5 className="font-medium text-neutral-800 mb-2">本分析有何假设？</h5>
             <ul className="list-disc list-inside space-y-1 text-neutral-700">
               {content.assumptions.map((item, index) => (
-                <li key={index}>
-                  <div className="prose prose-sm max-w-none prose-p:my-1 prose-strong:text-neutral-700 prose-li:my-0">
-                    <ReactMarkdown>{item}</ReactMarkdown>
-                  </div>
+                <li key={index} className="whitespace-normal">
+                  <ReactMarkdown components={{ p: 'span' }}>
+                    {(item || '').trim()}
+                  </ReactMarkdown>
                 </li>
               ))}
             </ul>
@@ -177,10 +136,10 @@ const AnalysisSection: React.FC<{ content: Phase3StepContentModel['analysis'] }>
             <h5 className="font-medium text-neutral-800 mb-2">有什么未能确定？</h5>
             <ul className="list-disc list-inside space-y-1 text-neutral-700">
               {content.uncertainties.map((item, index) => (
-                <li key={index}>
-                  <div className="prose prose-sm max-w-none prose-p:my-1 prose-strong:text-neutral-700 prose-li:my-0">
-                    <ReactMarkdown>{item}</ReactMarkdown>
-                  </div>
+                <li key={index} className="whitespace-normal">
+                  <ReactMarkdown components={{ p: 'span' }}>
+                    {(item || '').trim()}
+                  </ReactMarkdown>
                 </li>
               ))}
             </ul>
@@ -194,9 +153,6 @@ const AnalysisSection: React.FC<{ content: Phase3StepContentModel['analysis'] }>
 const Phase3StepContent: React.FC<Phase3StepContentProps> = ({
   content,
   confidence,
-  showRawData,
-  onToggleRawData,
-  rawStep,
 }) => (
   <div className="space-y-6">
     {content.summary && (
@@ -205,14 +161,13 @@ const Phase3StepContent: React.FC<Phase3StepContentProps> = ({
           <Icon name="edit" size={18} strokeWidth={2} className="mr-2" />
           摘要
         </h4>
-        <div className="prose prose-sm max-w-none prose-p:text-neutral-700 prose-p:my-2 prose-strong:text-neutral-700">
+        <div className="text-neutral-700 whitespace-pre-wrap">
           <ReactMarkdown>{content.summary}</ReactMarkdown>
         </div>
       </div>
     )}
 
     <KeyClaims claims={content.keyClaims} />
-    <NotableEvidence evidence={content.notableEvidence} />
 
     {content.article && (
       <div className={baseSectionClass}>
@@ -220,7 +175,7 @@ const Phase3StepContent: React.FC<Phase3StepContentProps> = ({
           <Icon name="file" size={18} strokeWidth={2} className="mr-2" />
           深度文章
         </h4>
-        <div className="prose prose-sm max-w-none prose-p:text-neutral-700 prose-p:my-2 prose-strong:text-neutral-700">
+        <div className="text-neutral-700 whitespace-pre-wrap">
           <ReactMarkdown>{content.article}</ReactMarkdown>
         </div>
       </div>
@@ -234,7 +189,7 @@ const Phase3StepContent: React.FC<Phase3StepContentProps> = ({
           <Icon name="lightbulb" size={18} strokeWidth={2} className="mr-2" />
           洞察
         </h4>
-        <div className="prose prose-sm max-w-none prose-p:text-neutral-700 prose-p:my-2 prose-strong:text-neutral-700">
+        <div className="text-neutral-700 whitespace-pre-wrap">
           <ReactMarkdown>{content.insights}</ReactMarkdown>
         </div>
       </div>
@@ -242,23 +197,6 @@ const Phase3StepContent: React.FC<Phase3StepContentProps> = ({
 
     {typeof confidence === 'number' && !Number.isNaN(confidence) && (
       <ConfidenceBar confidence={confidence} />
-    )}
-
-    {rawStep !== undefined && rawStep !== null && (
-      <div className="border-t pt-4">
-        <button
-          onClick={onToggleRawData}
-          className="text-sm text-neutral-500 hover:text-neutral-700 flex items-center"
-        >
-          <span className="mr-2">{showRawData ? '▼' : '▶'}</span>
-          {showRawData ? '收起原始数据' : '查看原始数据'}
-        </button>
-        {showRawData && (
-          <pre className="mt-2 text-xs bg-neutral-100 p-4 rounded overflow-auto max-h-96 border">
-            {JSON.stringify(rawStep, null, 2)}
-          </pre>
-        )}
-      </div>
     )}
   </div>
 )

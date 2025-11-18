@@ -50,7 +50,11 @@ class ContentSummarizer:
             self.client = client
         
         self.config = config
-        self.model = "qwen-flash"  # Fast, cheap model for summarization
+        # Use phase0 model from config if available, otherwise default to qwen-flash
+        if config:
+            self.model = config.get("research.phases.phase0.model", "qwen-flash")
+        else:
+            self.model = "qwen-flash"  # Fast, cheap model for summarization
         self.ui = ui
         
         # Load prompt files
@@ -151,14 +155,20 @@ class ContentSummarizer:
         
         # Call API with qwen-flash model
         try:
-            # Use stream_completion and collect all tokens
+            # Get phase config for thinking settings
+            enable_thinking = False
+            thinking_budget = None
+            if self.config:
+                enable_thinking = self.config.get("research.phases.phase0.enable_thinking", False)
+                thinking_budget = self.config.get("research.phases.phase0.thinking_budget")
+            
             messages = [{"role": "user", "content": full_prompt}]
             response_text = ""
             stream_token_count = 0
             
-            # Check if client has stream_completion (QwenStreamingClient)
-            if hasattr(self.client, 'stream_completion'):
-                # Collect all streamed tokens
+            # Check if client has stream_and_collect (QwenStreamingClient)
+            if hasattr(self.client, 'stream_and_collect'):
+                # Collect all streamed tokens with reasoning support
                 stream_id = None
                 if self.ui:
                     metadata = {
@@ -170,24 +180,59 @@ class ContentSummarizer:
                     }
                     stream_id = f"summarization:{link_id}:transcript"
                     self.ui.clear_stream_buffer(stream_id)
-                    self.ui.notify_stream_start(stream_id, "summarization", metadata)
+                    self.ui.notify_stream_start(stream_id, "phase0", metadata)
                     logger.debug(
                         "Summarization stream started",
                         stream_id=stream_id,
                         link_id=link_id,
                         component="transcript",
+                        enable_thinking=enable_thinking,
                     )
+                
+                def callback(token: str, reasoning_content: str = "None", content: str = "None"):
+                    """Callback for streaming tokens with reasoning support."""
+                    nonlocal response_text, stream_token_count
+                    
+                    # Debug logging for reasoning tokens
+                    if reasoning_content != "None":
+                        logger.debug(
+                            f"💭 Phase 0 reasoning token (transcript): stream_id={stream_id}, "
+                            f"length={len(reasoning_content)}, preview={reasoning_content[:30]}"
+                        )
+                    
+                    # Collect content tokens for final response
+                    if content != "None":
+                        response_text += content
+                    elif reasoning_content != "None":
+                        # Also collect reasoning tokens for debugging/analysis
+                        response_text += reasoning_content
+                    
+                    stream_token_count += 1
+                    if self.ui and stream_id:
+                        # Pass through both reasoning_content and content
+                        self.ui.display_stream(token, stream_id, reasoning_content=reasoning_content, content=content)
+                
                 try:
-                    for token in self.client.stream_completion(
+                    # Prepare kwargs for stream_and_collect
+                    stream_kwargs = {
+                        "model": self.model,
+                        "temperature": 0.3,  # Lower temperature for more consistent extraction
+                        "max_tokens": 2000,
+                        "enable_thinking": enable_thinking,
+                    }
+                    
+                    # Add thinking_budget if configured
+                    if thinking_budget is not None:
+                        stream_kwargs["thinking_budget"] = thinking_budget
+                    
+                    # Use stream_and_collect with callback
+                    response, usage = self.client.stream_and_collect(
                         messages=messages,
-                        model=self.model,
-                        temperature=0.3,  # Lower temperature for more consistent extraction
-                        max_tokens=2000
-                    ):
-                        response_text += token
-                        stream_token_count += 1
-                        if self.ui and stream_id:
-                            self.ui.display_stream(token, stream_id)
+                        callback=callback,
+                        exclude_reasoning_content=True,  # Only collect content tokens in final response
+                        **stream_kwargs
+                    )
+                    # response_text is already populated by callback
                 finally:
                     if self.ui and stream_id:
                         metadata = {
@@ -198,7 +243,7 @@ class ContentSummarizer:
                             "word_count": word_count,
                             "tokens": stream_token_count,
                         }
-                        self.ui.notify_stream_end(stream_id, "summarization", metadata)
+                        self.ui.notify_stream_end(stream_id, "phase0", metadata)
                         logger.debug(
                             "Summarization stream completed",
                             stream_id=stream_id,
@@ -206,6 +251,42 @@ class ContentSummarizer:
                             component="transcript",
                             tokens=stream_token_count,
                         )
+            elif hasattr(self.client, 'stream_completion'):
+                # Fallback to stream_completion if stream_and_collect not available
+                stream_id = None
+                if self.ui:
+                    metadata = {
+                        "component": "transcript",
+                        "phase_label": "0",
+                        "phase": "phase0",
+                        "link_id": link_id,
+                        "word_count": word_count,
+                    }
+                    stream_id = f"summarization:{link_id}:transcript"
+                    self.ui.clear_stream_buffer(stream_id)
+                    self.ui.notify_stream_start(stream_id, "phase0", metadata)
+                try:
+                    for token in self.client.stream_completion(
+                        messages=messages,
+                        model=self.model,
+                        temperature=0.3,
+                        max_tokens=2000
+                    ):
+                        response_text += token
+                        stream_token_count += 1
+                        if self.ui and stream_id:
+                            self.ui.display_stream(token, stream_id, reasoning_content="None", content=token)
+                finally:
+                    if self.ui and stream_id:
+                        metadata = {
+                            "component": "transcript",
+                            "phase_label": "0",
+                            "phase": "phase0",
+                            "link_id": link_id,
+                            "word_count": word_count,
+                            "tokens": stream_token_count,
+                        }
+                        self.ui.notify_stream_end(stream_id, "phase0", metadata)
             elif hasattr(self.client, 'generate_completion'):
                 # Fallback: try generate_completion if it exists
                 response_text = self.client.generate_completion(
@@ -263,13 +344,20 @@ class ContentSummarizer:
         
         # Call API with qwen-flash model
         try:
+            # Get phase config for thinking settings
+            enable_thinking = False
+            thinking_budget = None
+            if self.config:
+                enable_thinking = self.config.get("research.phases.phase0.enable_thinking", False)
+                thinking_budget = self.config.get("research.phases.phase0.thinking_budget")
+            
             messages = [{"role": "user", "content": full_prompt}]
             response_text = ""
             stream_token_count = 0
             
-            # Check if client has stream_completion (QwenStreamingClient)
-            if hasattr(self.client, 'stream_completion'):
-                # Collect all streamed tokens
+            # Check if client has stream_and_collect (QwenStreamingClient)
+            if hasattr(self.client, 'stream_and_collect'):
+                # Collect all streamed tokens with reasoning support
                 stream_id = None
                 if self.ui:
                     metadata = {
@@ -281,24 +369,59 @@ class ContentSummarizer:
                     }
                     stream_id = f"summarization:{link_id}:comments"
                     self.ui.clear_stream_buffer(stream_id)
-                    self.ui.notify_stream_start(stream_id, "summarization", metadata)
+                    self.ui.notify_stream_start(stream_id, "phase0", metadata)
                     logger.debug(
                         "Summarization stream started",
                         stream_id=stream_id,
                         link_id=link_id,
                         component="comments",
+                        enable_thinking=enable_thinking,
                     )
+                
+                def callback(token: str, reasoning_content: str = "None", content: str = "None"):
+                    """Callback for streaming tokens with reasoning support."""
+                    nonlocal response_text, stream_token_count
+                    
+                    # Debug logging for reasoning tokens
+                    if reasoning_content != "None":
+                        logger.debug(
+                            f"💭 Phase 0 reasoning token (comments): stream_id={stream_id}, "
+                            f"length={len(reasoning_content)}, preview={reasoning_content[:30]}"
+                        )
+                    
+                    # Collect content tokens for final response
+                    if content != "None":
+                        response_text += content
+                    elif reasoning_content != "None":
+                        # Also collect reasoning tokens for debugging/analysis
+                        response_text += reasoning_content
+                    
+                    stream_token_count += 1
+                    if self.ui and stream_id:
+                        # Pass through both reasoning_content and content
+                        self.ui.display_stream(token, stream_id, reasoning_content=reasoning_content, content=content)
+                
                 try:
-                    for token in self.client.stream_completion(
+                    # Prepare kwargs for stream_and_collect
+                    stream_kwargs = {
+                        "model": self.model,
+                        "temperature": 0.3,
+                        "max_tokens": 2000,
+                        "enable_thinking": enable_thinking,
+                    }
+                    
+                    # Add thinking_budget if configured
+                    if thinking_budget is not None:
+                        stream_kwargs["thinking_budget"] = thinking_budget
+                    
+                    # Use stream_and_collect with callback
+                    response, usage = self.client.stream_and_collect(
                         messages=messages,
-                        model=self.model,
-                        temperature=0.3,
-                        max_tokens=2000
-                    ):
-                        response_text += token
-                        stream_token_count += 1
-                        if self.ui and stream_id:
-                            self.ui.display_stream(token, stream_id)
+                        callback=callback,
+                        exclude_reasoning_content=True,  # Only collect content tokens in final response
+                        **stream_kwargs
+                    )
+                    # response_text is already populated by callback
                 finally:
                     if self.ui and stream_id:
                         metadata = {
@@ -309,7 +432,7 @@ class ContentSummarizer:
                             "total_comments": total_comments,
                             "tokens": stream_token_count,
                         }
-                        self.ui.notify_stream_end(stream_id, "summarization", metadata)
+                        self.ui.notify_stream_end(stream_id, "phase0", metadata)
                         logger.debug(
                             "Summarization stream completed",
                             stream_id=stream_id,
@@ -317,6 +440,42 @@ class ContentSummarizer:
                             component="comments",
                             tokens=stream_token_count,
                         )
+            elif hasattr(self.client, 'stream_completion'):
+                # Fallback to stream_completion if stream_and_collect not available
+                stream_id = None
+                if self.ui:
+                    metadata = {
+                        "component": "comments",
+                        "phase_label": "0",
+                        "phase": "phase0",
+                        "link_id": link_id,
+                        "total_comments": total_comments,
+                    }
+                    stream_id = f"summarization:{link_id}:comments"
+                    self.ui.clear_stream_buffer(stream_id)
+                    self.ui.notify_stream_start(stream_id, "phase0", metadata)
+                try:
+                    for token in self.client.stream_completion(
+                        messages=messages,
+                        model=self.model,
+                        temperature=0.3,
+                        max_tokens=2000
+                    ):
+                        response_text += token
+                        stream_token_count += 1
+                        if self.ui and stream_id:
+                            self.ui.display_stream(token, stream_id, reasoning_content="None", content=token)
+                finally:
+                    if self.ui and stream_id:
+                        metadata = {
+                            "component": "comments",
+                            "phase_label": "0",
+                            "phase": "phase0",
+                            "link_id": link_id,
+                            "total_comments": total_comments,
+                            "tokens": stream_token_count,
+                        }
+                        self.ui.notify_stream_end(stream_id, "phase0", metadata)
             elif hasattr(self.client, 'generate_completion'):
                 response_text = self.client.generate_completion(
                     prompt=full_prompt,

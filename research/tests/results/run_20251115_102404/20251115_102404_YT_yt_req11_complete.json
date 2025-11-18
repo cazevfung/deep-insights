@@ -1,0 +1,56 @@
+{
+  "batch_id": "20251115_102404",
+  "link_id": "yt_req11",
+  "source": "youtube",
+  "metadata": {
+    "title": "How We Found our Business Model at LinkedIn - Reid Hoffman",
+    "author": "Entrepreneurs First",
+    "url": "https://www.youtube.com/watch?v=3HKbEhBATvg",
+    "word_count": 377,
+    "publish_date": ""
+  },
+  "transcript": "in the LinkedIn context and I suspect most of the people in this room have read the LinkedIn series bedeck you should if you haven't speaking entrepreneurs and part of the thing you'll note is that you know 2/3 of the way through we present three business ideas for how we're gonna make money because of which we had no revenue when we were pitching LinkedIn Series B and now of course speaking as entrepreneur entrepreneur when you present three options like that what it really means is we don't know right like we're could be one of these three and see we got some good ideas and it could possibly work now what you'll notice when you look at those three as none of those three are actually where the majority of LinkedIn revenue comes from because and this is the flexibility which is what happened is I thought if you'd asked me during LinkedIn Series B what was going to be the revenue model that would be the driving model that would make LinkedIn successful I thought it was individual subscription that was going to be expensed so you had to make it expensable but it be an individual individuals hiring managers business Delmon people etc who would be driving their actual use within two weeks of when we launched the subscription model we started getting inquiries from companies that said hey we'd like to buy your corporate product and we like okay well that's interesting I mean we knew that we'd get to it but we thought it would be like five years in the future and so we did a paper mock-up of the corporate product we were working on right that we were not working on to be super clear and we hired a salesperson and we sent the salesperson out to say here's the product we're working on would you buy this and the salesperson came back said okay I've talked to you know thirty people and and like 20-plus of them are interested in buying this product and so we said okay let's pivot the company right to build that is our revenue product and that's the thing that ended up being the majority of the revenue even to now",
+  "comments": null,
+  "summary": {
+    "transcript_summary": {
+      "key_facts": [
+        "LinkedIn Series B pitch presented three business ideas with no revenue at the time",
+        "The three business ideas were not the source of LinkedIn's majority revenue",
+        "Individual subscription was initially believed to be the primary revenue model",
+        "Corporate product inquiries began two weeks after launching the individual subscription model",
+        "A paper mock-up of the corporate product was created before actual development began",
+        "A salesperson was hired to test market interest in the corporate product",
+        "Twenty out of thirty company contacts expressed interest in purchasing the corporate product",
+        "LinkedIn pivoted the company to focus on building the corporate product as the main revenue driver",
+        "The corporate product became the majority of LinkedIn's revenue and remains so today"
+      ],
+      "key_opinions": [
+        "Presenting three options during the pitch indicated uncertainty about the correct revenue path",
+        "The rapid corporate interest was unexpected and accelerated the pivot decision",
+        "The shift to corporate product was a strategic necessity based on market feedback",
+        "The initial belief in individual subscriptions was proven incorrect by real-world demand",
+        "The pivot demonstrated agility in responding to customer needs rather than sticking to original plans"
+      ],
+      "key_datapoints": [
+        "Two weeks after launching individual subscription, corporate inquiries began",
+        "20 out of 30 company contacts showed interest in the corporate product",
+        "Corporate product became the majority of LinkedIn's revenue",
+        "Pivot occurred after receiving early market validation from sales outreach",
+        "Original plan expected corporate product development in five years"
+      ],
+      "topic_areas": [
+        "Revenue model pivot",
+        "Market validation",
+        "Corporate product launch",
+        "Subscription strategy",
+        "Startup uncertainty"
+      ],
+      "word_count": 377,
+      "total_markers": 19
+    },
+    "comments_summary": {},
+    "created_at": "2025-11-15T18:26:02.338020",
+    "model_used": "qwen-flash"
+  },
+  "completed_at": 1763202366.504598
+}

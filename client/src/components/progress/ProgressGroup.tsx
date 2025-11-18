@@ -71,33 +71,33 @@ const ProgressGroup: React.FC<ProgressGroupProps> = ({
       case 'refresh':
         return <Icon name="refresh" size={18} strokeWidth={2.5} className="text-primary-400 animate-spin" />
       case 'clock':
-        return <Icon name="clock" size={18} strokeWidth={2.5} className="text-neutral-400" />
+        return <Icon name="clock" size={18} strokeWidth={2.5} className="text-gray-400" />
       case 'check-circle':
         return <Icon name="check-circle" size={18} strokeWidth={2.5} className="text-supportive-green" />
       case 'x-circle':
         return <Icon name="x-circle" size={18} strokeWidth={2.5} className="text-secondary-500" />
       default:
-        return <Icon name="circle" size={18} strokeWidth={2.5} className="text-neutral-400" />
+        return <Icon name="circle" size={18} strokeWidth={2.5} className="text-gray-400" />
     }
   }
 
   return (
-    <div className="border border-neutral-border rounded-lg overflow-hidden">
+    <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
       {/* Group Header */}
       <button
         onClick={toggleCollapse}
-        className="w-full flex items-center justify-between px-4 py-3 bg-neutral-light-bg hover:bg-neutral-hover-bg transition-colors cursor-pointer"
+        className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
       >
         <div className="flex items-center space-x-2">
           {getIconComponent()}
-          <span className="font-semibold text-neutral-black">{group.label}</span>
-          <span className="text-sm text-neutral-secondary">({group.items.length})</span>
+          <span className="font-semibold text-gray-900">{group.label}</span>
+          <span className="text-sm text-gray-500">({group.items.length})</span>
         </div>
         <Icon
           name={isCollapsed ? 'chevron-down' : 'chevron-up'}
           size={18}
           strokeWidth={2.5}
-          className="text-neutral-secondary"
+          className="text-gray-500"
         />
       </button>
 

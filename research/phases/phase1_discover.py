@@ -55,6 +55,17 @@ class Phase1Discover(BasePhase):
             marker_overview = data_abstract
             self.logger.info("Using data_abstract for Phase 1 (no batch_data provided)")
         
+        # Resolve writing style for dynamic partials with a safe default
+        style_file_map = {
+            "professional": "consultant",
+            "consultant": "consultant",
+            "creative": "creative",
+            "persuasive": "persuasive",
+            "explanatory": "explanatory",
+        }
+        session_style_pref = self.session.get_metadata("writing_style", "professional") if self.session else "professional"
+        writing_style_name = style_file_map.get(session_style_pref, "consultant")
+        
         # Compose messages from externalized prompt templates
         amendment_note = f"\n\n**用户修改意见:**\n{amendment_feedback}" if amendment_feedback else ""
         # Phase 1 runs BEFORE user provides post-Phase-1 feedback, so don't include user_context
@@ -71,6 +82,8 @@ class Phase1Discover(BasePhase):
             "user_guidance": user_intent["user_guidance"],
             "user_context": user_intent["user_context"],  # Will be empty for Phase 1
             "avoid_list": "",
+            # For dynamic partial resolution like {{> style_{writing_style}_cn.md}}
+            "writing_style": writing_style_name,
         }
         messages = compose_messages("phase1_discover", context=context)
 
@@ -86,6 +99,7 @@ class Phase1Discover(BasePhase):
                 "phase_label": "1",
                 "user_topic_provided": bool(user_topic),
                 "amendment_attempt": bool(amendment_feedback),
+                "enable_json_streaming": True,  # Enable real-time JSON parsing
             },
         )
         api_elapsed = time.time() - api_start_time

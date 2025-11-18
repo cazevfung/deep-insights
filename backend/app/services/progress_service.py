@@ -27,7 +27,45 @@ class ProgressService:
         self.cancellation_info: Dict[str, Dict] = {}  # batch_id -> cancellation details
         # Progress update throttling (to avoid overwhelming UI/WebSocket)
         self.last_update_time: Dict[str, float] = {}  # (batch_id, link_id) -> timestamp
-        self.min_update_interval = 0.2  # Minimum seconds between updates (5 updates/sec max)
+        # Load throttling config from config file or use defaults
+        self._load_throttling_config()
+        # Grace period for completion confirmation (wait for async operations to finish)
+        self.completion_grace_period = 3.0  # Seconds to wait after last progress update before confirming
+    
+    def _load_throttling_config(self):
+        """Load throttling configuration from config file or environment variables."""
+        import os
+        # Default values (more conservative to reduce message frequency)
+        self.min_update_interval = 0.5  # Minimum seconds between updates (2 updates/sec max, increased from 0.2)
+        self.progress_change_threshold = 2.0  # Minimum progress change to trigger update (2%, increased from 1%)
+        
+        try:
+            from core.config import Config
+            config = Config()
+            websocket_config = config.get('web', {}).get('websocket', {})
+            
+            # Load from config file
+            self.min_update_interval = websocket_config.get('min_update_interval', self.min_update_interval)
+            self.progress_change_threshold = websocket_config.get('progress_change_threshold', self.progress_change_threshold)
+        except Exception:
+            pass
+        
+        # Environment variable overrides
+        env_interval = os.environ.get('WEBSOCKET_UPDATE_INTERVAL')
+        if env_interval:
+            try:
+                self.min_update_interval = float(env_interval)
+            except ValueError:
+                pass
+        
+        env_threshold = os.environ.get('WEBSOCKET_PROGRESS_THRESHOLD')
+        if env_threshold:
+            try:
+                self.progress_change_threshold = float(env_threshold)
+            except ValueError:
+                pass
+        
+        logger.info(f"Progress throttling: interval={self.min_update_interval}s, threshold={self.progress_change_threshold}%")
     
     def initialize_expected_links(self, batch_id: str, expected_links: list):
         """
@@ -215,15 +253,38 @@ class ProgressService:
         # If stage is 'completed' and progress is 100%, mark as completed
         # If stage is 'failed', mark as failed
         # Otherwise, set to 'in-progress' (but preserve existing 'completed' or 'failed' status)
+        # CRITICAL: Once a link is 'completed' or 'failed', never change it back to 'in-progress'
         current_status = state.get('status', 'pending')
+        normalized_current = self._normalize_status(current_status)
+        
+        # Protect against overwriting final states
+        if normalized_current == 'completed':
+            # Link is already completed - do NOT overwrite with progress updates
+            # Only allow explicit status update via update_link_status
+            logger.debug(
+                f"[ProgressService] Link {link_id} already completed, ignoring progress update "
+                f"(stage={stage}, progress={overall_progress})"
+            )
+            return  # Exit early - don't modify completed status
+        elif normalized_current == 'failed':
+            # Link is already failed - do NOT overwrite
+            logger.debug(
+                f"[ProgressService] Link {link_id} already failed, ignoring progress update "
+                f"(stage={stage}, progress={overall_progress})"
+            )
+            return  # Exit early - don't modify failed status
+        
+        # Now safe to update status based on stage/progress
         if stage == 'completed' and overall_progress >= 100.0:
             state['status'] = 'completed'
             state['completed_at'] = datetime.now().isoformat()
+            logger.info(f"✅ [ProgressService] Link {link_id} marked as completed (stage={stage}, progress={overall_progress})")
         elif stage == 'failed':
             state['status'] = 'failed'
             state['overall_progress'] = 0.0
-        elif current_status not in ['completed', 'failed']:
-            # Only update to 'in-progress' if not already in a final state
+            logger.warning(f"❌ [ProgressService] Link {link_id} marked as failed (stage={stage})")
+        else:
+            # Update to 'in-progress' only if not already in a final state
             state['status'] = 'in-progress'  # Use kebab-case for frontend compatibility
         
         if metadata:
@@ -236,8 +297,12 @@ class ProgressService:
         update_key = f"{batch_id}:{link_id}"
         current_time = time.time()
         last_time = self.last_update_time.get(update_key, 0)
-        progress_changed = abs(overall_progress - old_overall_progress) >= 1.0  # At least 1% change
+        progress_changed = abs(overall_progress - old_overall_progress) >= self.progress_change_threshold
         time_elapsed = current_time - last_time >= self.min_update_interval
+        
+        # CRITICAL: Always track timestamp for race condition detection, even if throttled
+        # This ensures confirm_all_scraping_complete can detect recent async activity
+        self.last_update_time[update_key] = current_time
         
         # Broadcast if significant change (1%+) or minimum time elapsed (throttling)
         if progress_changed or time_elapsed or overall_progress >= 100:
@@ -252,7 +317,6 @@ class ProgressService:
                 'metadata': metadata or {},
                 'timestamp': datetime.now().isoformat()
             })
-            self.last_update_time[update_key] = current_time
             logger.debug(f"Progress update: batch={batch_id}, link={link_id}, stage={stage}, progress={overall_progress:.1f}%")
         
         # Update batch-level status periodically (every 5% change or completion)
@@ -290,10 +354,14 @@ class ProgressService:
         if link_id not in self.link_states[batch_id]:
             # Check if this batch has expected totals set (pre-registration happened)
             if batch_id in self.expected_totals:
-                logger.warning(
-                    f"Attempted to update status for unregistered link_id '{link_id}' in batch '{batch_id}'. "
+                # Log all registered link_ids for debugging
+                registered_ids = list(self.link_states[batch_id].keys())
+                logger.error(
+                    f"❌ CRITICAL: Attempted to update status for unregistered link_id '{link_id}' in batch '{batch_id}'. "
                     f"Expected total: {self.expected_totals[batch_id]}, Registered: {len(self.link_states[batch_id])}. "
-                    f"This may indicate a link_id format mismatch (e.g., missing '_comments' suffix)."
+                    f"Status being set: {status}. "
+                    f"This may indicate a link_id format mismatch (e.g., missing '_comments' suffix). "
+                    f"Registered link_ids: {registered_ids[:10]}{'...' if len(registered_ids) > 10 else ''}"
                 )
                 # Don't create new entry - return early to prevent dynamic registration
                 return
@@ -306,6 +374,28 @@ class ProgressService:
                 }
         
         state = self.link_states[batch_id][link_id]
+        old_status = state.get('status', 'unknown')
+        old_normalized = self._normalize_status(old_status)
+        
+        # CRITICAL: Protect against changing from 'completed' back to any other status
+        if old_normalized == 'completed' and normalized_status != 'completed':
+            logger.error(
+                f"❌ CRITICAL: Attempted to change link_id '{link_id}' from 'completed' to '{normalized_status}' "
+                f"in batch '{batch_id}'. This is a bug - completed status should never be overwritten. "
+                f"Rejecting status change."
+            )
+            return  # Exit early - don't overwrite completed status
+        
+        # CRITICAL: Protect against changing from 'failed' back to 'in-progress' or 'pending'
+        # (Allow changing failed -> completed in case of retry, but log it)
+        if old_normalized == 'failed' and normalized_status in ['in-progress', 'pending']:
+            logger.warning(
+                f"⚠️ Attempted to change link_id '{link_id}' from 'failed' to '{normalized_status}' "
+                f"in batch '{batch_id}'. Rejecting status change (failed links should not be retried without explicit reset)."
+            )
+            return  # Exit early - don't overwrite failed status
+        
+        # Safe to update status
         state['status'] = normalized_status  # Store normalized status
         state['updated_at'] = datetime.now().isoformat()
         
@@ -313,9 +403,22 @@ class ProgressService:
             state['completed_at'] = datetime.now().isoformat()
             state['overall_progress'] = 100.0
             state['stage_progress'] = 100.0
+            logger.info(
+                f"✅ [ProgressService] Updated link_id '{link_id}' status: {old_status} -> {normalized_status} "
+                f"(batch={batch_id}, word_count={metadata.get('word_count', 0) if metadata else 'N/A'})"
+            )
         elif normalized_status == 'failed':
             state['error_message'] = error
             state['overall_progress'] = 0.0
+            logger.warning(
+                f"❌ [ProgressService] Updated link_id '{link_id}' status: {old_status} -> {normalized_status} "
+                f"(batch={batch_id}, error={error})"
+            )
+        else:
+            logger.debug(
+                f"[ProgressService] Updated link_id '{link_id}' status: {old_status} -> {normalized_status} "
+                f"(batch={batch_id})"
+            )
         
         if metadata:
             state.update(metadata)
@@ -373,11 +476,42 @@ class ProgressService:
         failed = sum(1 for l in links.values() if self._normalize_status(l.get('status', 'pending')) == 'failed')
         in_progress = sum(1 for l in links.values() if self._normalize_status(l.get('status', 'pending')) == 'in-progress')
         
+        # DEBUG: Track completed count changes to detect decreases
+        if not hasattr(self, '_last_completed_count'):
+            self._last_completed_count = {}
+        last_completed = self._last_completed_count.get(batch_id, completed)
+        if completed < last_completed:
+            logger.error(
+                f"❌ CRITICAL: Completed count DECREASED for batch {batch_id}: {last_completed} -> {completed}. "
+                f"This indicates a bug - completed status should never decrease. "
+                f"Total registered: {total_registered}, Failed: {failed}, InProgress: {in_progress}"
+            )
+            # Log all link statuses for debugging
+            for link_id, state in links.items():
+                status = self._normalize_status(state.get('status', 'pending'))
+                logger.debug(f"  Link {link_id}: status={status}, stage={state.get('current_stage', 'N/A')}")
+        self._last_completed_count[batch_id] = completed
+        
         # Calculate overall progress and completion rate using expected_total
+        # CRITICAL: Only mark as 100% complete if we have a valid expected_total
+        # and all expected tasks are actually completed/failed
         if total_for_calculation > 0:
             overall_progress = ((completed + failed) / total_for_calculation) * 100.0
             completion_rate = (completed + failed) / total_for_calculation
-            is_100_percent = completion_rate >= 1.0
+            # Only set is_100_percent to True if:
+            # 1. We have a valid expected_total (not 0, not None)
+            # 2. All expected tasks are completed or failed
+            # This prevents premature phase 0 start when expected_total is not set correctly
+            if expected_total > 0:
+                # Use integer comparison to avoid floating point precision issues
+                is_100_percent = (completed + failed) >= expected_total
+            else:
+                # No valid expected_total - cannot determine if 100% complete
+                is_100_percent = False
+                logger.warning(
+                    f"Cannot determine 100% completion for batch {batch_id}: expected_total={expected_total}, "
+                    f"completed={completed}, failed={failed}, total_registered={total_registered}"
+                )
         else:
             overall_progress = 0.0
             completion_rate = 0.0
@@ -854,14 +988,41 @@ class ProgressService:
         # Determine the final expected_total to use in result and confirmation logic
         result_expected_total = expected_total if expected_total > 0 else effective_expected_total
         
-        # Enhanced confirmation check: all expected processes registered AND all have final status AND 100% completion
+        # Check for recent progress activity (race condition detection)
+        # Some scrapers have async operations that continue after extract() returns
+        # We need to wait a grace period after last progress update before confirming
+        import time
+        current_time = time.time()
+        recent_activity_link_ids = []
+        grace_period_expired = True
+        
+        for link_id, state in links.items():
+            update_key = f"{batch_id}:{link_id}"
+            last_update = self.last_update_time.get(update_key, 0)
+            time_since_update = current_time - last_update if last_update > 0 else float('inf')
+            
+            # If this item is marked as completed but had progress updates recently,
+            # it might still have async operations running
+            normalized_status = self._normalize_status(state.get('status', 'pending'))
+            if normalized_status in ['completed', 'failed']:
+                if time_since_update < self.completion_grace_period:
+                    grace_period_expired = False
+                    recent_activity_link_ids.append({
+                        'link_id': link_id,
+                        'time_since_update': round(time_since_update, 2),
+                        'status': normalized_status
+                    })
+        
+        # Enhanced confirmation check: all expected processes registered AND all have final status 
+        # AND 100% completion AND grace period expired (no recent async activity)
         expected_goal = result_expected_total
         confirmed = (
             expected_goal > 0 and
             registered_count >= expected_goal and
             all_have_final_status and
             is_100_percent and
-            total_final == expected_goal  # Explicit equality check
+            total_final == expected_goal and  # Explicit equality check
+            grace_period_expired  # Wait for async operations to finish
         )
         
         # Detailed logging for debugging
@@ -873,6 +1034,13 @@ class ProgressService:
         )
         if non_final_statuses:
             logger.warning(f"[CONFIRM] Non-final statuses for batch {batch_id}: {non_final_statuses}")
+        
+        if recent_activity_link_ids:
+            logger.info(
+                f"[CONFIRM] Recent activity detected for {len(recent_activity_link_ids)} items in batch '{batch_id}': "
+                f"{[item['link_id'] for item in recent_activity_link_ids[:5]]}. "
+                f"Waiting grace period ({self.completion_grace_period}s) before confirming completion."
+            )
 
         result = {
             'confirmed': confirmed,
@@ -888,6 +1056,8 @@ class ProgressService:
             'in_progress_count': in_progress_count,
             'missing_processes': missing_processes,
             'non_final_statuses': non_final_statuses if not confirmed else [],
+            'recent_activity': recent_activity_link_ids if not confirmed else [],
+            'grace_period_expired': grace_period_expired,
             'timestamp': datetime.now().isoformat()
         }
         
@@ -897,17 +1067,30 @@ class ProgressService:
             logger.info(
                 f"Scraping completion CONFIRMED (100%) for batch '{batch_id}': "
                 f"{completion_percentage:.1f}% ({total_final}/{result_expected_total}) - "
-                f"{completed_count} completed, {failed_count} failed"
+                f"{completed_count} completed, {failed_count} failed, "
+                f"grace period expired: {grace_period_expired}"
             )
         else:
+            reason_parts = []
+            if registered_count < expected_goal:
+                reason_parts.append(f"registered ({registered_count}) < expected ({expected_goal})")
+            if not all_have_final_status:
+                reason_parts.append(f"non-final statuses: {len(non_final_statuses)}")
+            if not is_100_percent:
+                reason_parts.append(f"completion rate: {completion_percentage:.1f}% < 100%")
+            if total_final != expected_goal:
+                reason_parts.append(f"total_final ({total_final}) != expected ({expected_goal})")
+            if not grace_period_expired:
+                reason_parts.append(f"recent activity: {len(recent_activity_link_ids)} items")
+            
             logger.info(
                 f"Scraping completion NOT confirmed for batch '{batch_id}': "
                 f"{completion_percentage:.1f}% ({total_final}/{result_expected_total}), "
-                f"Expected {result_expected_total}, Registered {registered_count}, "
-                f"Completed {completed_count}, Failed {failed_count}, "
-                f"In Progress {in_progress_count}, Pending {pending_count}"
+                f"Reasons: {', '.join(reason_parts) if reason_parts else 'unknown'}"
             )
             if non_final_statuses:
                 logger.debug(f"Non-final statuses: {non_final_statuses}")
+            if recent_activity_link_ids:
+                logger.debug(f"Recent activity: {recent_activity_link_ids}")
         
         return result

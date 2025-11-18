@@ -1,0 +1,23 @@
+{
+  "success": true,
+  "bv_id": "BV1Vqe3z4Eyg",
+  "comments": [
+    {
+      "content": "配套deepseek微调资源已整理\n\n[桃源_缘分]大家自取哦：‍【这里→→https://www.bilibili.com/read/cv42677285/?jump_opus=1】",
+      "likes": 2,
+      "replies": 0
+    },
+    {
+      "content": "这个微调，数据集似乎只能是文本类的？如果想微调训练对图片的识别怎么做？",
+      "likes": 4,
+      "replies": 0
+    }
+  ],
+  "total_comments": 2,
+  "total_available": 62,
+  "pages_fetched": 2,
+  "extraction_timestamp": "2025-11-14T20:02:59.677283",
+  "batch_id": "20251114_115750",
+  "link_id": "bili_req5_comments",
+  "error": null
+}

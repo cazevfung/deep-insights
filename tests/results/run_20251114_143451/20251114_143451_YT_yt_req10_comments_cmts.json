@@ -1,0 +1,19 @@
+{
+  "success": true,
+  "video_id": "KeZn5VxnxaI",
+  "url": "https://www.youtube.com/watch?v=KeZn5VxnxaI",
+  "comments": [
+    "I love everything that you guys do! Thank you so much for giving programming to the masses!"
+  ],
+  "num_comments": 1,
+  "title": "What are AI Models? | AI Models Explained",
+  "author": "Glide",
+  "publish_date": "",
+  "source": "YouTube",
+  "word_count": 17,
+  "extraction_method": "youtube_comments",
+  "extraction_timestamp": "2025-11-14T22:38:00.486284",
+  "batch_id": "20251114_143451",
+  "link_id": "yt_req10_comments",
+  "error": null
+}

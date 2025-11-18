@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
 import Card from '../common/Card'
 import Button from '../common/Button'
 import { streamDesignTokens } from './streamDesignTokens'
@@ -180,7 +181,9 @@ const StreamDisplay: React.FC<StreamDisplayProps> = ({
       >
         {content ? (
           isExpanded ? (
-            <pre className="stream-content-text">{content}</pre>
+            <div className="stream-content-text prose prose-sm prose-neutral max-w-none">
+              <ReactMarkdown>{content}</ReactMarkdown>
+            </div>
           ) : (
             <p className="stream-content-preview">
               {content.length > 160 ? `${content.slice(0, 160)}…` : content}

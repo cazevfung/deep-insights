@@ -6,6 +6,42 @@ This module provides functions to format key info markers for use in research ph
 from typing import Dict, Any, List, Optional
 from loguru import logger
 
+SOURCE_NAME_MAP = {
+    "youtube": "YouTube",
+    "bilibili": "Bilibili",
+    "reddit": "Reddit",
+    "article": "文章",
+}
+
+
+def get_content_display_name(link_id: str, data: Optional[Dict[str, Any]]) -> str:
+    """
+    Build a human-friendly label for a content item using title/author/source.
+    Always appends the raw link_id for traceability.
+    """
+    data = data or {}
+    metadata = data.get("metadata", {}) or {}
+    title = (metadata.get("title") or "").strip()
+    author = (metadata.get("author") or "").strip()
+    source = (data.get("source") or metadata.get("source") or "").strip()
+    source_display = SOURCE_NAME_MAP.get(source.lower(), source) if source else ""
+
+    name_parts: List[str] = []
+
+    if title and title.lower() not in {"unknown", "未知标题"}:
+        name_parts.append(title)
+    else:
+        name_parts.append(f"内容项 {link_id}")
+
+    if author and author.lower() not in {"unknown", "匿名"}:
+        name_parts.append(author)
+
+    if source_display:
+        name_parts.append(source_display)
+
+    display_core = "｜".join(name_parts)
+    return f"{display_core}（link_id: {link_id}）"
+
 
 def format_marker_overview(
     batch_data: Dict[str, Any],
@@ -65,16 +101,17 @@ def format_markers_for_content_item(link_id: str, data: Dict[str, Any]) -> str:
     """
     metadata = data.get("metadata", {})
     summary = data.get("summary", {})
+    display_name = get_content_display_name(link_id, data)
     
     if not summary:
         # Fallback: no summary available
         title = metadata.get("title", "未知标题")
         source = data.get("source", "unknown")
-        return f"**内容项: {link_id}**\n来源: {source} | 标题: {title}\n*(无标记摘要)*"
+        return (
+            f"**内容项: {display_name}**\n"
+            f"来源: {source} | 标题: {title}\n*(无标记摘要)*"
+        )
     
-    # Extract metadata
-    title = metadata.get("title", "未知标题")
-    source = data.get("source", "unknown")
     transcript = data.get("transcript", "")
     comments = data.get("comments", [])
     
@@ -83,8 +120,7 @@ def format_markers_for_content_item(link_id: str, data: Dict[str, Any]) -> str:
     
     # Build item overview
     parts = [
-        f"**内容项: {link_id}**",
-        f"来源: {source} | 标题: {title}",
+        f"**内容项: {display_name}**",
         f"字数: {word_count} | 评论数: {comment_count}\n"
     ]
     

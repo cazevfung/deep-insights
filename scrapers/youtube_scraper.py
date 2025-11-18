@@ -2,9 +2,9 @@
 import re
 import time
 from datetime import datetime
-from typing import Dict
+from typing import Dict, Tuple
 from loguru import logger
-from playwright.sync_api import Page
+from playwright.sync_api import Page, TimeoutError as PlaywrightTimeout
 from scrapers.base_scraper import BaseScraper
 
 
@@ -17,6 +17,19 @@ class YouTubeScraper(BaseScraper):
         self.video_id_pattern = re.compile(
             r'(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})'
         )
+        # Increase timeout for YouTube (can be slow to load)
+        # Ensure at least 60 seconds for YouTube pages
+        config_timeout = self.scraper_config.get('timeout', 60000)
+        base_timeout = self.timeout
+        self.timeout = max(self.timeout, config_timeout, 60000)
+        logger.debug(
+            f"[YouTube] Timeout configuration: base={base_timeout}ms, config={config_timeout}ms, "
+            f"final={self.timeout}ms"
+        )
+        # Retry configuration
+        self.max_retries = 3
+        self.retry_delay_base = 2.0  # Base delay in seconds
+        logger.debug(f"[YouTube] Retry configuration: max_retries={self.max_retries}, delay_base={self.retry_delay_base}s")
     
     def validate_url(self, url: str) -> bool:
         """
@@ -109,6 +122,166 @@ class YouTubeScraper(BaseScraper):
         
         return metadata
     
+    def _goto_with_retry(self, page: Page, context, url: str, max_retries: int = None) -> Tuple[bool, Page]:
+        """
+        Navigate to URL with retry logic for timeout and connection errors.
+        
+        When connection errors occur, this method will recreate the browser context and page
+        to recover from browser crashes or disconnections.
+        
+        Args:
+            page: Playwright page object
+            context: Playwright browser context object
+            url: URL to navigate to
+            max_retries: Maximum number of retries (defaults to self.max_retries)
+            
+        Returns:
+            Tuple of (success: bool, page: Page) where page may be a new page if context was recreated
+        """
+        max_retries = max_retries or self.max_retries
+        current_page = page
+        current_context = context
+        
+        # Log initial state
+        logger.info(f"[YouTube] Starting navigation to {url} with timeout={self.timeout}ms, max_retries={max_retries}")
+        logger.debug(f"[YouTube] Page state: closed={current_page.is_closed()}, url={current_page.url if not current_page.is_closed() else 'N/A'}")
+        
+        def _recreate_context_and_page():
+            """Recreate browser context and page when connection is lost."""
+            nonlocal current_page, current_context
+            logger.warning(f"[YouTube] Recreating browser context and page due to connection error")
+            try:
+                # Close old page and context if they still exist
+                try:
+                    if not current_page.is_closed():
+                        current_page.close()
+                except:
+                    pass
+                try:
+                    current_context.close()
+                except:
+                    pass
+            except:
+                pass
+            
+            # Create new context and page
+            try:
+                current_context = self._create_context()
+                logger.debug(f"[YouTube] New browser context created successfully")
+                current_page = current_context.new_page()
+                logger.debug(f"[YouTube] New page created successfully")
+                return True
+            except Exception as e:
+                logger.error(f"[YouTube] Failed to recreate context/page: {e}")
+                import traceback
+                logger.error(f"[YouTube] Traceback: {traceback.format_exc()}")
+                return False
+        
+        for attempt in range(max_retries):
+            attempt_start_time = time.time()
+            try:
+                if attempt > 0:
+                    delay = self.retry_delay_base * (2 ** (attempt - 1))  # Exponential backoff
+                    logger.info(f"[YouTube] Retrying page navigation (attempt {attempt + 1}/{max_retries}) after {delay:.1f}s delay...")
+                    time.sleep(delay)
+                
+                logger.info(f"[YouTube] Navigating to {url} (attempt {attempt + 1}/{max_retries}, timeout={self.timeout}ms)")
+                
+                # Check page state before navigation
+                if current_page.is_closed():
+                    logger.warning(f"[YouTube] Page is closed before navigation attempt {attempt + 1}, recreating...")
+                    if not _recreate_context_and_page():
+                        if attempt == max_retries - 1:
+                            return (False, current_page)
+                        continue
+                
+                # Check if context is still valid by trying to access it
+                try:
+                    _ = current_context.pages  # This will raise if context is invalid
+                except Exception as context_check_error:
+                    logger.warning(f"[YouTube] Context appears invalid: {context_check_error}, recreating...")
+                    if not _recreate_context_and_page():
+                        if attempt == max_retries - 1:
+                            return (False, current_page)
+                        continue
+                
+                # Perform navigation
+                current_page.goto(url, wait_until='domcontentloaded', timeout=self.timeout)
+                
+                elapsed = round((time.time() - attempt_start_time) * 1000, 0)
+                logger.info(f"[YouTube] ✓ Successfully navigated to {url} in {elapsed}ms (attempt {attempt + 1})")
+                logger.debug(f"[YouTube] Final page URL: {current_page.url}")
+                return (True, current_page)
+                
+            except PlaywrightTimeout as e:
+                elapsed = round((time.time() - attempt_start_time) * 1000, 0)
+                error_msg = str(e)
+                error_type = type(e).__name__
+                logger.error(
+                    f"[YouTube] Page.goto TIMEOUT on attempt {attempt + 1}/{max_retries} "
+                    f"(after {elapsed}ms, timeout={self.timeout}ms): {error_type}: {error_msg}"
+                )
+                logger.debug(f"[YouTube] Page state after timeout: closed={current_page.is_closed()}, url={current_page.url if not current_page.is_closed() else 'N/A'}")
+                
+                if attempt == max_retries - 1:
+                    logger.error(
+                        f"[YouTube] ✗ All {max_retries} navigation attempts FAILED with timeout. "
+                        f"URL: {url}, Timeout setting: {self.timeout}ms, Total time: {round((time.time() - attempt_start_time) * 1000, 0)}ms"
+                    )
+                    return (False, current_page)
+                # Continue to retry - page.goto can be called multiple times
+                
+            except Exception as e:
+                elapsed = round((time.time() - attempt_start_time) * 1000, 0)
+                error_msg = str(e)
+                error_type = type(e).__name__
+                full_traceback = None
+                try:
+                    import traceback
+                    full_traceback = traceback.format_exc()
+                except:
+                    pass
+                
+                # Check for network errors
+                if "ERR_SOCKET_NOT_CONNECTED" in error_msg or "net::ERR" in error_msg:
+                    logger.error(
+                        f"[YouTube] Network error on attempt {attempt + 1}/{max_retries} "
+                        f"(after {elapsed}ms): {error_type}: {error_msg}"
+                    )
+                    if full_traceback:
+                        logger.debug(f"[YouTube] Full traceback:\n{full_traceback}")
+                    logger.debug(f"[YouTube] Page state after network error: closed={current_page.is_closed()}, url={current_page.url if not current_page.is_closed() else 'N/A'}")
+                    
+                    # Recreate context and page for network errors (connection may be lost)
+                    logger.warning(f"[YouTube] Network error detected, recreating browser context and page...")
+                    if not _recreate_context_and_page():
+                        if attempt == max_retries - 1:
+                            return (False, current_page)
+                        continue
+                    
+                    if attempt == max_retries - 1:
+                        logger.error(
+                            f"[YouTube] ✗ All {max_retries} navigation attempts FAILED with network error. "
+                            f"URL: {url}, Error: {error_msg}"
+                        )
+                        return (False, current_page)
+                    # Wait longer for network errors
+                    network_delay = self.retry_delay_base * (2 ** attempt)
+                    logger.info(f"[YouTube] Waiting {network_delay:.1f}s before network retry...")
+                    time.sleep(network_delay)
+                else:
+                    # Other errors - log full details but don't retry
+                    logger.error(
+                        f"[YouTube] Navigation failed with unexpected error on attempt {attempt + 1}: "
+                        f"{error_type}: {error_msg}"
+                    )
+                    if full_traceback:
+                        logger.error(f"[YouTube] Full traceback:\n{full_traceback}")
+                    raise
+        
+        logger.error(f"[YouTube] ✗ Navigation failed after {max_retries} attempts without returning")
+        return (False, current_page)
+    
     def extract(self, url: str, batch_id: str = None, link_id: str = None) -> Dict:
         """
         Extract transcript from YouTube video.
@@ -132,23 +305,47 @@ class YouTubeScraper(BaseScraper):
             
             # Create browser context and page
             try:
+                logger.debug(f"[YouTube] Creating browser context (timeout={self.timeout}ms, headless={self.headless})")
                 context = self._create_context()
+                logger.debug(f"[YouTube] Browser context created successfully")
                 page = context.new_page()
+                logger.debug(f"[YouTube] New page created successfully")
             except Exception as e:
-                logger.error(f"[YouTube] Failed to create browser context: {e}")
+                logger.error(f"[YouTube] Failed to create browser context/page: {e}")
                 import traceback
                 logger.error(f"[YouTube] Traceback: {traceback.format_exc()}")
                 raise
             
             # Extract metadata first
             self._report_progress("loading", 10, "Loading YouTube video")
-            page.goto(url, wait_until='domcontentloaded', timeout=self.timeout)
+            
+            # Navigate with retry logic (may return a new page if context was recreated)
+            navigation_success, page = self._goto_with_retry(page, context, url)
+            if not navigation_success:
+                # Navigation failed after all retries
+                try:
+                    if not page.is_closed():
+                        page.close()
+                except:
+                    pass
+                try:
+                    context.close()
+                except:
+                    pass
+                error_msg = f"Failed to load YouTube page after {self.max_retries} attempts. The page may be slow or unreachable."
+                logger.error(f"[YouTube] {error_msg}")
+                return self._error_result(url, error_msg, batch_id, link_id, video_id=video_id)
+            
+            # Update context reference in case it was recreated
+            # Use page.context to get the current context (may be new if recreated)
+            context = page.context
             
             # Check for cancellation
             if self._check_cancelled():
                 logger.info(f"[YouTube] Cancellation detected, force closing browser for {url}")
                 try:
-                    page.close()
+                    if not page.is_closed():
+                        page.close()
                 except:
                     pass
                 try:
@@ -165,7 +362,8 @@ class YouTubeScraper(BaseScraper):
             if self._check_cancelled():
                 logger.info(f"[YouTube] Cancellation detected, force closing browser for {url}")
                 try:
-                    page.close()
+                    if not page.is_closed():
+                        page.close()
                 except:
                     pass
                 try:
@@ -295,8 +493,24 @@ class YouTubeScraper(BaseScraper):
                         
                         # If transcript still not loaded, refresh page and try again
                         if not transcript_loaded:
-                            logger.debug("Refreshing page and retrying transcript extraction")
-                            page.reload(wait_until='domcontentloaded', timeout=self.timeout)
+                            logger.info(f"[YouTube] Refreshing page and retrying transcript extraction (timeout={self.timeout}ms)")
+                            # Use retry logic for reload as well
+                            reload_start = time.time()
+                            try:
+                                page.reload(wait_until='domcontentloaded', timeout=self.timeout)
+                                reload_elapsed = round((time.time() - reload_start) * 1000, 0)
+                                logger.debug(f"[YouTube] Page reload completed in {reload_elapsed}ms")
+                            except PlaywrightTimeout as e:
+                                reload_elapsed = round((time.time() - reload_start) * 1000, 0)
+                                logger.warning(
+                                    f"[YouTube] Page reload TIMEOUT after {reload_elapsed}ms "
+                                    f"(timeout={self.timeout}ms): {e}, continuing anyway"
+                                )
+                            except Exception as e:
+                                reload_elapsed = round((time.time() - reload_start) * 1000, 0)
+                                logger.warning(
+                                    f"[YouTube] Page reload failed after {reload_elapsed}ms: {e}, continuing anyway"
+                                )
                             time.sleep(2.0)
                             # Re-extract metadata after refresh
                             metadata = self._extract_metadata(page)
@@ -324,8 +538,15 @@ class YouTubeScraper(BaseScraper):
                     continue
             
             if not clicked:
-                page.close()
-                context.close()
+                try:
+                    if not page.is_closed():
+                        page.close()
+                except:
+                    pass
+                try:
+                    page.context.close()
+                except:
+                    pass
                 return {
                     'success': False,
                     'video_id': video_id,
@@ -360,11 +581,12 @@ class YouTubeScraper(BaseScraper):
                     if self._check_cancelled():
                         logger.info(f"[YouTube] Cancellation detected during segment processing for {url}")
                         try:
-                            page.close()
+                            if not page.is_closed():
+                                page.close()
                         except:
                             pass
                         try:
-                            context.close()
+                            page.context.close()
                         except:
                             pass
                         self.close(force_kill=True)  # Force kill browser processes
@@ -382,9 +604,18 @@ class YouTubeScraper(BaseScraper):
             except Exception as e:
                 logger.debug(f"Error extracting segments: {e}")
             
-            # Clean up
-            page.close()
-            context.close()
+            # Clean up (use page.context in case context was recreated)
+            try:
+                if not page.is_closed():
+                    page.close()
+            except:
+                pass
+            try:
+                # Get context from page in case it was recreated
+                page_context = page.context
+                page_context.close()
+            except:
+                pass
             
             if not transcript_texts:
                 return {

@@ -37,6 +37,9 @@ from backend.lib import (
     verify_scraper_results,
     run_research_agent,
 )
+
+# Import new control center version
+from backend.lib.workflow_direct import run_all_scrapers_direct_v2
 from research.agent import DeepResearchAgent
 from research.session import ResearchSession
 from app.websocket.manager import WebSocketManager
@@ -47,11 +50,12 @@ from datetime import datetime
 
 
 # Process count per link type
+# v3: We only scrape transcripts; comment scraping has been disabled.
 PROCESSES_PER_LINK_TYPE = {
-    'youtube': 2,      # transcript + comments
-    'bilibili': 2,    # transcript + comments
+    'youtube': 1,   # transcript only
+    'bilibili': 1,  # transcript only
     'reddit': 1,
-    'article': 1
+    'article': 1,
 }
 
 
@@ -92,33 +96,14 @@ def calculate_total_scraping_processes(links_by_type: Dict[str, list]) -> Dict[s
         breakdown[link_type] = process_count
         
         # Build detailed process mapping
-        if link_type in ['youtube', 'bilibili']:
-            # Each link generates 2 processes (transcript + comments)
-            for link_info in links:
-                # Transcript process
-                process_mapping.append({
-                    'link_id': link_info.get('id') or link_info.get('link_id'),
-                    'url': link_info.get('url'),
-                    'scraper_type': link_type,
-                    'process_type': 'transcript'
-                })
-                # Comments process
-                link_id = link_info.get('id') or link_info.get('link_id')
-                process_mapping.append({
-                    'link_id': f"{link_id}_comments",
-                    'url': link_info.get('url'),
-                    'scraper_type': f'{link_type}comments',
-                    'process_type': 'comments'
-                })
-        else:
-            # Reddit and Article: 1 process per link
-            for link_info in links:
-                process_mapping.append({
-                    'link_id': link_info.get('id') or link_info.get('link_id'),
-                    'url': link_info.get('url'),
-                    'scraper_type': link_type,
-                    'process_type': 'transcript'
-                })
+        # v3: All link types (including YouTube/Bilibili) are treated as single-process transcript scrapers.
+        for link_info in links:
+            process_mapping.append({
+                'link_id': link_info.get('id') or link_info.get('link_id'),
+                'url': link_info.get('url'),
+                'scraper_type': link_type,
+                'process_type': 'transcript'
+            })
     
     expected_total = sum(breakdown.values())
     
@@ -195,12 +180,55 @@ def _run_scrapers_in_thread(progress_callback, batch_id, cancellation_checker=No
         else:
             logger.debug("PLAYWRIGHT_BROWSERS_PATH not set (using default)")
         
+        # Create batch directory immediately when scraping starts
+        # This ensures the directory exists before any files are saved
+        from pathlib import Path
+        # Use same path calculation as ResearchDataLoader for consistency
+        # Path(__file__) = backend/app/services/workflow_service.py
+        # .parent.parent.parent.parent = project root
+        output_dir = Path(__file__).parent.parent.parent.parent / "tests" / "results"
+        output_dir.mkdir(exist_ok=True, parents=True)
+        batch_folder = output_dir / f"run_{batch_id}"
+        batch_folder.mkdir(exist_ok=True)
+        logger.info(f"Created batch directory: {batch_folder}")
+        
         # Run the scrapers - Playwright will initialize in this thread
         logger.info(f"Starting scrapers execution in thread...")
-        result = run_all_scrapers_direct(
+        
+        # Get worker pool size from config or environment variable
+        worker_pool_size = 8
+        max_concurrent_scrapers = None
+        try:
+            from core.config import Config
+            config = Config()
+            scraping_config = config.get('scraping', {}).get('control_center', {})
+            worker_pool_size = scraping_config.get('worker_pool_size', 8)
+            max_concurrent_scrapers = scraping_config.get('max_concurrent_scrapers')
+            # If max_concurrent_scrapers is set and valid, cap worker_pool_size
+            if max_concurrent_scrapers and max_concurrent_scrapers > 0:
+                if worker_pool_size > max_concurrent_scrapers:
+                    logger.info(f"Capping worker_pool_size from {worker_pool_size} to {max_concurrent_scrapers} (max_concurrent_scrapers limit)")
+                    worker_pool_size = max_concurrent_scrapers
+        except Exception:
+            pass
+        
+        # Check environment variable override
+        env_worker_size = os.environ.get('SCRAPING_WORKER_POOL_SIZE', '')
+        if env_worker_size:
+            worker_pool_size = int(env_worker_size)
+            # Still respect max_concurrent_scrapers if set
+            if max_concurrent_scrapers and max_concurrent_scrapers > 0:
+                if worker_pool_size > max_concurrent_scrapers:
+                    logger.info(f"Capping worker_pool_size from {worker_pool_size} to {max_concurrent_scrapers} (max_concurrent_scrapers limit)")
+                    worker_pool_size = max_concurrent_scrapers
+        
+        # Use new control center system
+        logger.info(f"Using control center with {worker_pool_size} workers")
+        result = run_all_scrapers_direct_v2(
             progress_callback=progress_callback,
             batch_id=batch_id,
-            cancellation_checker=cancellation_checker
+            cancellation_checker=cancellation_checker,
+            worker_pool_size=worker_pool_size
         )
         
         logger.info(f"Scrapers completed in thread: {current_thread.name}")
@@ -240,6 +268,10 @@ class WorkflowService:
         #     'source': 'user_input' | 'test_links_loader'
         # }
         self.batch_totals: Dict[str, Dict[str, Any]] = {}
+        
+        # Track streaming summarization managers per batch
+        # Maps batch_id -> StreamingSummarizationManager instance
+        self.streaming_managers: Dict[str, Any] = {}
         
         # Debug tracking
         if DEBUG_MODE:
@@ -598,36 +630,14 @@ class WorkflowService:
                 context[link_type] = link_list
                 
                 # Count expected processes based on link type:
-                # - YouTube: transcript + comments = 2 processes per link
-                # - Bilibili: transcript + comments = 2 processes per link
-                # - Reddit: 1 process per link
-                # - Article: 1 process per link
-                if link_type in ['youtube', 'bilibili']:
-                    # Each link generates 2 processes (transcript + comments)
-                    for link_info in link_list:
-                        # Transcript process
-                        all_expected_processes.append({
-                            'link_id': link_info['link_id'],
-                            'url': link_info['url'],
-                            'scraper_type': link_type,  # 'youtube' or 'bilibili'
-                            'process_type': 'transcript'
-                        })
-                        # Comments process (use modified link_id to avoid collision)
-                        all_expected_processes.append({
-                            'link_id': f"{link_info['link_id']}_comments",
-                            'url': link_info['url'],
-                            'scraper_type': f'{link_type}comments',  # 'youtubecomments' or 'bilibilicomments'
-                            'process_type': 'comments'
-                        })
-                else:
-                    # Reddit and Article: 1 process per link
-                    for link_info in link_list:
-                        all_expected_processes.append({
-                            'link_id': link_info['link_id'],
-                            'url': link_info['url'],
-                            'scraper_type': link_type,
-                            'process_type': 'transcript'  # or 'article'/'reddit'
-                        })
+                # v3: All sources use a single transcript-only scraping process per link.
+                for link_info in link_list:
+                    all_expected_processes.append({
+                        'link_id': link_info['link_id'],
+                        'url': link_info['url'],
+                        'scraper_type': link_type,  # 'youtube', 'bilibili', 'reddit', 'article'
+                        'process_type': 'transcript'
+                    })
             
             self.link_context[batch_id] = context
             
@@ -695,11 +705,14 @@ class WorkflowService:
             await self.progress_service._update_batch_status(batch_id)
             
         except Exception as e:
-            logger.error(f"Failed to load link context: {e}")
+            error_msg = f"Failed to load link context for batch {batch_id}: {e}"
+            logger.error(error_msg)
             import traceback
-            logger.error(traceback.format_exc())
-            # Initialize empty context
+            logger.error(f"Full traceback: {traceback.format_exc()}")
+            # Initialize empty context to indicate failure
+            # This will be caught by validation in start_workflow
             self.link_context[batch_id] = {}
+            logger.warning(f"Initialized empty link context for batch {batch_id} due to error")
     
     def _normalize_scraper_type(self, scraper_type: str) -> str:
         """
@@ -829,23 +842,8 @@ class WorkflowService:
                     callback_link_id = message.get('link_id')
                     callback_url = message.get('url')
                     
-                    # For comments scrapers, append '_comments' to link_id to match pre-registered IDs
-                    original_link_id = callback_link_id
-                    if scraper_type in ['youtubecomments', 'bilibilicomments']:
-                        if callback_link_id and not callback_link_id.endswith('_comments'):
-                            callback_link_id = f"{callback_link_id}_comments"
-                            if DEBUG_MODE:
-                                self._link_id_transformations[batch_id].append({
-                                    'operation': 'scraping:start_link',
-                                    'scraper': scraper_type,
-                                    'original': original_link_id,
-                                    'transformed': callback_link_id,
-                                    'reason': 'comments_scraper_suffix'
-                                })
-                                logger.debug(
-                                    f"[TRANSFORM] {original_link_id} -> {callback_link_id} "
-                                    f"(scraper={scraper_type}, reason=comments_scraper_suffix)"
-                                )
+                    # NOTE: link_id from control center already has '_comments' suffix for comments scrapers
+                    # (set in workflow_direct.py when creating tasks), so no transformation needed here
                     
                     logger.info(f"[WorkflowService] Processing scraping:start_link - stage={stage}, link_id={callback_link_id}, url={callback_url}, scraper={scraper_type}")
                     
@@ -857,10 +855,24 @@ class WorkflowService:
                             callback_link_id,
                             callback_url
                         )
-                        # Apply _comments suffix for comments scrapers after finding link info
+                        # NOTE: _find_link_info may return link_id without '_comments' suffix for comments scrapers
+                        # In that case, we need to append it to match pre-registered IDs
                         if scraper_type in ['youtubecomments', 'bilibilicomments']:
                             if callback_link_id and not callback_link_id.endswith('_comments'):
+                                original_link_id = callback_link_id
                                 callback_link_id = f"{callback_link_id}_comments"
+                                if DEBUG_MODE:
+                                    self._link_id_transformations[batch_id].append({
+                                        'operation': 'scraping:start_link',
+                                        'scraper': scraper_type,
+                                        'original': original_link_id,
+                                        'transformed': callback_link_id,
+                                        'reason': 'comments_scraper_suffix_after_find_link_info'
+                                    })
+                                    logger.debug(
+                                        f"[TRANSFORM] {original_link_id} -> {callback_link_id} "
+                                        f"(scraper={scraper_type}, reason=comments_scraper_suffix_after_find_link_info)"
+                                    )
                     
                     # Extract metadata
                     bytes_downloaded = message.get('bytes_downloaded', 0)
@@ -899,23 +911,8 @@ class WorkflowService:
                     callback_link_id = message.get('link_id')
                     callback_url = message.get('url')
                     
-                    # For comments scrapers, append '_comments' to link_id to match pre-registered IDs
-                    original_link_id = callback_link_id
-                    if scraper_type in ['youtubecomments', 'bilibilicomments']:
-                        if callback_link_id and not callback_link_id.endswith('_comments'):
-                            callback_link_id = f"{callback_link_id}_comments"
-                            if DEBUG_MODE:
-                                self._link_id_transformations[batch_id].append({
-                                    'operation': 'scraping:complete_link',
-                                    'scraper': scraper_type,
-                                    'original': original_link_id,
-                                    'transformed': callback_link_id,
-                                    'reason': 'comments_scraper_suffix'
-                                })
-                                logger.debug(
-                                    f"[TRANSFORM] {original_link_id} -> {callback_link_id} "
-                                    f"(scraper={scraper_type}, reason=comments_scraper_suffix)"
-                                )
+                    # NOTE: link_id from control center already has '_comments' suffix for comments scrapers
+                    # (set in workflow_direct.py when creating tasks), so no transformation needed here
                     
                     logger.info(f"[WorkflowService] Processing scraping:complete_link - status={status}, stage={stage}, link_id={callback_link_id}, scraper={scraper_type}")
                     
@@ -931,14 +928,29 @@ class WorkflowService:
                             callback_link_id,
                             callback_url
                         )
-                        # Apply _comments suffix for comments scrapers after finding link info
+                        # NOTE: _find_link_info may return link_id without '_comments' suffix for comments scrapers
+                        # In that case, we need to append it to match pre-registered IDs
                         if scraper_type in ['youtubecomments', 'bilibilicomments']:
                             if callback_link_id and not callback_link_id.endswith('_comments'):
+                                original_link_id = callback_link_id
                                 callback_link_id = f"{callback_link_id}_comments"
+                                if DEBUG_MODE:
+                                    self._link_id_transformations[batch_id].append({
+                                        'operation': 'scraping:complete_link',
+                                        'scraper': scraper_type,
+                                        'original': original_link_id,
+                                        'transformed': callback_link_id,
+                                        'reason': 'comments_scraper_suffix_after_find_link_info'
+                                    })
+                                    logger.debug(
+                                        f"[TRANSFORM] {original_link_id} -> {callback_link_id} "
+                                        f"(scraper={scraper_type}, reason=comments_scraper_suffix_after_find_link_info)"
+                                    )
                     
                     # Extract metadata
                     bytes_downloaded = message.get('bytes_downloaded', 0)
                     total_bytes = message.get('total_bytes', 0)
+                    word_count = message.get('word_count', 0)  # Extract word_count from completion message
                     
                     # Convert to ProgressService format and queue
                     converted_message = {
@@ -953,10 +965,240 @@ class WorkflowService:
                         'metadata': {
                             'bytes_downloaded': bytes_downloaded,
                             'total_bytes': total_bytes,
-                            'source': scraper_type
+                            'source': scraper_type,
+                            'word_count': word_count
                         }
                     }
                     message_queue.put_nowait(converted_message)
+                    logger.debug(
+                        f"[WorkflowService] Queued update_link_progress for link_id={callback_link_id}, "
+                        f"stage={stage}, progress={progress}, word_count={word_count}"
+                    )
+                    
+                    # Route to streaming summarization manager if available
+                    if callback_batch_id in self.streaming_managers and status == 'success':
+                        logger.info(f"[WorkflowService] Routing {callback_link_id} to streaming summarization (batch={callback_batch_id})")
+                        streaming_manager = self.streaming_managers[callback_batch_id]
+                        
+                        # Extract base link_id (remove _comments suffix for data loading)
+                        base_link_id = callback_link_id
+                        if callback_link_id.endswith('_comments'):
+                            base_link_id = callback_link_id[:-9]  # Remove '_comments'
+                        
+                        # FIX RACE #9: REMOVED DEADLOCK - Don't acquire completed_lock here!
+                        # The on_scraping_complete() method handles its own locking.
+                        # Acquiring the lock here and then calling on_scraping_complete (which also
+                        # acquires the lock) causes a deadlock because threading.Lock is non-reentrant.
+                        # This was causing all threads after the first to block forever at lock acquisition.
+                        try:
+                            # Load scraped data for this link
+                            from research.data_loader import ResearchDataLoader
+                            data_loader = ResearchDataLoader()
+                            
+                            logger.debug(f"[WorkflowService] Loading scraped data for {base_link_id} (from {callback_link_id})")
+                            
+                            # FIX 2: Verify file is written before loading
+                            # Add a small delay and retry to ensure file is fully written
+                            # Note: time module is already imported at module level
+                            from pathlib import Path
+                            
+                            # Use the same path as ResearchDataLoader to ensure consistency
+                            output_dir = data_loader.results_base_path
+                            batch_folder = output_dir / f"run_{callback_batch_id}"
+                            
+                            # FIX RACE #4: Increase retries and add longer delays to ensure file is fully written
+                            # Try to find the file (could be transcript or comments)
+                            file_found = False
+                            max_file_wait_retries = 10  # Increased from 5 to 10
+                            file_wait_delay = 0.3  # Increased from 0.2 to 0.3
+                            
+                            # Determine type prefix based on scraper type (handle comment scrapers too)
+                            if scraper_type == 'youtube' or scraper_type == 'youtubecomments':
+                                type_prefix = 'YT'
+                            elif scraper_type == 'bilibili' or scraper_type == 'bilibilicomments':
+                                type_prefix = 'BILI'
+                            elif scraper_type == 'article':
+                                type_prefix = 'AR'
+                            else:
+                                type_prefix = 'RD'  # Default to Reddit
+                            
+                            suffix = 'tsct'
+                            if scraper_type in ['youtubecomments', 'bilibilicomments']:
+                                suffix = 'cmts' if scraper_type == 'youtubecomments' else 'cmt'
+                            
+                            expected_filename = batch_folder / f"{callback_batch_id}_{type_prefix}_{callback_link_id}_{suffix}.json"
+                            
+                            logger.info(
+                                f"[WorkflowService] Verifying file for {base_link_id} "
+                                f"(scraper_type={scraper_type}, callback_link_id={callback_link_id}): "
+                                f"expected={expected_filename.name}, batch_folder={batch_folder}"
+                            )
+                            
+                            for retry in range(max_file_wait_retries):
+                                logger.debug(
+                                    f"[WorkflowService] File check attempt {retry + 1}/{max_file_wait_retries} "
+                                    f"for {base_link_id}: checking {expected_filename}"
+                                )
+                                
+                                if expected_filename.exists():
+                                    # Try to read it to verify it's complete
+                                    try:
+                                        with open(expected_filename, 'r', encoding='utf-8') as f:
+                                            import json
+                                            json.load(f)  # Verify it's valid JSON
+                                        file_found = True
+                                        logger.info(f"[WorkflowService] ✓ File verified for {base_link_id}: {expected_filename.name}")
+                                        break
+                                    except (IOError, json.JSONDecodeError) as e:
+                                        # File exists but not fully written yet
+                                        logger.debug(
+                                            f"[WorkflowService] File exists but not readable yet for {base_link_id} "
+                                            f"(attempt {retry + 1}/{max_file_wait_retries}): {e}"
+                                        )
+                                        if retry < max_file_wait_retries - 1:
+                                            time.sleep(file_wait_delay)
+                                            continue
+                                else:
+                                    logger.debug(
+                                        f"[WorkflowService] File not found for {base_link_id} "
+                                        f"(attempt {retry + 1}/{max_file_wait_retries}): {expected_filename}"
+                                    )
+                                
+                                # If not found, wait and retry
+                                if retry < max_file_wait_retries - 1:
+                                    time.sleep(file_wait_delay)
+                            
+                            if not file_found:
+                                # List actual files in directory for debugging
+                                actual_files = []
+                                if batch_folder.exists():
+                                    actual_files = [f.name for f in batch_folder.glob("*.json")]
+                                
+                                logger.warning(
+                                    f"[WorkflowService] ✗ File verification failed for {base_link_id} "
+                                    f"(expected: {expected_filename.name}, batch_folder: {batch_folder}). "
+                                    f"Actual files in directory ({len(actual_files)}): {actual_files[:10]}{'...' if len(actual_files) > 10 else ''}"
+                                )
+                            else:
+                                # File verified, load it directly instead of using data_loader's retry logic
+                                # This avoids blocking on retries since we already know the file exists
+                                try:
+                                    with open(expected_filename, 'r', encoding='utf-8') as f:
+                                        import json
+                                        file_data = json.load(f)
+                                    
+                                    # Convert file data to the format expected by streaming manager
+                                    # The file format depends on file type (tsct vs cmts/cmt)
+                                    scraped_data = {}
+                                    
+                                    if suffix in ['tsct', 'article']:
+                                        # Transcript/article file
+                                        scraped_data['transcript'] = file_data.get('content', '')
+                                        scraped_data['metadata'] = {
+                                            'title': file_data.get('title', ''),
+                                            'author': file_data.get('author', ''),
+                                            'url': file_data.get('url', ''),
+                                            'word_count': file_data.get('word_count', 0),
+                                            'publish_date': file_data.get('publish_date', '')
+                                        }
+                                        if 'summary' in file_data:
+                                            scraped_data['summary'] = file_data['summary']
+                                    elif suffix in ['cmts', 'cmt']:
+                                        # Comments file
+                                        comments = file_data.get('comments', [])
+                                        if scraper_type == 'youtubecomments' and comments:
+                                            # YouTube: extract content from comment objects if needed
+                                            if isinstance(comments[0], dict) and 'content' in comments[0]:
+                                                comments = [c.get('content', '') for c in comments]
+                                        scraped_data['comments'] = comments
+                                    
+                                    # Set source
+                                    source_mapping = {
+                                        'YT': 'youtube',
+                                        'BILI': 'bilibili',
+                                        'RD': 'reddit',
+                                        'AR': 'article'
+                                    }
+                                    scraped_data['source'] = source_mapping.get(type_prefix, scraper_type)
+                                    
+                                    logger.info(f"[WorkflowService] ✓ Loaded data directly from {expected_filename.name} for {base_link_id}")
+                                    
+                                    # V2 Integration: DON'T merge files here - let DataMerger in adapter handle it!
+                                    # The adapter needs to receive transcript and comments separately to merge properly.
+                                    # Commenting out the auto-merge logic:
+                                    #
+                                    # OLD BEHAVIOR (V1): Auto-merge transcript + comments files
+                                    # NEW BEHAVIOR (V2): Load only the requested file, send separately to adapter
+                                    #
+                                    # The DataMerger will receive:
+                                    #   - callback_link_id="yt_req1" with transcript → DataMerger.on_transcript_complete()
+                                    #   - callback_link_id="yt_req1_comments" with comments → DataMerger.on_comments_complete()
+                                    #   - DataMerger merges when both arrive → sends to V2
+                                    #
+                                    # This ensures clean separation and proper merge tracking!
+                                    
+                                except Exception as e:
+                                    logger.error(f"[WorkflowService] ✗ Error loading file {expected_filename}: {e}", exc_info=True)
+                                    scraped_data = None
+                                
+                                if scraped_data:
+                                    # Notify streaming manager (always use base_link_id for manager tracking)
+                                    transcript_len = len(scraped_data.get('transcript', '')) if scraped_data.get('transcript') else 0
+                                    comments_count = len(scraped_data.get('comments', [])) if scraped_data.get('comments') else 0
+                                    logger.info(
+                                        f"[WorkflowService] ✓ Data loaded for {base_link_id}: "
+                                        f"{transcript_len} chars transcript, {comments_count} comments. "
+                                        f"Routing to streaming summarization..."
+                                    )
+                                    try:
+                                        # FIX RACE #4: Add detailed logging before calling on_scraping_complete
+                                        # Check if streaming manager is ready
+                                        active_workers = [w for w in streaming_manager.workers if w.is_alive()]
+                                        queue_size_before = streaming_manager.summarization_queue.qsize()
+                                        logger.info(
+                                            f"[WorkflowService] 📊 Streaming manager state before routing {base_link_id}: "
+                                            f"active_workers={len(active_workers)}/{len(streaming_manager.workers)}, "
+                                            f"queue_size={queue_size_before}, "
+                                            f"items_in_queue={len(streaming_manager.items_in_queue)}, "
+                                            f"items_processing={len(streaming_manager.items_processing)}, "
+                                            f"expected_items={len(streaming_manager.expected_items)}"
+                                        )
+                                        
+                                        # V2 Integration: Pass original callback_link_id (with _comments suffix) so adapter can route correctly
+                                        streaming_manager.on_scraping_complete(callback_link_id, scraped_data)
+                                        
+                                        # Verify item was queued
+                                        queue_size_after = streaming_manager.summarization_queue.qsize()
+                                        logger.info(
+                                            f"[WorkflowService] ✓ Successfully routed {base_link_id} to streaming summarization. "
+                                            f"Queue size: {queue_size_before} → {queue_size_after}"
+                                        )
+                                        
+                                        # If queue size didn't increase and item wasn't already in queue/processing, log warning
+                                        if queue_size_after == queue_size_before:
+                                            with streaming_manager.completed_lock:
+                                                if base_link_id not in streaming_manager.items_in_queue and \
+                                                   base_link_id not in streaming_manager.items_processing and \
+                                                   not streaming_manager.item_states.get(base_link_id, {}).get('summarized', False):
+                                                    logger.warning(
+                                                        f"[WorkflowService] ⚠️ Item {base_link_id} was NOT queued for summarization! "
+                                                        f"This may indicate a problem in on_scraping_complete. "
+                                                        f"Item state: {streaming_manager.item_states.get(base_link_id, {})}"
+                                                    )
+                                    except Exception as e:
+                                        logger.error(f"[WorkflowService] ✗ Error calling on_scraping_complete for {base_link_id}: {e}", exc_info=True)
+                                else:
+                                    logger.warning(
+                                        f"[WorkflowService] ✗ Could not load data for {base_link_id} "
+                                        f"(expected file: {expected_filename.name}, batch_id={callback_batch_id}), skipping summarization. "
+                                        f"Check if file exists in batch directory."
+                                    )
+                        except Exception as e:
+                            logger.error(f"[WorkflowService] ✗ Error routing {base_link_id} to streaming manager: {e}", exc_info=True)
+                    elif callback_batch_id not in self.streaming_managers:
+                        logger.debug(f"[WorkflowService] No streaming manager for batch {callback_batch_id}, skipping summarization routing")
+                    elif status != 'success':
+                        logger.debug(f"[WorkflowService] Scraping status is '{status}' (not 'success'), skipping summarization routing for {callback_link_id}")
                     
                     # Update link status for both success and failed links
                     # This ensures frontend receives completion notifications
@@ -972,13 +1214,18 @@ class WorkflowService:
                             'metadata': {
                                 'bytes_downloaded': bytes_downloaded,
                                 'total_bytes': total_bytes,
-                                'source': scraper_type
+                                'source': scraper_type,
+                                'word_count': word_count
                             }
                         }
                         try:
                             message_queue.put_nowait(status_message)
+                            logger.debug(
+                                f"[WorkflowService] Queued update_link_status (completed) for link_id={callback_link_id}, "
+                                f"word_count={word_count}"
+                            )
                         except queue.Full:
-                            pass
+                            logger.warning(f"[WorkflowService] Queue full when trying to queue status update for link_id={callback_link_id}")
                     elif status == 'failed':
                         # Queue a status update for failed links
                         status_message = {
@@ -987,12 +1234,20 @@ class WorkflowService:
                             'link_id': callback_link_id,
                             'url': callback_url,
                             'status': 'failed',
-                            'error': error_msg or message_text
+                            'error': error_msg or message_text,
+                            'metadata': {
+                                'source': scraper_type,
+                                'word_count': 0
+                            }
                         }
                         try:
                             message_queue.put_nowait(status_message)
+                            logger.debug(
+                                f"[WorkflowService] Queued update_link_status (failed) for link_id={callback_link_id}, "
+                                f"error={error_msg}"
+                            )
                         except queue.Full:
-                            pass
+                            logger.warning(f"[WorkflowService] Queue full when trying to queue status update for link_id={callback_link_id}")
                     return  # Done processing this message
                     
                 elif message_type in ['scraping:start', 'scraping:discover', 'scraping:complete', 'scraping:start_type']:
@@ -1510,6 +1765,12 @@ class WorkflowService:
                         retry_count = 0
                         success = False
                         
+                        logger.info(
+                            f"🔄 [WorkflowService] Processing update_link_status: "
+                            f"batch_id={message.get('batch_id')}, link_id={message.get('link_id')}, "
+                            f"status={message.get('status')}, word_count={message.get('metadata', {}).get('word_count', 'N/A')}"
+                        )
+                        
                         while retry_count < max_retries and not success:
                             try:
                                 # Call ProgressService.update_link_status()
@@ -1522,6 +1783,10 @@ class WorkflowService:
                                     metadata=message.get('metadata')
                                 )
                                 success = True
+                                logger.debug(
+                                    f"✅ [WorkflowService] Successfully updated link status: "
+                                    f"link_id={message.get('link_id')}, status={message.get('status')}"
+                                )
                             except Exception as e:
                                 retry_count += 1
                                 if retry_count < max_retries:
@@ -1743,6 +2008,34 @@ class WorkflowService:
             # Load link context for this batch
             await self._load_link_context(batch_id)
             
+            # Validate that links were loaded successfully
+            if batch_id not in self.link_context:
+                error_msg = f"Failed to load link context for batch {batch_id}"
+                logger.error(error_msg)
+                await self.ws_manager.broadcast(batch_id, {
+                    "type": "error",
+                    "batch_id": batch_id,
+                    "message": f"无法加载链接上下文: {error_msg}",
+                    "error": error_msg
+                })
+                return {'success': False, 'error': error_msg}
+            
+            # Check if we have any links to process
+            link_context = self.link_context[batch_id]
+            total_links = sum(len(links) for links in link_context.values())
+            if total_links == 0:
+                error_msg = f"No links found for batch {batch_id}. Please ensure test_links.json contains valid links."
+                logger.error(error_msg)
+                await self.ws_manager.broadcast(batch_id, {
+                    "type": "error",
+                    "batch_id": batch_id,
+                    "message": f"未找到任何链接: 请确保 test_links.json 包含有效的链接",
+                    "error": error_msg
+                })
+                return {'success': False, 'error': error_msg}
+            
+            logger.info(f"[WorkflowService] ✓ Link context loaded successfully: {total_links} total links for batch {batch_id}")
+            
             # Create progress queue for thread-safe communication
             progress_queue = queue.Queue()
             progress_callback = self._create_progress_callback(batch_id, progress_queue)
@@ -1777,6 +2070,120 @@ class WorkflowService:
                         "message": "开始抓取内容",
                     })
                     
+                    # Initialize streaming summarization manager
+                    # This starts Phase 0 immediately, in parallel with scraping
+                    logger.info(f"[WorkflowService] About to initialize streaming summarization for batch {batch_id}")
+                    logger.info(f"[WorkflowService] link_context keys: {list(self.link_context.keys())}")
+                    logger.info(f"[WorkflowService] batch_id in link_context: {batch_id in self.link_context}")
+                    
+                    try:
+                        # V3 Integration: Use v3 workflow manager for scraping → summarization.
+                        # This currently builds on top of the proven V2 manager + adapter.
+                        from research.phases.streaming_summarization_manager_v3 import (
+                            StreamingSummarizationManagerV3 as StreamingSummarizationManager,
+                        )
+                        from research.client import QwenStreamingClient
+                        from core.config import Config
+                        from research.session import ResearchSession
+                        
+                        # Get all expected link_ids from link context
+                        all_link_ids = []
+                        if batch_id in self.link_context:
+                            logger.info(f"[WorkflowService] link_context[{batch_id}] keys: {list(self.link_context[batch_id].keys())}")
+                            for link_type, links in self.link_context[batch_id].items():
+                                logger.debug(f"[WorkflowService] Processing link_type={link_type}, links count={len(links)}")
+                                for link_info in links:
+                                    link_id = link_info.get('link_id')
+                                    if link_id:
+                                        # For YouTube/Bilibili, we track base link_id (not _comments)
+                                        if link_type in ['youtube', 'bilibili']:
+                                            # Only add base link_id once (comments are part of same item)
+                                            if link_id not in all_link_ids:
+                                                all_link_ids.append(link_id)
+                                        else:
+                                            all_link_ids.append(link_id)
+                        else:
+                            logger.warning(f"[WorkflowService] batch_id {batch_id} not found in link_context! Available keys: {list(self.link_context.keys())}")
+                        
+                        logger.info(f"[WorkflowService] Collected {len(all_link_ids)} link_ids for streaming summarization: {all_link_ids[:5]}...")
+                        
+                        # V2 Integration: Collect source types for data merger
+                        source_types = {}
+                        if batch_id in self.link_context:
+                            for link_type, links in self.link_context[batch_id].items():
+                                for link_info in links:
+                                    link_id = link_info.get('link_id')
+                                    if link_id:
+                                        source_types[link_id] = link_type
+                        logger.info(f"[WorkflowService] Collected source types for {len(source_types)} items")
+                        
+                        if all_link_ids:
+                            logger.info(f"[WorkflowService] Initializing streaming summarization for {len(all_link_ids)} items")
+                            
+                            # Create UI for streaming manager
+                            main_loop = asyncio.get_running_loop()
+                            ui = WebSocketUI(
+                                self.ws_manager,
+                                batch_id,
+                                main_loop=main_loop,
+                                conversation_service=self.conversation_service,
+                            )
+                            
+                            # Create or load session
+                            session = ResearchSession.create_or_load(batch_id)
+                            
+                            # Create Qwen client
+                            config = Config()
+                            api_key = config.get("qwen.api_key")
+                            if not api_key:
+                                api_key = os.getenv("DASHSCOPE_API_KEY") or os.getenv("QWEN_API_KEY")
+                            
+                            if api_key:
+                                client = QwenStreamingClient(api_key=api_key)
+                                
+                                # Create streaming manager
+                                streaming_manager = StreamingSummarizationManager(
+                                    client=client,
+                                    config=config,
+                                    ui=ui,
+                                    session=session,
+                                    batch_id=batch_id
+                                )
+                                
+                                # Register expected items (V2: pass source types for merger)
+                                streaming_manager.register_expected_items(all_link_ids, sources=source_types)
+                                
+                                # Start workers (V2: starts 1 worker via adapter)
+                                streaming_manager.start_workers()
+                                
+                                # Store manager
+                                self.streaming_managers[batch_id] = streaming_manager
+                                
+                                logger.info(f"[WorkflowService] Streaming summarization started for batch {batch_id}")
+                            else:
+                                logger.warning("[WorkflowService] No API key found, skipping streaming summarization")
+                        else:
+                            logger.warning(f"[WorkflowService] No link_ids found for batch {batch_id}, skipping streaming summarization")
+                            # Notify frontend about missing links for summarization
+                            context_keys = list(self.link_context.get(batch_id, {}).keys())
+                            await self.ws_manager.broadcast(batch_id, {
+                                "type": "warning",
+                                "batch_id": batch_id,
+                                "message": f"未找到链接ID，跳过流式摘要初始化。链接上下文: {context_keys}",
+                            })
+                    except Exception as e:
+                        error_msg = f"Failed to initialize streaming summarization for batch {batch_id}: {e}"
+                        logger.error(error_msg, exc_info=True)
+                        import traceback
+                        logger.error(f"[WorkflowService] Full traceback: {traceback.format_exc()}")
+                        # Notify frontend about the error but continue without streaming mode
+                        await self.ws_manager.broadcast(batch_id, {
+                            "type": "warning",
+                            "batch_id": batch_id,
+                            "message": f"流式摘要初始化失败，将使用批处理模式: {str(e)}",
+                        })
+                        # Continue without streaming mode - will fall back to batch mode
+                    
                     # Check cancellation before scraping
                     if self.progress_service.is_cancelled(batch_id):
                         logger.info(f"Batch {batch_id} was cancelled before scraping")
@@ -1785,12 +2192,25 @@ class WorkflowService:
                     # Use direct execution to pass progress callbacks to scrapers
                     # Run in thread pool - Playwright needs to be initialized in the thread
                     # Note: Playwright browser processes are created in the thread, so this should work
-                    scrapers_result = await asyncio.to_thread(
-                        _run_scrapers_in_thread,
-                        progress_callback=progress_callback,
-                        batch_id=batch_id,
-                        cancellation_checker=lambda: self.progress_service.is_cancelled(batch_id)
-                    )
+                    logger.info(f"[WorkflowService] Starting scraping execution for batch {batch_id} with {total_links} links")
+                    try:
+                        scrapers_result = await asyncio.to_thread(
+                            _run_scrapers_in_thread,
+                            progress_callback=progress_callback,
+                            batch_id=batch_id,
+                            cancellation_checker=lambda: self.progress_service.is_cancelled(batch_id)
+                        )
+                        logger.info(f"[WorkflowService] ✓ Scraping execution completed for batch {batch_id}: {scrapers_result}")
+                    except Exception as scraping_error:
+                        error_msg = f"Failed to start scraping for batch {batch_id}: {str(scraping_error)}"
+                        logger.error(error_msg, exc_info=True)
+                        await self.ws_manager.broadcast(batch_id, {
+                            "type": "error",
+                            "batch_id": batch_id,
+                            "message": f"抓取启动失败: {str(scraping_error)}",
+                            "error": error_msg
+                        })
+                        raise
                     
                     # Check cancellation after scraping
                     if self.progress_service.is_cancelled(batch_id):
@@ -1887,6 +2307,185 @@ class WorkflowService:
                     if not is_100_percent_polled:
                         logger.error("100% completion not reached after polling")
                         raise Exception("Scraping not 100% complete after polling. Cannot proceed to research phase.")
+                    
+                    # Wait for Phase 0 (streaming summarization) to complete if it was started
+                    if batch_id in self.streaming_managers:
+                        logger.info(f"[WorkflowService] Waiting for Phase 0 (streaming summarization) to complete for batch {batch_id}")
+                        streaming_manager = self.streaming_managers[batch_id]
+                        
+                        # Wait for completion (with timeout)
+                        phase0_complete = await asyncio.to_thread(
+                            streaming_manager.wait_for_completion,
+                            timeout=300.0  # 5 minute timeout
+                        )
+                        
+                        if phase0_complete:
+                            stats = streaming_manager.get_statistics()
+                            
+                            # Use the is_complete flag which uses (completed + failed) / successfully_scraped == 100%
+                            # This avoids race conditions by checking terminal states
+                            is_complete = stats.get('is_complete', False)
+                            successfully_scraped = stats.get('successfully_scraped', stats.get('scraped', 0))
+                            summarized_count = stats.get('summarized_count', stats.get('summarized', 0))
+                            failed_count = stats.get('failed_count', stats.get('failed', 0))
+                            completion_percentage = stats.get('completion_percentage', 0.0)
+                            summaries_created = stats.get('created', 0)
+                            summaries_reused = stats.get('reused', 0)
+                            total_registered = stats.get('total', 0)
+                            
+                            terminal_count = summarized_count + failed_count
+                            
+                            logger.info(
+                                f"[WorkflowService] Phase 0 (streaming) completion check: "
+                                f"{summarized_count} summarized, {failed_count} failed "
+                                f"({terminal_count}/{successfully_scraped} = {completion_percentage:.1f}%) "
+                                f"out of {total_registered} total registered "
+                                f"({summaries_created} created, {summaries_reused} reused)"
+                            )
+                            
+                            # Verify all successfully scraped items reached terminal states
+                            # Failed scrapes cannot be summarized, so they are excluded
+                            if not is_complete:
+                                logger.error(
+                                    f"[WorkflowService] Phase 0 incomplete: "
+                                    f"{terminal_count}/{successfully_scraped} successfully scraped items reached terminal states. "
+                                    f"Completion: {completion_percentage:.1f}%. "
+                                    f"Cannot proceed to Phase 0.5/1."
+                                )
+                                raise Exception(
+                                    f"Phase 0 incomplete: {terminal_count}/{successfully_scraped} successfully scraped items "
+                                    f"reached terminal states (completion: {completion_percentage:.1f}%). "
+                                    f"Cannot proceed to research phases."
+                                )
+                            
+                            # Complete Phase 0 by running Phase0Prepare with streaming manager
+                            # This creates abstracts and finalizes the phase0 artifact
+                            try:
+                                from research.phases.phase0_prepare import Phase0Prepare
+                                
+                                # Get the session that was used for streaming
+                                session = streaming_manager.session
+                                
+                                # Create Phase0Prepare instance
+                                phase0 = Phase0Prepare(
+                                    client=streaming_manager.client,
+                                    session=session,
+                                    ui=streaming_manager.ui
+                                )
+                                
+                                # Execute Phase 0 in streaming mode
+                                phase0_result = await asyncio.to_thread(
+                                    phase0.execute,
+                                    batch_id=batch_id,
+                                    streaming_mode=True,
+                                    streaming_manager=streaming_manager
+                                )
+                                
+                                # Format the artifact in the same way as run_phase0_prepare does
+                                batch_data = phase0_result.get("data", {})
+                                abstracts = phase0_result.get("abstracts", {})
+                                
+                                # Create combined abstract
+                                combined_abstract = "\n\n---\n\n".join([
+                                    f"**来源: {link_id}**\n{abstract}"
+                                    for link_id, abstract in abstracts.items()
+                                ])
+                                
+                                MAX_ABSTRACT_LENGTH = 80000
+                                if len(combined_abstract) > MAX_ABSTRACT_LENGTH:
+                                    logger.warning(
+                                        f"Combined abstract too large ({len(combined_abstract)} chars), "
+                                        f"truncating to {MAX_ABSTRACT_LENGTH} chars"
+                                    )
+                                    combined_abstract = combined_abstract[:MAX_ABSTRACT_LENGTH] + "\n\n[注意: 摘要已截断]"
+                                
+                                # Create data summary
+                                sources = list(set([data.get("source", "unknown") for data in batch_data.values()]))
+                                total_words = sum([data.get("metadata", {}).get("word_count", 0) for data in batch_data.values()])
+                                total_comments = sum([
+                                    len(data.get("comments") or [])
+                                    for data in batch_data.values()
+                                ])
+                                
+                                quality_assessment = phase0_result.get("quality_assessment", {})
+                                
+                                transcript_sizes = []
+                                for data in batch_data.values():
+                                    transcript = data.get("transcript", "")
+                                    if transcript:
+                                        word_count = len(transcript.split())
+                                        transcript_sizes.append(word_count)
+                                
+                                transcript_size_analysis = {}
+                                if transcript_sizes:
+                                    transcript_size_analysis = {
+                                        "max_transcript_words": max(transcript_sizes),
+                                        "avg_transcript_words": int(sum(transcript_sizes) / len(transcript_sizes)),
+                                        "large_transcript_count": sum(1 for s in transcript_sizes if s > 5000),
+                                        "total_transcripts": len(transcript_sizes)
+                                    }
+                                
+                                data_summary = {
+                                    "sources": sources,
+                                    "total_words": total_words,
+                                    "total_comments": total_comments,
+                                    "num_items": len(batch_data),
+                                    "quality_assessment": quality_assessment,
+                                    "transcript_size_analysis": transcript_size_analysis
+                                }
+                                
+                                # Save artifact in the format expected by run_phase0_prepare
+                                artifact = {
+                                    "phase0_result": phase0_result,
+                                    "combined_abstract": combined_abstract,
+                                    "batch_data": batch_data,
+                                    "data_summary": data_summary,
+                                    "streaming_mode": True
+                                }
+                                
+                                session.save_phase_artifact("phase0", artifact)
+                                
+                                # Shutdown workers after artifact is saved
+                                streaming_manager.shutdown()
+                                
+                                logger.info(
+                                    f"[WorkflowService] Phase 0 (streaming) finalized and saved to session with {len(batch_data)} items. "
+                                    f"All {successfully_scraped} successfully scraped items processed ({summarized_count} summarized, {failed_count} failed)."
+                                )
+                            except Exception as e:
+                                logger.error(f"[WorkflowService] Error finalizing Phase 0 (streaming): {e}", exc_info=True)
+                                
+                                # Try to save a partial artifact with streaming_mode flag so batch mode knows not to re-summarize
+                                try:
+                                    # Get summarized data even if Phase0Prepare.execute failed
+                                    batch_data = streaming_manager.get_all_summarized_data()
+                                    if batch_data:
+                                        # Create minimal artifact to indicate streaming mode was used
+                                        partial_artifact = {
+                                            "streaming_mode": True,
+                                            "phase0_result": {
+                                                "batch_id": batch_id,
+                                                "data": batch_data,
+                                                "num_items": len(batch_data),
+                                                "error": str(e)
+                                            },
+                                            "batch_data": batch_data,
+                                            "data_summary": {
+                                                "num_items": len(batch_data),
+                                                "sources": list(set([data.get("source", "unknown") for data in batch_data.values()]))
+                                            }
+                                        }
+                                        session.save_phase_artifact("phase0", partial_artifact)
+                                        logger.info(
+                                            f"[WorkflowService] Saved partial Phase 0 artifact with {len(batch_data)} items "
+                                            f"(streaming_mode=True) despite error. Batch mode will skip re-summarization."
+                                        )
+                                except Exception as save_error:
+                                    logger.error(f"[WorkflowService] Failed to save partial artifact: {save_error}", exc_info=True)
+                                
+                                # Continue anyway - batch mode will handle it, but now it knows summaries exist
+                        else:
+                            logger.warning("[WorkflowService] Phase 0 (streaming) timeout, continuing with available data")
                     
                     # Step 2: Verify scraper results (using proven test function)
                     verify_start = time.time()

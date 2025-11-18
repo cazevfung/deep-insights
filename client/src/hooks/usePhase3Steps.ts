@@ -10,11 +10,6 @@ export interface Phase3StepKeyClaim {
   supportingEvidence?: string
 }
 
-export interface Phase3StepEvidence {
-  evidenceType: string
-  description: string
-}
-
 export interface FiveWhyItem {
   level: number
   question: string
@@ -31,7 +26,6 @@ export interface Phase3StepContentModel {
   summary?: string
   article?: string
   keyClaims: Phase3StepKeyClaim[]
-  notableEvidence: Phase3StepEvidence[]
   analysis: Phase3StepAnalysisDetails
   insights?: string
 }
@@ -91,7 +85,6 @@ const emptyContent: Phase3StepContentModel = {
   summary: undefined,
   article: undefined,
   keyClaims: [],
-  notableEvidence: [],
   analysis: { fiveWhys: [], assumptions: [], uncertainties: [] },
   insights: undefined,
 }
@@ -165,33 +158,6 @@ const normalizeKeyClaims = (value: unknown): Phase3StepKeyClaim[] => {
     .filter((claim): claim is Phase3StepKeyClaim => Boolean(claim))
 }
 
-const normalizeNotableEvidence = (value: unknown): Phase3StepEvidence[] => {
-  if (!Array.isArray(value)) {
-    return []
-  }
-
-  return value
-    .map((item) => {
-      if (!item || typeof item !== 'object') {
-        return null
-      }
-      const evidenceType =
-        typeof (item as any).evidence_type === 'string' ? (item as any).evidence_type : ''
-      const description =
-        typeof (item as any).description === 'string' ? (item as any).description : ''
-
-      if (!evidenceType && !description) {
-        return null
-      }
-
-      return {
-        evidenceType,
-        description,
-      }
-    })
-    .filter((evidence): evidence is Phase3StepEvidence => Boolean(evidence))
-}
-
 const normalizeContent = (step?: SessionStep | null): Phase3StepContentModel => {
   if (!step) {
     return emptyContent
@@ -220,7 +186,6 @@ const normalizeContent = (step?: SessionStep | null): Phase3StepContentModel => 
     summary,
     article,
     keyClaims: normalizeKeyClaims(pointsOfInterest?.key_claims),
-    notableEvidence: normalizeNotableEvidence(pointsOfInterest?.notable_evidence),
     analysis: {
       fiveWhys: normalizeFiveWhys(analysisDetails?.five_whys),
       assumptions: toArray(analysisDetails?.assumptions),

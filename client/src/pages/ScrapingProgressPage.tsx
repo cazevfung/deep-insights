@@ -1,8 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Card from '../components/common/Card'
-import ProgressBar from '../components/progress/ProgressBar'
-import StatusBadge from '../components/progress/StatusBadge'
 import ProgressGroup from '../components/progress/ProgressGroup'
 import { Icon } from '../components/common/Icon'
 import { useWorkflowStore } from '../stores/workflowStore'
@@ -199,7 +197,8 @@ const ScrapingProgressPage: React.FC = () => {
             // Try to load session data to populate research phases
             if (report.metadata.sessionId) {
               try {
-                const historyData = await apiService.getHistorySession(batchId)
+                // Pass sessionId for precise lookup to ensure correct session is loaded
+                const historyData = await apiService.getHistorySession(batchId, report.metadata.sessionId)
                 console.log('Loaded session data for completed workflow:', historyData)
                 
                 // Populate research data if available
@@ -459,39 +458,37 @@ const ScrapingProgressPage: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <Card
-        title="抓取进度"
-        subtitle={`批次ID: ${batchId || 'N/A'}`}
-      >
+      {/* Page Title Section */}
+      <div className="pt-8 pb-6">
+        <h1 className="text-2xl md:text-3xl font-semibold text-center text-gray-900 leading-relaxed max-w-3xl mx-auto">
+          内容收集进度
+        </h1>
+      </div>
+
+      <Card className="!rounded-2xl !shadow-lg !border-gray-100">
         <div className="space-y-6">
           {/* Workflow Status Indicator */}
           {isCheckingStatus && (
-            <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-3 mb-4">
+            <div className="bg-yellow-50 border border-yellow-300 rounded-2xl p-4 mb-4">
               <p className="text-sm text-yellow-700">正在检查工作流状态...</p>
             </div>
           )}
           
-          {workflowStatus === 'running' && !isCheckingStatus && (
-            <div className="bg-green-50 border border-green-300 rounded-lg p-3 mb-4">
-              <p className="text-sm text-green-700">工作流正在运行中...</p>
-            </div>
-          )}
-          
           {workflowStatus === 'completed' && !isCheckingStatus && (
-            <div className="bg-blue-50 border border-blue-300 rounded-lg p-3 mb-4">
+            <div className="bg-blue-50 border border-blue-300 rounded-2xl p-4 mb-4">
               <p className="text-sm text-blue-700">✓ 工作流已完成 - 查看报告</p>
             </div>
           )}
           
           {workflowStatus === 'stopped' && !isCheckingStatus && (
-            <div className="bg-gray-50 border border-gray-300 rounded-lg p-3 mb-4">
+            <div className="bg-gray-50 border border-gray-300 rounded-2xl p-4 mb-4">
               <p className="text-sm text-gray-700">工作流已停止</p>
             </div>
           )}
 
           {/* Cancellation Notice */}
           {cancelled && cancellationInfo && (
-            <div className="bg-yellow-50 border border-yellow-400 rounded-lg p-4 mb-4">
+            <div className="bg-yellow-50 border border-yellow-400 rounded-2xl p-4 mb-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="font-semibold text-yellow-800 mb-1">任务已取消</h4>
@@ -525,7 +522,7 @@ const ScrapingProgressPage: React.FC = () => {
               <button
                 onClick={handleCancel}
                 disabled={isCancelling}
-                className={`px-4 py-2 rounded-lg font-medium text-white transition-colors ${
+                className={`px-4 py-2 rounded-xl font-medium text-white transition-colors ${
                   isCancelling
                     ? 'bg-gray-400 cursor-not-allowed'
                     : 'bg-red-500 hover:bg-red-600 active:bg-red-700'
@@ -536,48 +533,9 @@ const ScrapingProgressPage: React.FC = () => {
             </div>
           )}
 
-          {/* Overall Progress */}
-          <div>
-            <ProgressBar
-              progress={overallProgress}
-              label="总体进度"
-              showPercentage
-            />
-          </div>
-
-          {/* Status Summary */}
-          <div className="flex items-center space-x-4">
-            <StatusBadge status="success">
-              已完成: {scrapingStatus.completed}
-            </StatusBadge>
-            <StatusBadge status="error">
-              失败: {scrapingStatus.failed}
-            </StatusBadge>
-            <StatusBadge status="pending">
-              处理中: {scrapingStatus.inProgress}
-            </StatusBadge>
-            <StatusBadge status="info">
-              总计: {(() => {
-                const displayValue = scrapingStatus.expectedTotal > 0 
-                  ? scrapingStatus.expectedTotal 
-                  : scrapingStatus.total
-                // Debug: Log what value is being displayed
-                if (scrapingStatus.expectedTotal === 0 && scrapingStatus.total > 0) {
-                  console.warn('⚠️ Using fallback total instead of expectedTotal:', {
-                    expectedTotal: scrapingStatus.expectedTotal,
-                    total: scrapingStatus.total,
-                    displayValue,
-                    reason: 'This means expectedTotal was never set from WebSocket or API',
-                  })
-                }
-                return displayValue
-              })()}
-            </StatusBadge>
-          </div>
-
           {/* New Items Notification Badge */}
           {showNewItemsNotification && newItemsCount > 0 && (
-            <div className="bg-primary-50 border border-primary-300 rounded-lg p-3 flex items-center justify-between">
+            <div className="bg-primary-50 border border-primary-300 rounded-2xl p-4 flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Icon name="info" size={18} strokeWidth={2.5} className="text-primary-500" />
                 <span className="text-sm text-primary-700">
@@ -595,8 +553,8 @@ const ScrapingProgressPage: React.FC = () => {
 
           {/* Grouped URL List */}
           {scrapingStatus.items.length > 0 && (
-            <div className="space-y-2">
-              <h4 className="font-semibold text-neutral-black">链接列表</h4>
+            <div className="space-y-3">
+              <h4 className="font-semibold text-gray-900">链接列表</h4>
               <div
                 ref={scrollContainerRef}
                 className="space-y-3 max-h-96 overflow-y-auto"

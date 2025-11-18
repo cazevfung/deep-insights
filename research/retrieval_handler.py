@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from typing import Dict, List, Tuple, Any, Optional
 
+from research.utils.marker_formatter import get_content_display_name
+
 
 class RetrievalHandler:
     """Provides retrieval methods over in-memory batch data."""
@@ -189,20 +191,21 @@ class RetrievalHandler:
         data = batch_data.get(link_id)
         if not data:
             return f"Error: link_id {link_id} not found"
+        display_name = get_content_display_name(link_id, data)
         
         parts = []
         
         if "transcript" in content_types:
             transcript = data.get("transcript", "")
             if transcript:
-                parts.append(f"**完整转录内容** (link_id: {link_id})\n{transcript}")
+                parts.append(f"**完整转录内容**（{display_name}）\n{transcript}")
             else:
-                parts.append(f"**转录内容** (link_id: {link_id})\n(无转录内容)")
+                parts.append(f"**转录内容**（{display_name}）\n(无转录内容)")
         
         if "comments" in content_types:
             comments = data.get("comments", [])
             if comments:
-                parts.append(f"\n**完整评论内容** (link_id: {link_id})")
+                parts.append(f"\n**完整评论内容**（{display_name}）")
                 if isinstance(comments[0], dict):
                     # Bilibili format
                     formatted = self._format_comments([
@@ -214,7 +217,7 @@ class RetrievalHandler:
                     formatted = "\n".join([f"- {c}" for c in comments])
                 parts.append(formatted)
             else:
-                parts.append(f"\n**评论内容** (link_id: {link_id})\n(无评论内容)")
+                parts.append(f"\n**评论内容**（{display_name}）\n(无评论内容)")
         
         return "\n".join(parts)
     
@@ -242,6 +245,8 @@ class RetrievalHandler:
         data = batch_data.get(link_id)
         if not data:
             return f"Error: link_id {link_id} not found"
+        
+        display_name = get_content_display_name(link_id, data)
         
         if content_type == "transcript":
             transcript = data.get("transcript", "")
@@ -271,12 +276,13 @@ class RetrievalHandler:
             end_word = min(len(words), marker_word_index + len(marker_text.split()) + context_window)
             
             context = " ".join(words[start_word:end_word])
-            return f"**标记上下文** (link_id: {link_id}, marker: {marker_text[:50]}...)\n{context}"
+            return f"**标记上下文**（{display_name}｜标记: {marker_text[:50]}...）\n{context}"
         
         elif content_type == "comments":
             # For comments, find comments that mention the marker
             keywords = marker_text.split()[:3]  # Use first few words as keywords
-            return self.retrieve_matching_comments(link_id, keywords, batch_data, limit=50, sort_by="relevance")
+            comments_context = self.retrieve_matching_comments(link_id, keywords, batch_data, limit=50, sort_by="relevance")
+            return f"**评论上下文**（{display_name}｜标记: {marker_text[:50]}...）\n{comments_context}"
         
         return f"Error: Unknown content_type {content_type}"
     
@@ -306,6 +312,7 @@ class RetrievalHandler:
             data = batch_data.get(link_id)
             if not data:
                 continue
+            display_name = get_content_display_name(link_id, data)
             
             summary = data.get("summary", {})
             transcript_summary = summary.get("transcript_summary", {})
@@ -323,7 +330,7 @@ class RetrievalHandler:
             if topic_match:
                 # Retrieve full content for this item
                 item_content = self.retrieve_full_content_item(link_id, content_types, batch_data)
-                parts.append(f"**主题匹配内容项**: {link_id}\n{item_content}\n")
+                parts.append(f"**主题匹配内容项**：{display_name}\n{item_content}\n")
         
         if not parts:
             return f"(No content items found matching topic: {topic})"

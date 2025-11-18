@@ -263,7 +263,6 @@ def format_phase3_for_synthesis(
             points_of_interest = {}
 
         key_claims = points_of_interest.get("key_claims") or []
-        notable_evidence = points_of_interest.get("notable_evidence") or []
         controversial_topics = points_of_interest.get("controversial_topics") or []
         surprising_insights = points_of_interest.get("surprising_insights") or []
         specific_examples = points_of_interest.get("specific_examples") or []
@@ -290,21 +289,6 @@ def format_phase3_for_synthesis(
                 break
 
         evidence_for_step: List[str] = []
-        for evidence in notable_evidence:
-            if not isinstance(evidence, dict):
-                continue
-            description = _truncate(str(evidence.get("description", "")), 180)
-            ev_type = evidence.get("evidence_type")
-            quote = _truncate(str(evidence.get("quote", "")), 140)
-            formatted_ev = description
-            if ev_type:
-                formatted_ev = f"[{ev_type}] {formatted_ev}"
-            if quote:
-                formatted_ev += f" —— “{quote}”"
-            evidence_for_step.append(formatted_ev)
-            if len(evidence_for_step) >= 4:
-                break
-
         for example in specific_examples[:4]:
             if not isinstance(example, dict):
                 continue

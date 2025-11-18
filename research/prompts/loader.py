@@ -67,18 +67,19 @@ def _resolve_phase_dir(phase: str, locale: Optional[str] = None, variant: Option
     return candidates
 
 
-def load_prompt(phase: str, role: str = "instructions", *, locale: Optional[str] = None, variant: Optional[str] = None) -> str:
+def load_prompt(phase: str, role: str = "instructions", *, locale: Optional[str] = None, variant: Optional[str] = None, context: Optional[Dict[str, object]] = None) -> str:
     """
     Load a prompt file for a given phase and role.
 
     role should match a filename without extension (e.g., "system", "instructions").
+    context: Optional context dict for variable substitution in partial names.
     """
     for root in _resolve_phase_dir(phase, locale=locale, variant=variant):
         path = os.path.join(root, f"{role}.md")
         if os.path.exists(path):
             content = _maybe_cached(path)
             if content is not None:
-                return _apply_partials(content, os.path.dirname(path))
+                return _apply_partials(content, os.path.dirname(path), context=context)
     raise FileNotFoundError(f"Prompt not found for phase='{phase}', role='{role}'")
 
 
@@ -108,7 +109,7 @@ def compose_messages(
     messages: List[Dict[str, str]] = []
     # optional system message
     try:
-        system_tmpl = load_prompt(phase, role="system", locale=locale, variant=variant)
+        system_tmpl = load_prompt(phase, role="system", locale=locale, variant=variant, context=context)
         system_msg = render_prompt(system_tmpl, context)
         if system_msg.strip():
             messages.append({"role": "system", "content": system_msg})
@@ -116,15 +117,20 @@ def compose_messages(
         pass
 
     # required instructions/user message
-    instructions_tmpl = load_prompt(phase, role="instructions", locale=locale, variant=variant)
+    instructions_tmpl = load_prompt(phase, role="instructions", locale=locale, variant=variant, context=context)
     instructions_msg = render_prompt(instructions_tmpl, context)
     messages.append({"role": "user", "content": instructions_msg})
 
     return messages
 
 
-def _apply_partials(content: str, phase_dir: str) -> str:
-    """Simple include mechanism: {{> filename.md}} resolved from phase_dir or prompts/_partials."""
+def _apply_partials(content: str, phase_dir: str, context: Optional[Dict[str, object]] = None) -> str:
+    """
+    Simple include mechanism: {{> filename.md}} resolved from phase_dir or prompts/_partials.
+    
+    Supports dynamic partial names with template variables: {{> style_{writing_style}_cn.md}}
+    If context is provided and token contains {variable}, it will be resolved from context.
+    """
     base = _get_base_dir()
     partials_dir = os.path.join(base, "_partials")
 
@@ -138,9 +144,19 @@ def _apply_partials(content: str, phase_dir: str) -> str:
             if end == -1:
                 return text
             token = text[idx + 3 : end].strip()
+            
+            # If token contains template variables and context is provided, resolve them
+            resolved_token = token
+            if context and '{' in token:
+                try:
+                    resolved_token = token.format(**context)
+                except KeyError:
+                    # Variable not in context, keep original (will fail with FileNotFoundError)
+                    pass
+            
             candidate_paths = [
-                os.path.join(phase_dir, token),
-                os.path.join(partials_dir, token),
+                os.path.join(phase_dir, resolved_token),
+                os.path.join(partials_dir, resolved_token),
             ]
             included = None
             for p in candidate_paths:
@@ -148,7 +164,7 @@ def _apply_partials(content: str, phase_dir: str) -> str:
                     included = _maybe_cached(p)
                     break
             if included is None:
-                included = f"<!-- Missing partial: {token} -->"
+                included = f"<!-- Missing partial: {resolved_token} -->"
             text = text[:idx] + included + text[end + 2 :]
             start = idx + len(included)
         

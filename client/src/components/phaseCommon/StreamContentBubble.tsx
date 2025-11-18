@@ -8,8 +8,10 @@ interface StreamContentBubbleProps {
   item: PhaseTimelineItem
   collapsed: boolean
   onToggle: (item: PhaseTimelineItem) => void
+  onPin?: (item: PhaseTimelineItem) => void
   onCopy: (item: PhaseTimelineItem) => void
   isActive: boolean
+  isPinned?: boolean
 }
 
 const badgeVariantMap: Record<PhaseTimelineItem['statusVariant'], string> = {
@@ -120,7 +122,15 @@ const generateSummaryText = (metadata: Record<string, any> | null | undefined, s
   return '正在处理中...'
 }
 
-const StreamContentBubble: React.FC<StreamContentBubbleProps> = ({ item, collapsed, onToggle, onCopy, isActive }) => {
+const StreamContentBubble: React.FC<StreamContentBubbleProps> = ({ 
+  item, 
+  collapsed, 
+  onToggle, 
+  onPin,
+  onCopy, 
+  isActive,
+  isPinned = false,
+}) => {
   const badgeClass = badgeVariantMap[item.statusVariant]
 
   // Generate summary text for collapsed streaming state
@@ -163,60 +173,125 @@ const StreamContentBubble: React.FC<StreamContentBubbleProps> = ({ item, collaps
     return null
   }, [item.message, item.metadata])
 
+  // Chat-like styling: simpler, cleaner appearance
+  const isCritical = item.status === 'error' || item.statusVariant === 'error'
+  const isStreaming = item.isStreaming && item.status === 'active'
+  const isReasoning = item.type === 'reasoning'
+
+  if (isReasoning) {
+    const timestampText = item.timestamp
+      ? new Date(item.timestamp).toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit' })
+      : ''
+
+    return (
+      <div className="flex items-start gap-2 px-1 py-1 text-[12px] text-neutral-600">
+        <span className={`flex-shrink-0 text-amber-500 ${isStreaming ? 'animate-pulse' : ''}`}>💭</span>
+        <div className="flex-1 space-y-1">
+          <div className="prose prose-xs max-w-none prose-p:my-1 prose-strong:text-neutral-800 prose-em:not-italic text-neutral-700 leading-relaxed">
+            {item.message && item.message.trim() ? (
+              <ReactMarkdown>{item.message}</ReactMarkdown>
+            ) : isStreaming ? (
+              <div className="text-amber-500">正在思考...</div>
+            ) : null}
+          </div>
+          {timestampText && (
+            <div className="text-[10px] text-neutral-400">
+              {timestampText}
+            </div>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => onCopy(item)}
+          className="p-1 rounded hover:bg-neutral-100 text-neutral-400 transition-colors text-[10px]"
+          title="复制思考内容"
+        >
+          📋
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div
-      className={`rounded-xl border px-3 py-2 shadow-sm transition ${
-        isActive ? 'border-primary-300 ring-2 ring-primary-200/60 bg-primary-50/40' : 'border-neutral-200 bg-neutral-white'
-      }`}
+      className={`rounded-lg border transition-all duration-200 ${
+        isActive || isStreaming
+          ? 'border-primary-300 bg-primary-50/30 shadow-sm'
+          : isCritical
+          ? 'border-amber-300 bg-amber-50/30 shadow-sm'
+          : collapsed
+          ? 'border-neutral-200 bg-neutral-50/50'
+          : 'border-neutral-200 bg-neutral-white shadow-sm'
+      } ${isPinned ? 'ring-1 ring-primary-200' : ''} ${collapsed ? 'opacity-90' : ''}`}
     >
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="flex flex-col gap-0.5">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-neutral-800">
+      {/* Chat-like header: minimal, clean */}
+      <div className={`flex items-start justify-between gap-2 px-3 ${collapsed ? 'py-2' : 'py-3'}`}>
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          {/* AI icon/indicator */}
+          <div className="flex-shrink-0">
+            {isStreaming ? (
+              <span className="h-2 w-2 rounded-full bg-primary-500 animate-pulse" />
+            ) : isCritical ? (
+              <span className="text-amber-500 text-[10px]">⚠️</span>
+            ) : (
+              <span className="text-neutral-400 text-[10px]">🤖</span>
+            )}
+          </div>
+          
+          {/* Title/subtitle - chat-like */}
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
             {item.subtitle && (
-              <span className="rounded-full bg-neutral-200 px-1.5 py-0.5 text-xs text-neutral-600">
+              <span className="text-[10px] font-medium text-neutral-600 truncate">
                 {item.subtitle}
               </span>
             )}
-            <span className={`rounded-full px-1.5 py-0.5 text-xs ${badgeClass}`}>
-              {item.status === 'active' ? '进行中' : item.status === 'completed' ? '已完成' : '错误'}
-            </span>
             {item.timestamp && (
-              <span className="text-xs text-neutral-400">
-                {new Date(item.timestamp).toLocaleTimeString('zh-CN', { hour12: false })}
+              <span className="text-[10px] text-neutral-400 flex-shrink-0">
+                {new Date(item.timestamp).toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit' })}
               </span>
             )}
           </div>
-          {item.isStreaming && (
-            <span className="flex items-center gap-1.5 text-xs text-primary-500">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary-500 animate-pulse" />
-              正在流式输出…
-            </span>
-          )}
         </div>
-        <div className="flex items-center gap-1.5">
-          {item.isCollapsible && (
-            <Button
+
+        {/* Actions - minimal, chat-like */}
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {onPin && (
+            <button
               type="button"
-              variant="ghost"
-              size="sm"
-              className="px-2 py-0.5 text-xs"
-              onClick={() => onToggle(item)}
+              onClick={() => onPin(item)}
+              className={`p-1 rounded hover:bg-neutral-100 transition-colors ${
+                isPinned ? 'text-primary-500' : 'text-neutral-400'
+              }`}
+              title={isPinned ? '取消固定' : '固定消息'}
             >
-              {collapsed ? '展开' : '收起'}
-            </Button>
+              <svg className="w-3.5 h-3.5" fill={isPinned ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+              </svg>
+            </button>
           )}
-          <Button
+          {item.isCollapsible && (
+            <button
+              type="button"
+              onClick={() => onToggle(item)}
+              className="p-1 rounded hover:bg-neutral-100 text-neutral-400 transition-colors text-[10px]"
+            >
+              {collapsed ? '▼' : '▲'}
+            </button>
+          )}
+          <button
             type="button"
-            variant="ghost"
-            size="sm"
-            className="px-2 py-0.5 text-xs"
             onClick={() => onCopy(item)}
+            className="p-1 rounded hover:bg-neutral-100 text-neutral-400 transition-colors text-[10px]"
+            title="复制"
           >
-            复制
-          </Button>
+            📋
+          </button>
         </div>
       </div>
-      <div className="mt-2 rounded-lg bg-neutral-50 px-2 py-1.5 text-xs text-neutral-700">
+
+      {/* Content - chat message style */}
+      <div className={`px-3 ${collapsed ? 'pb-2 pt-0' : 'pb-3 pt-0'}`}>
+        <div className={`rounded-md ${collapsed ? 'bg-transparent' : 'bg-transparent'} ${collapsed ? 'px-3 py-1' : 'px-3 py-2'}`}>
         {parsedSummary ? (
           // Render Phase 0 summary with specialized component
           collapsed && item.isCollapsible ? (
@@ -246,16 +321,17 @@ const StreamContentBubble: React.FC<StreamContentBubbleProps> = ({ item, collaps
                 />
               </div>
             ) : (
-              <div className="prose prose-xs max-w-none prose-p:my-1 prose-strong:text-neutral-600">
-                <ReactMarkdown>{item.preview}</ReactMarkdown>
+              <div className="text-[10px] text-neutral-500 leading-relaxed">
+                {item.preview || '已折叠'}
               </div>
             )
           ) : (
-            <div className="prose prose-xs max-w-none prose-p:my-1 prose-strong:text-neutral-700 prose-pre:bg-transparent prose-pre:p-0 prose-pre:border-0">
+            <div className={`prose prose-xs max-w-none prose-p:my-1 prose-strong:text-neutral-700 prose-pre:bg-transparent prose-pre:p-0 prose-pre:border-0 prose-sm ${!collapsed ? 'max-h-[400px] overflow-y-auto' : ''}`}>
               <ReactMarkdown>{item.message}</ReactMarkdown>
             </div>
           )
         )}
+        </div>
       </div>
     </div>
   )
