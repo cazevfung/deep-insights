@@ -4,6 +4,24 @@ Unified directory structure organized by document type. Start here for the lates
 
 ---
 
+## ✨ AI Content Editor Feature (2025-11-19)
+
+Interactive content editing feature that allows users to highlight and edit any phase content (Phase 1-4) through AI-powered conversations using Qwen-Plus.
+
+### Quick Start
+
+1. **[AI_CONTENT_EDITOR_EXECUTION_PLAN.md](./plans/AI_CONTENT_EDITOR_EXECUTION_PLAN.md)** *Original Plan*  
+   Complete implementation plan with architecture, API specs, and rollout strategy.
+
+2. **[EDITOR_SELECTION_MAPPING_FIX_PLAN.md](./plans/EDITOR_SELECTION_MAPPING_FIX_PLAN.md)** *🔴 CRITICAL FIX*  
+   Fix plan for selection mapping issues. **Current implementation has data corruption risks for Phase 1/2.**
+
+**Key capabilities:** Text selection → AI chat → Apply changes → Real-time updates. Works across all research phases with context-aware editing.
+
+**⚠️ Status**: Initial implementation complete, but critical fixes needed for Phase 1/2 editing (see fix plan).
+
+---
+
 ## 🚨 Prompt System Improvement Plan (2025-11-12)
 
 Comprehensive plan to improve the research tool's prompt system-addressing rigidity, over-complication, and insufficient user intent prioritization.
@@ -61,6 +79,8 @@ End-to-end migration plan for moving the Research Tool into a multi-user, cloud-
 - `overview/PROJECT_ORGANIZATION.md`
 
 ### Plans
+- `plans/EDITOR_SELECTION_MAPPING_FIX_PLAN.md` - **NEW** - Fix plan for editor selection mapping issues
+- `plans/AI_CONTENT_EDITOR_EXECUTION_PLAN.md` - AI-powered content editor for interactive phase editing
 - `plans/DEEP_RESEARCH_PLAN.md`
 - `plans/DEEP_RESEARCH_PLAN_SUMMARY.md`
 - `plans/RIGHT_COLUMN_CHAT_EXECUTION_PLAN.md`
@@ -80,6 +100,9 @@ End-to-end migration plan for moving the Research Tool into a multi-user, cloud-
 - `guides/research/RESEARCH_ROLE_IMPLEMENTATION.md`
 
 ### Investigations
+- `investigations/EDITOR_SELECTION_TO_JSON_MAPPING_DETAILED.md` - **NEW** - Critical analysis of AI editor selection mapping issues
+- `investigations/EDITOR_SELECTION_MAPPING_ISSUES.md` - Initial editor selection mapping analysis
+- `investigations/EDITOR_PHASE3_RERUN_LOGIC_ANALYSIS.md` - Phase 3 rerun trigger logic analysis
 - `investigations/RACE_CONDITION_INVESTIGATION.md`
 - `investigations/DEBUG_USER_INPUT_ISSUE.md`
 - `investigations/V2_DEBUG_SOURCE_TYPES.md`

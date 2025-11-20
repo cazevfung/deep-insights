@@ -10,6 +10,11 @@ export interface Phase3StepKeyClaim {
   supportingEvidence?: string
 }
 
+export interface Phase3StepEvidence {
+  evidenceType: string
+  description: string
+}
+
 export interface FiveWhyItem {
   level: number
   question: string
@@ -26,6 +31,7 @@ export interface Phase3StepContentModel {
   summary?: string
   article?: string
   keyClaims: Phase3StepKeyClaim[]
+  notableEvidence: Phase3StepEvidence[]
   analysis: Phase3StepAnalysisDetails
   insights?: string
 }
@@ -85,6 +91,7 @@ const emptyContent: Phase3StepContentModel = {
   summary: undefined,
   article: undefined,
   keyClaims: [],
+  notableEvidence: [],
   analysis: { fiveWhys: [], assumptions: [], uncertainties: [] },
   insights: undefined,
 }
@@ -142,7 +149,9 @@ const normalizeKeyClaims = (value: unknown): Phase3StepKeyClaim[] => {
       }
       const claim = typeof (item as any).claim === 'string' ? (item as any).claim : ''
       const supportingEvidence =
-        typeof (item as any).supporting_evidence === 'string'
+        typeof (item as any).supportingEvidence === 'string'
+          ? (item as any).supportingEvidence
+          : typeof (item as any).supporting_evidence === 'string'
           ? (item as any).supporting_evidence
           : undefined
 
@@ -156,6 +165,56 @@ const normalizeKeyClaims = (value: unknown): Phase3StepKeyClaim[] => {
       }
     })
     .filter((claim): claim is Phase3StepKeyClaim => Boolean(claim))
+}
+
+const normalizeNotableEvidence = (value: unknown): Phase3StepEvidence[] => {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value
+    .map((item, index) => {
+      if (!item) {
+        return null
+      }
+
+      if (typeof item === 'string') {
+        return {
+          evidenceType: `发现 ${index + 1}`,
+          description: item,
+        }
+      }
+
+      if (typeof item !== 'object') {
+        return null
+      }
+
+      const evidenceTypeRaw =
+        typeof (item as any).evidenceType === 'string'
+          ? (item as any).evidenceType
+          : typeof (item as any).evidence_type === 'string'
+          ? (item as any).evidence_type
+          : typeof (item as any).type === 'string'
+          ? (item as any).type
+          : null
+
+      const description =
+        typeof (item as any).description === 'string'
+          ? (item as any).description
+          : typeof (item as any).detail === 'string'
+          ? (item as any).detail
+          : ''
+
+      if (!description) {
+        return null
+      }
+
+      return {
+        evidenceType: evidenceTypeRaw || `发现 ${index + 1}`,
+        description,
+      }
+    })
+    .filter((evidence): evidence is Phase3StepEvidence => Boolean(evidence))
 }
 
 const normalizeContent = (step?: SessionStep | null): Phase3StepContentModel => {
@@ -175,19 +234,26 @@ const normalizeContent = (step?: SessionStep | null): Phase3StepContentModel => 
   const pointsOfInterest =
     findings && typeof findings.points_of_interest === 'object'
       ? findings.points_of_interest
+      : findings && typeof (findings as any).pointsOfInterest === 'object'
+      ? (findings as any).pointsOfInterest
       : {}
 
   const analysisDetails =
     findings && typeof findings.analysis_details === 'object'
       ? findings.analysis_details
+      : findings && typeof (findings as any).analysisDetails === 'object'
+      ? (findings as any).analysisDetails
       : {}
 
   return {
     summary,
     article,
-    keyClaims: normalizeKeyClaims(pointsOfInterest?.key_claims),
+    keyClaims: normalizeKeyClaims(pointsOfInterest?.key_claims ?? pointsOfInterest?.keyClaims),
+    notableEvidence: normalizeNotableEvidence(
+      pointsOfInterest?.notable_evidence ?? pointsOfInterest?.notableEvidence
+    ),
     analysis: {
-      fiveWhys: normalizeFiveWhys(analysisDetails?.five_whys),
+      fiveWhys: normalizeFiveWhys(analysisDetails?.five_whys ?? analysisDetails?.fiveWhys),
       assumptions: toArray(analysisDetails?.assumptions),
       uncertainties: toArray(analysisDetails?.uncertainties),
     },

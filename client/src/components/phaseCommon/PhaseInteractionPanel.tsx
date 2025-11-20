@@ -58,6 +58,7 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
   const isProgrammaticScrollRef = useRef(false)
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const isSendingRef = useRef(false) // Synchronous guard to prevent duplicate sends
+  const recentMessageHashesRef = useRef<Set<string>>(new Set()) // Track recent message hashes to prevent duplicates
   const batchId = useWorkflowStore((state) => state.batchId)
   const sessionId = useWorkflowStore((state) => state.sessionId)
   const contextRequests = useWorkflowStore((state) => state.conversationContextRequests)
@@ -368,26 +369,38 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
       return
     }
     
-    // Set guard immediately (synchronous)
-    isSendingRef.current = true
-    
-    console.log('🟣 handleConversationSend called (CONVERSATION MODE - not prompt response!)', {
-      draft: draft.substring(0, 50),
-      batchId,
-      sessionId,
-    })
-    
     const trimmed = draft.trim()
     if (!trimmed) {
-      isSendingRef.current = false // Reset guard on early return
       addNotification('请输入内容后再发送', 'warning')
       return
     }
     if (!batchId) {
-      isSendingRef.current = false // Reset guard on early return
       addNotification('当前批次未初始化，无法发送消息', 'warning')
       return
     }
+    
+    // CRITICAL: Check if we've sent this exact message recently (within last 30 seconds)
+    const messageHash = `${batchId}:${trimmed}`
+    if (recentMessageHashesRef.current.has(messageHash)) {
+      console.error('⛔ DUPLICATE MESSAGE BLOCKED:', trimmed.substring(0, 50))
+      addNotification('该消息最近已发送，请勿重复发送', 'warning')
+      return
+    }
+    
+    // Set guard immediately (synchronous)
+    isSendingRef.current = true
+    recentMessageHashesRef.current.add(messageHash)
+    
+    // Clear message hash after 30 seconds
+    setTimeout(() => {
+      recentMessageHashesRef.current.delete(messageHash)
+    }, 30000)
+    
+    console.log('🟣 handleConversationSend called (CONVERSATION MODE - not prompt response!)', {
+      draft: trimmed.substring(0, 50),
+      batchId,
+      sessionId,
+    })
 
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     const timestamp = new Date().toISOString()
@@ -870,9 +883,23 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
                 return
               }
 
+              // CRITICAL: Check if we've sent this exact message recently (within last 30 seconds)
+              const messageHash = `${batchId}:${trimmed}`
+              if (recentMessageHashesRef.current.has(messageHash)) {
+                console.error('⛔ DUPLICATE SUGGESTED QUESTION BLOCKED:', trimmed.substring(0, 50))
+                addNotification('该问题最近已发送，请勿重复发送', 'warning')
+                return
+              }
+
               console.log('🚀 Sending suggested question:', trimmed)
               isSendingRef.current = true
+              recentMessageHashesRef.current.add(messageHash)
               setIsConversationSending(true)
+
+              // Clear message hash after 30 seconds
+              setTimeout(() => {
+                recentMessageHashesRef.current.delete(messageHash)
+              }, 30000)
 
               const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
               const timestamp = new Date().toISOString()

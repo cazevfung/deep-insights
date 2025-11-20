@@ -18,6 +18,7 @@ const SuggestedQuestions: React.FC<SuggestedQuestionsProps> = ({
   disabled = false,
 }) => {
   const [clickedQuestion, setClickedQuestion] = React.useState<string | null>(null)
+  const processingQuestionsRef = React.useRef<Set<string>>(new Set())
 
   const { questions, loading, error } = useSuggestedQuestions({
     batchId,
@@ -32,11 +33,28 @@ const SuggestedQuestions: React.FC<SuggestedQuestionsProps> = ({
   }
 
   const handleQuestionClick = (question: string) => {
-    if (disabled || clickedQuestion) return
+    if (disabled || clickedQuestion) {
+      console.log('⏸️ Question click ignored (disabled or already clicked)', { disabled, clickedQuestion })
+      return
+    }
+    
+    // Synchronous duplicate prevention using ref
+    if (processingQuestionsRef.current.has(question)) {
+      console.warn('⚠️ DUPLICATE PREVENTION: Question already being processed', question)
+      return
+    }
+    
+    console.log('✅ Processing suggested question click:', question)
+    processingQuestionsRef.current.add(question)
     setClickedQuestion(question)
+    
     onQuestionClick(question)
-    // Reset after 3 seconds to allow retry if needed
-    setTimeout(() => setClickedQuestion(null), 3000)
+    
+    // Reset after 5 seconds (longer timeout for network lag)
+    setTimeout(() => {
+      setClickedQuestion(null)
+      processingQuestionsRef.current.delete(question)
+    }, 5000)
   }
 
   return (

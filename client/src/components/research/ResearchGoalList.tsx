@@ -20,7 +20,10 @@ const ResearchGoalList: React.FC<ResearchGoalListProps> = ({ goals }) => {
   }
 
   return (
-    <section aria-label="研究目标列表" className="space-y-4">
+    <section 
+      aria-label="研究目标列表" 
+      className="space-y-4"
+    >
       <header className="flex flex-col gap-1">
         <h4 className="text-base font-semibold text-neutral-800">共 {goals.length} 项研究目标</h4>
         <p className="text-sm text-neutral-500">
@@ -38,6 +41,8 @@ const ResearchGoalList: React.FC<ResearchGoalListProps> = ({ goals }) => {
           return (
             <li
               key={goalId}
+              data-goal-id={goalId}
+              data-goal-index={index}
               className={classNames(
                 'group rounded-2xl border border-neutral-200 bg-neutral-white/90 p-5 shadow-sm transition focus-within:border-primary-300',
                 status === 'ready' && 'hover:border-primary-200 hover:shadow-md',
@@ -60,6 +65,8 @@ const ResearchGoalList: React.FC<ResearchGoalListProps> = ({ goals }) => {
                     <div className="flex items-center gap-2">
                       <h5
                         id={titleId}
+                        data-field-name="goal_text"
+                        data-goal-id={goalId}
                         className={classNames(
                           'text-base font-semibold leading-relaxed',
                           status !== 'error' && 'text-neutral-900',
@@ -82,7 +89,11 @@ const ResearchGoalList: React.FC<ResearchGoalListProps> = ({ goals }) => {
                     </div>
 
                     {goal.rationale && (
-                      <p className="text-sm text-neutral-600">
+                      <p
+                        data-field-name="rationale"
+                        data-goal-id={goalId}
+                        className="text-sm text-neutral-600"
+                      >
                         {goal.rationale}
                       </p>
                     )}

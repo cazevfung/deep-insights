@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { EditorChatRequest, EditorApplyRequest, EditorApplyResponse } from '../types/editor'
 
 const API_BASE_URL = '/api'
 
@@ -299,6 +300,77 @@ export const apiService = {
     const response = await api.post('/research/conversation/suggest-questions', payload, {
       signal: options?.signal,
     })
+    return response.data
+  },
+
+  /**
+   * Chat with AI about selected content (streaming)
+   */
+  editorChat: async function* (
+    request: EditorChatRequest
+  ): AsyncGenerator<string, void, unknown> {
+    const response = await fetch('/api/research/editor/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Editor chat failed: ${response.statusText}`)
+    }
+
+    const reader = response.body?.getReader()
+    const decoder = new TextDecoder()
+
+    if (!reader) {
+      throw new Error('Response body is not readable')
+    }
+
+    try {
+      let buffer = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || '' // Keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6).trim()
+            if (data === '{}' || !data) continue // End marker or empty
+            
+            try {
+              const parsed = JSON.parse(data)
+              if (parsed.type === 'token' && parsed.content) {
+                yield parsed.content
+              } else if (parsed.type === 'error') {
+                throw new Error(parsed.content || 'Editor chat error')
+              }
+            } catch (e) {
+              // Skip invalid JSON
+              if (e instanceof Error && e.message.includes('Editor chat error')) {
+                throw e
+              }
+            }
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock()
+    }
+  },
+
+  /**
+   * Apply changes to phase content
+   */
+  applyEditorChanges: async function (
+    request: EditorApplyRequest
+  ): Promise<EditorApplyResponse> {
+    const response = await api.post('/research/editor/apply', request)
     return response.data
   },
 }

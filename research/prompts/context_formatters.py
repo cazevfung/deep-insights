@@ -5,6 +5,7 @@ for use in prompt templates. This allows phases to receive full structured
 objects while formatting only what they need for prompts.
 """
 
+import json
 from typing import Dict, Any, Optional, Union, List, Tuple
 
 
@@ -429,6 +430,202 @@ def format_phase_output_for_prompt(
             context[f"{phase_name}_{key}"] = str(value) if value else ""
     
     return context
+
+
+def format_editor_context(
+    batch_metadata: Dict[str, Any],
+    phase_outputs: Dict[str, Dict[str, Any]],
+    completed_phases: List[str]
+) -> Dict[str, str]:
+    """
+    Format all available context for editor prompt based on completed phases.
+    
+    This function assembles context from batch metadata and phase outputs,
+    providing the editor with full research context to make informed editing decisions.
+    
+    Args:
+        batch_metadata: Batch/research session metadata containing:
+            - user_guidance: User's original research intent
+            - writing_style: Writing style preference (default: 'consultant')
+            - data_abstract: Overview of collected data sources
+        phase_outputs: Dictionary mapping phase names to their output dictionaries
+            - phase0_5: Role generation output
+            - phase1: Discover goals output
+            - phase1_synthesize: Synthesize goals output
+            - phase2: Finalize output
+            - phase3: Execute output
+            - phase4: Final synthesis output
+        completed_phases: List of completed phase names (e.g., ['phase0_5', 'phase1', 'phase1_synthesize'])
+        
+    Returns:
+        Dict with all context variables for editor prompt, including:
+            - Core: user_guidance, system_role_description, research_role_rationale, writing_style, data_abstract
+            - Phase-specific: comprehensive_topic, component_questions_list, scratchpad_summary, etc.
+            - research_context_section: Formatted research context section
+    """
+    context: Dict[str, str] = {}
+    
+    # Core context (always available, with defaults)
+    context['user_guidance'] = batch_metadata.get('user_guidance', '')
+    context['writing_style'] = batch_metadata.get('writing_style', 'consultant')
+    context['data_abstract'] = batch_metadata.get('data_abstract', '')
+    
+    # Phase 0.5 context (Role generation)
+    if 'phase0_5' in completed_phases or 'phase0_5_role_generation' in completed_phases:
+        phase0_5_output = phase_outputs.get('phase0_5', {}) or phase_outputs.get('phase0_5_role_generation', {})
+        role_obj = phase0_5_output.get('research_role')
+        if role_obj:
+            role_context = format_research_role_for_context(role_obj)
+            context.update(role_context)
+        else:
+            # Fallback to default role
+            context['system_role_description'] = "资深数据分析专家"
+            context['research_role_rationale'] = ""
+    else:
+        # Default role if Phase 0.5 not completed
+        context['system_role_description'] = "资深数据分析专家"
+        context['research_role_rationale'] = ""
+    
+    # Phase 1 context (Discover goals)
+    if 'phase1' in completed_phases or 'phase1_discover' in completed_phases:
+        phase1_output = phase_outputs.get('phase1', {}) or phase_outputs.get('phase1_discover', {})
+        goals = phase1_output.get('suggested_goals', [])
+        if goals:
+            context['goals_list'] = format_suggested_goals_for_context(goals)
+            context['goals_count'] = str(len(goals))
+        else:
+            context['goals_list'] = "（无研究目标）"
+            context['goals_count'] = "0"
+    
+    # Phase 1.5 context (Synthesize goals)
+    if 'phase1_synthesize' in completed_phases:
+        phase1_5_output = phase_outputs.get('phase1_synthesize', {})
+        goal_obj = phase1_5_output.get('synthesized_goal', {})
+        if goal_obj:
+            goal_context = format_synthesized_goal_for_context(goal_obj)
+            context.update(goal_context)
+            # Also add comprehensive_topic directly for easier access
+            context['comprehensive_topic'] = goal_obj.get('comprehensive_topic', '')
+        else:
+            # Set defaults if no synthesized goal
+            context['comprehensive_topic'] = ''
+            context['component_questions_list'] = ''
+            context['component_questions_count'] = '0'
+            context['unifying_theme'] = ''
+            context['research_scope'] = ''
+    
+    # Phase 2 context (Finalize - if it adds anything beyond Phase 1.5)
+    if 'phase2' in completed_phases or 'phase2_finalize' in completed_phases:
+        phase2_output = phase_outputs.get('phase2', {}) or phase_outputs.get('phase2_finalize', {})
+        research_plan = phase2_output.get('research_plan', [])
+        if research_plan:
+            context['research_plan'] = format_research_plan_for_context(research_plan)
+    
+    # Phase 3 context (Execute)
+    if 'phase3' in completed_phases:
+        phase3_output = phase_outputs.get('phase3', {})
+        if phase3_output:
+            # Format Phase 3 output using existing formatter
+            research_plan = phase_outputs.get('phase2', {}).get('research_plan', []) or \
+                          phase_outputs.get('phase2_finalize', {}).get('research_plan', [])
+            phase3_formatted, _ = format_phase3_for_synthesis(phase3_output, research_plan)
+            context.update(phase3_formatted)
+            
+            # Add scratchpad and previous chunks if available in phase3_output
+            context['scratchpad_summary'] = phase3_output.get('scratchpad_summary', '')
+            context['previous_chunks_context'] = phase3_output.get('previous_chunks_context', '')
+        else:
+            # Set defaults if Phase 3 output is empty
+            context['scratchpad_summary'] = ''
+            context['previous_chunks_context'] = ''
+            context['phase3_overall_summary'] = ''
+            context['phase3_step_overview'] = ''
+            context['phase3_key_claims'] = ''
+            context['phase3_counterpoints'] = ''
+            context['phase3_surprising_findings'] = ''
+            context['phase3_open_questions'] = ''
+    
+    # Phase 4 context (Final synthesis)
+    if 'phase4' in completed_phases or 'phase4_synthesize' in completed_phases:
+        phase4_output = phase_outputs.get('phase4', {}) or phase_outputs.get('phase4_synthesize', {})
+        context['selected_goal'] = phase4_output.get('selected_goal', '')
+        outline = phase4_output.get('outline', {})
+        if outline:
+            try:
+                context['outline_json'] = json.dumps(outline, ensure_ascii=False, indent=2)
+            except (TypeError, ValueError):
+                context['outline_json'] = str(outline)
+        else:
+            context['outline_json'] = ''
+        context['evidence_catalog'] = phase4_output.get('evidence_catalog', '')
+    
+    # Build research context section
+    context['research_context_section'] = _build_research_context_section(context, completed_phases)
+    
+    return context
+
+
+def _build_research_context_section(context: Dict[str, str], completed_phases: List[str]) -> str:
+    """
+    Build the research context section based on available context.
+    
+    This function creates a formatted research context section that summarizes
+    all available research information for the editor prompt.
+    
+    Args:
+        context: Dictionary of context variables
+        completed_phases: List of completed phase names
+        
+    Returns:
+        Formatted string with research context sections
+    """
+    sections: List[str] = []
+    
+    # Research goal/topic
+    if context.get('comprehensive_topic'):
+        sections.append(f"## 研究目标\n{context['comprehensive_topic']}")
+    elif context.get('goals_list') and context.get('goals_list') != "（无研究目标）":
+        sections.append(f"## 研究目标\n{context['goals_list']}")
+    
+    # Component questions
+    if context.get('component_questions_list'):
+        sections.append(f"## 组成问题\n{context['component_questions_list']}")
+    
+    # Research scope
+    if context.get('research_scope'):
+        sections.append(f"## 研究范围\n{context['research_scope']}")
+    
+    # Unifying theme
+    if context.get('unifying_theme'):
+        sections.append(f"## 统一主题\n{context['unifying_theme']}")
+    
+    # Data overview
+    if context.get('data_abstract'):
+        sections.append(f"## 已收集数据概览\n{context['data_abstract']}")
+    
+    # Phase 3 findings
+    if 'phase3' in completed_phases:
+        if context.get('scratchpad_summary'):
+            sections.append(f"## 关键发现摘要\n{context['scratchpad_summary']}")
+        
+        if context.get('phase3_overall_summary'):
+            sections.append(f"## Phase 3 整体摘要\n{context['phase3_overall_summary']}")
+        
+        if context.get('phase3_key_claims'):
+            sections.append(f"## 关键论点\n{context['phase3_key_claims']}")
+        
+        if context.get('previous_chunks_context'):
+            sections.append(f"## 先前处理内容\n{context['previous_chunks_context']}")
+    
+    # Research plan (if available)
+    if context.get('research_plan'):
+        sections.append(f"## 研究计划\n{context['research_plan']}")
+    
+    # Return formatted section or placeholder
+    if sections:
+        return '\n\n'.join(sections)
+    else:
+        return "（暂无研究上下文）"
 
 
 

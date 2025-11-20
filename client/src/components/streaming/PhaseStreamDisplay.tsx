@@ -11,6 +11,7 @@ interface PhaseStreamDisplayProps {
   subtitle?: string | React.ReactNode
   viewVariant?: StreamVariant
   showStructuredView?: boolean
+  batchId?: string | null  // Optional: allow passing batchId for history sessions
 }
 
 const phasePreset = {
@@ -31,6 +32,7 @@ const PhaseStreamDisplay: React.FC<PhaseStreamDisplayProps> = ({
   subtitle,
   viewVariant,
   showStructuredView = true,
+  batchId,
 }) => {
   const preset = phasePreset[phase as keyof typeof phasePreset] || {
     title: 'AI 响应流',
@@ -55,6 +57,7 @@ const PhaseStreamDisplay: React.FC<PhaseStreamDisplayProps> = ({
       collapsible={variantConfig.collapsible}
       secondaryView={showStructuredView ? <StreamStructuredView /> : undefined}
       viewMode="tabs"
+      batchId={batchId}  // Pass batchId through to StreamDisplay
     />
   )
 }

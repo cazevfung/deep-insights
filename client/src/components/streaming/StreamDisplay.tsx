@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import Card from '../common/Card'
 import Button from '../common/Button'
 import { streamDesignTokens } from './streamDesignTokens'
+import { useWorkflowStore } from '../../stores/workflowStore'
 
 export type StreamViewMode = 'stacked' | 'tabs' | 'split'
 
@@ -21,6 +22,7 @@ interface StreamDisplayProps {
   secondaryView?: React.ReactNode
   viewMode?: StreamViewMode
   toolbar?: React.ReactNode
+  batchId?: string | null  // Optional: allow passing batchId as prop (for history sessions)
 }
 
 const formatMetadataValue = (value: any): string => {
@@ -52,11 +54,15 @@ const StreamDisplay: React.FC<StreamDisplayProps> = ({
   secondaryView,
   viewMode: providedViewMode,
   toolbar,
+  batchId: propBatchId,  // Accept batchId as prop
 }) => {
   const [isExpanded, setIsExpanded] = useState(true)
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle')
   const [activeTab, setActiveTab] = useState<'raw' | 'structured'>(() => (secondaryView ? 'structured' : 'raw'))
   const streamRef = useRef<HTMLDivElement>(null)
+  const storeBatchId = useWorkflowStore((state) => state.batchId)
+  // Use prop batchId if provided, otherwise fallback to store batchId
+  const batchId = propBatchId ?? storeBatchId
 
   const hasSecondaryView = Boolean(secondaryView)
   const viewMode: StreamViewMode = hasSecondaryView ? providedViewMode || 'tabs' : providedViewMode || 'stacked'

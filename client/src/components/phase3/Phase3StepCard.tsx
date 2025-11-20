@@ -158,6 +158,7 @@ const Phase3StepCard: React.FC<Phase3StepCardProps> = ({
             <Phase3StepContent
               content={step.content}
               confidence={step.confidence}
+              stepId={step.id}
             />
           </div>
         </div>

@@ -68,3 +68,5 @@ htmlcov/
 research/**/*.json
 research/**/*.md
 
+# Docs folder
+@docs

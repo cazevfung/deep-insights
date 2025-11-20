@@ -2,9 +2,11 @@
 Research API routes.
 """
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import Optional, Dict, Any, Literal, List
+from typing import Optional, Dict, Any, Literal, List, Union
 from loguru import logger
+import json
 
 from app.routes import workflow as workflow_routes
 
@@ -232,3 +234,172 @@ async def suggest_questions(request: SuggestedQuestionsRequest):
         generated_at=datetime.now(timezone.utc).isoformat(),
         model_used=model_used,
     )
+
+
+# Editor routes
+_editor_service = None
+
+
+def get_editor_service():
+    """Get or create editor service instance."""
+    global _editor_service
+    if _editor_service is None:
+        try:
+            from app.services.editor_service import EditorService
+            from core.config import Config
+            config = Config()
+            _editor_service = EditorService(config)
+        except Exception as e:
+            logger.error(f"Failed to initialize editor service: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail="Editor service unavailable")
+    return _editor_service
+
+
+class EditorChatRequest(BaseModel):
+    batch_id: str
+    phase: str
+    step_id: Optional[str] = None
+    selected_text: str
+    selected_range: Dict[str, int]
+    full_context: str
+    user_message: str
+    conversation_history: Optional[List[Dict[str, str]]] = None
+
+
+class EditorApplyRequest(BaseModel):
+    batch_id: str
+    phase: str
+    step_id: Optional[str] = None
+    selected_range: Dict[str, int]
+    replacement_text: str
+    # NEW: Selection metadata for field-level editing
+    item_id: Optional[Union[int, str]] = None
+    item_index: Optional[int] = None
+    field_name: Optional[str] = None
+    field_path: Optional[List[Union[str, int]]] = None
+
+
+@router.post("/editor/chat")
+async def editor_chat(request: EditorChatRequest):
+    """Chat with AI about selected content."""
+    try:
+        editor_service = get_editor_service()
+        
+        async def generate():
+            try:
+                async for chunk in editor_service.chat_with_selection(
+                    batch_id=request.batch_id,
+                    phase=request.phase,
+                    selected_text=request.selected_text,
+                    full_context=request.full_context,
+                    user_message=request.user_message,
+                    conversation_history=request.conversation_history,
+                    step_id=request.step_id
+                ):
+                    yield f"data: {json.dumps({'type': 'token', 'content': chunk})}\n\n"
+                yield "data: {}\n\n"  # End marker
+            except Exception as e:
+                logger.error(f"Error in editor chat stream: {e}", exc_info=True)
+                error_msg = json.dumps({'type': 'error', 'content': str(e)})
+                yield f"data: {error_msg}\n\n"
+        
+        return StreamingResponse(
+            generate(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Editor chat error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/editor/apply")
+async def editor_apply(request: EditorApplyRequest):
+    """Apply changes to phase content.
+    
+    For Phase 3, if a step goal is changed, automatically triggers step rerun.
+    """
+    try:
+        editor_service = get_editor_service()
+        result = await editor_service.apply_changes(
+            batch_id=request.batch_id,
+            phase=request.phase,
+            selected_range=request.selected_range,
+            replacement_text=request.replacement_text,
+            step_id=request.step_id,
+            # NEW: Pass metadata for field-level editing
+            item_id=request.item_id,
+            item_index=request.item_index,
+            field_name=request.field_name,
+            field_path=request.field_path
+        )
+    except ValueError as e:
+        # NEW: User-friendly error messages for validation errors
+        error_msg = str(e)
+        if "array" in error_msg.lower() or "string replacement" in error_msg.lower() or "field-level editing" in error_msg.lower():
+            return {
+                "status": "error",
+                "error": "editing_not_supported",
+                "message": (
+                    "This content cannot be edited using text selection. "
+                    "The content is stored in a structured format. "
+                    "Field-level editing support is coming soon."
+                ),
+                "user_message": error_msg
+            }
+        elif "disabled" in error_msg.lower():
+            return {
+                "status": "error",
+                "error": "editing_disabled",
+                "message": (
+                    "Editing for this phase is currently disabled. "
+                    "Please wait for the fix to be deployed."
+                ),
+                "user_message": error_msg
+            }
+        raise HTTPException(status_code=400, detail=error_msg)
+        
+        # If Phase 3 step goal was changed, trigger automatic rerun
+        if (result.get('metadata', {}).get('step_rerun_required') and 
+            request.phase == 'phase3'):
+            step_id = result['metadata']['step_rerun_id']
+            session_id = request.batch_id  # Assuming batch_id can be used as session_id
+            
+            # Import workflow service to trigger rerun
+            from app.routes import workflow as workflow_routes
+            workflow_service = workflow_routes.workflow_service
+            
+            if workflow_service:
+                logger.info(
+                    f"Phase 3 step {step_id} goal changed, triggering automatic rerun "
+                    f"(old: '{result['metadata']['old_goal'][:50]}...', "
+                    f"new: '{result['metadata']['new_goal'][:50]}...')"
+                )
+                # Trigger rerun asynchronously (don't wait for completion)
+                import asyncio
+                asyncio.create_task(
+                    workflow_service.rerun_phase3_step(
+                        batch_id=request.batch_id,
+                        session_id=session_id,
+                        step_id=step_id,
+                        regenerate_report=True  # Regenerate report if Phase 4 is complete
+                    )
+                )
+                result['metadata']['step_rerun_triggered'] = True
+                result['metadata']['step_rerun_message'] = f"步骤 {step_id} 的目标已更改，正在自动重新执行..."
+            else:
+                logger.warning("Workflow service not available, cannot trigger step rerun")
+                result['metadata']['step_rerun_triggered'] = False
+                result['metadata']['step_rerun_message'] = "无法触发步骤重新执行（工作流服务不可用）"
+        
+        return result
+        
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Editor apply error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))

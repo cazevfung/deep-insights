@@ -12,7 +12,8 @@ const FinalReportPage: React.FC = () => {
   const [exporting, setExporting] = useState(false)
   const loadingRef = useRef(false)
   const abortControllerRef = useRef<AbortController | null>(null)
-
+  const reportContentRef = useRef<HTMLDivElement>(null)
+  
   useEffect(() => {
     if (finalReport?.content) {
       return
@@ -204,7 +205,11 @@ const FinalReportPage: React.FC = () => {
           )}
 
           {!loading && !error && finalReport?.content && (
-            <div className="prose prose-lg max-w-none prose-headings:text-neutral-black prose-headings:font-bold prose-p:text-neutral-black prose-p:leading-relaxed prose-strong:text-neutral-black prose-ul:text-neutral-black prose-ol:text-neutral-black prose-li:text-neutral-black prose-hr:border-neutral-300 pt-4">
+            <div 
+              ref={reportContentRef}
+              data-markdown-content={finalReport.content}
+              className="prose prose-lg max-w-none prose-headings:text-neutral-black prose-headings:font-bold prose-p:text-neutral-black prose-p:leading-relaxed prose-strong:text-neutral-black prose-ul:text-neutral-black prose-ol:text-neutral-black prose-li:text-neutral-black prose-hr:border-neutral-300 pt-4"
+            >
               <ReactMarkdown>{filterMetadata(finalReport.content)}</ReactMarkdown>
             </div>
           )}

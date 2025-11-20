@@ -1,14 +1,17 @@
 import React from 'react'
-import ReactMarkdown from 'react-markdown'
 import { Icon } from '../common/Icon'
 import {
   Phase3StepContentModel,
+  Phase3StepEvidence,
   Phase3StepKeyClaim,
 } from '../../hooks/usePhase3Steps'
 
 interface Phase3StepContentProps {
   content: Phase3StepContentModel
   confidence?: number | null
+  showRawData: boolean
+  onToggleRawData: () => void
+  rawStep?: unknown
 }
 
 const baseSectionClass = 'bg-neutral-50 rounded-lg p-4'
@@ -50,18 +53,11 @@ const KeyClaims: React.FC<{ claims: Phase3StepKeyClaim[] }> = ({ claims }) => {
       <div className="space-y-3">
         {claims.map((claim, index) => (
           <div key={index} className="bg-white rounded-lg p-4 border border-neutral-200">
-            <div className="font-medium text-neutral-800 mb-2">
-              <ReactMarkdown>{claim.claim}</ReactMarkdown>
-            </div>
+            <div className="font-medium text-neutral-800 mb-2">{claim.claim}</div>
             {claim.supportingEvidence && (
-              <div className="text-sm text-neutral-500">
-                <span className="font-medium">论据：</span>
-                {/* Render markdown inline to avoid a line break after the label */}
-                <ReactMarkdown
-                  components={{ p: 'span' }}
-                >
-                  {(claim.supportingEvidence || '').trim()}
-                </ReactMarkdown>
+              <div className="text-sm text-neutral-600 mt-2">
+                <span className="font-medium">证据支持：</span>
+                <span className="whitespace-pre-wrap">{claim.supportingEvidence}</span>
               </div>
             )}
           </div>
@@ -71,9 +67,42 @@ const KeyClaims: React.FC<{ claims: Phase3StepKeyClaim[] }> = ({ claims }) => {
   )
 }
 
-const AnalysisSection: React.FC<{ content: Phase3StepContentModel['analysis'] }> = ({ content }) => {
+const NotableEvidence: React.FC<{ evidence?: Phase3StepEvidence[] }> = ({ evidence }) => {
+  if (!evidence || evidence.length === 0) {
+    return null
+  }
+
+  return (
+    <div className={baseSectionClass}>
+      <h4 className="font-semibold text-neutral-800 mb-3 flex items-center">
+        <Icon name="chart" size={18} strokeWidth={2} className="mr-2" />
+        重要发现
+      </h4>
+      <div className="space-y-3">
+        {evidence.map((item, index) => (
+          <div key={index} className="bg-white rounded-lg p-4 border border-neutral-200">
+            <div className="flex items-start">
+              <span className="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded mr-3 mt-1">
+                {item.evidenceType || `发现 ${index + 1}`}
+              </span>
+              <p className="text-neutral-700 flex-1 whitespace-pre-wrap">{item.description}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+const AnalysisSection: React.FC<{ content?: Phase3StepContentModel['analysis'] }> = ({ content }) => {
+  if (!content) {
+    return null
+  }
+
   const hasContent =
-    content.fiveWhys.length > 0 || content.assumptions.length > 0 || content.uncertainties.length > 0
+    (content.fiveWhys?.length ?? 0) > 0 ||
+    (content.assumptions?.length ?? 0) > 0 ||
+    (content.uncertainties?.length ?? 0) > 0
 
   if (!hasContent) {
     return null
@@ -86,60 +115,49 @@ const AnalysisSection: React.FC<{ content: Phase3StepContentModel['analysis'] }>
         Q&A
       </h4>
       <div className="space-y-4">
-        {!!content.fiveWhys.length && (
+        {!!content.fiveWhys?.length && (
           <div className={subSectionClass}>
-            <h5 className="font-medium text-neutral-800 mb-3">Five Whys</h5>
-            <div className="overflow-x-auto rounded-lg overflow-hidden">
-              <table className="w-full border-separate border-spacing-0 bg-white">
-                <tbody>
-              {content.fiveWhys.map((item, index) => {
-                    const isFirst = index === 0
-                    const isLast = index === content.fiveWhys.length - 1
-                    return (
-                    <tr 
-                      key={index} 
-                      className="hover:bg-neutral-50"
-                    >
-                      <td className={`py-3 px-3 text-sm text-neutral-700 font-medium align-top whitespace-pre-wrap border-b border-neutral-200 ${
-                        isFirst ? 'rounded-tl-lg' : ''
-                      } ${isLast ? 'rounded-bl-lg border-b-0' : ''}`}>
-                        <ReactMarkdown>{item.question}</ReactMarkdown>
-                      </td>
-                      <td className={`py-3 px-3 text-sm text-neutral-700 align-top whitespace-pre-wrap border-b border-neutral-200 ${
-                        isFirst ? 'rounded-tr-lg' : ''
-                      } ${isLast ? 'rounded-br-lg border-b-0' : ''}`}>
-                        <ReactMarkdown>{item.answer}</ReactMarkdown>
-                      </td>
-                    </tr>
-              )})}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-        {!!content.assumptions.length && (
-          <div className={subSectionClass}>
-            <h5 className="font-medium text-neutral-800 mb-2">本分析有何假设？</h5>
-            <ul className="list-disc list-inside space-y-1 text-neutral-700">
-              {content.assumptions.map((item, index) => (
-                <li key={index} className="whitespace-normal">
-                  <ReactMarkdown components={{ p: 'span' }}>
-                    {(item || '').trim()}
-                  </ReactMarkdown>
+            <h5 className="font-medium text-neutral-800 mb-2">Five Whys</h5>
+            <ul className="space-y-3">
+              {content.fiveWhys?.map((item, index) => (
+                <li key={`${item.level ?? index}-${index}`} className="bg-white rounded-lg p-3 border border-neutral-200">
+                  <div className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1">
+                    第 {item.level ?? index + 1} 轮
+                  </div>
+                  {item.question && (
+                    <p className="text-sm font-medium text-neutral-800 whitespace-pre-wrap mb-1">
+                      Q：{item.question}
+                    </p>
+                  )}
+                  {item.answer && (
+                    <p className="text-sm text-neutral-700 whitespace-pre-wrap">
+                      A：{item.answer}
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>
           </div>
         )}
-        {!!content.uncertainties.length && (
+        {!!content.assumptions?.length && (
+          <div className={subSectionClass}>
+            <h5 className="font-medium text-neutral-800 mb-2">本分析有何假设？</h5>
+            <ul className="list-disc list-inside space-y-1 text-neutral-700">
+              {content.assumptions?.map((item, index) => (
+                <li key={index} className="whitespace-pre-wrap">
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {!!content.uncertainties?.length && (
           <div className={subSectionClass}>
             <h5 className="font-medium text-neutral-800 mb-2">有什么未能确定？</h5>
             <ul className="list-disc list-inside space-y-1 text-neutral-700">
-              {content.uncertainties.map((item, index) => (
-                <li key={index} className="whitespace-normal">
-                  <ReactMarkdown components={{ p: 'span' }}>
-                    {(item || '').trim()}
-                  </ReactMarkdown>
+              {content.uncertainties?.map((item, index) => (
+                <li key={index} className="whitespace-pre-wrap">
+                  {item}
                 </li>
               ))}
             </ul>
@@ -153,6 +171,9 @@ const AnalysisSection: React.FC<{ content: Phase3StepContentModel['analysis'] }>
 const Phase3StepContent: React.FC<Phase3StepContentProps> = ({
   content,
   confidence,
+  showRawData,
+  onToggleRawData,
+  rawStep,
 }) => (
   <div className="space-y-6">
     {content.summary && (
@@ -161,13 +182,12 @@ const Phase3StepContent: React.FC<Phase3StepContentProps> = ({
           <Icon name="edit" size={18} strokeWidth={2} className="mr-2" />
           摘要
         </h4>
-        <div className="text-neutral-700 whitespace-pre-wrap">
-          <ReactMarkdown>{content.summary}</ReactMarkdown>
-        </div>
+        <p className="text-neutral-700 whitespace-pre-wrap">{content.summary}</p>
       </div>
     )}
 
     <KeyClaims claims={content.keyClaims} />
+    <NotableEvidence evidence={content.notableEvidence} />
 
     {content.article && (
       <div className={baseSectionClass}>
@@ -175,9 +195,7 @@ const Phase3StepContent: React.FC<Phase3StepContentProps> = ({
           <Icon name="file" size={18} strokeWidth={2} className="mr-2" />
           深度文章
         </h4>
-        <div className="text-neutral-700 whitespace-pre-wrap">
-          <ReactMarkdown>{content.article}</ReactMarkdown>
-        </div>
+        <p className="text-neutral-700 whitespace-pre-wrap">{content.article}</p>
       </div>
     )}
 
@@ -189,14 +207,29 @@ const Phase3StepContent: React.FC<Phase3StepContentProps> = ({
           <Icon name="lightbulb" size={18} strokeWidth={2} className="mr-2" />
           洞察
         </h4>
-        <div className="text-neutral-700 whitespace-pre-wrap">
-          <ReactMarkdown>{content.insights}</ReactMarkdown>
-        </div>
+        <p className="text-neutral-700 whitespace-pre-wrap">{content.insights}</p>
       </div>
     )}
 
     {typeof confidence === 'number' && !Number.isNaN(confidence) && (
       <ConfidenceBar confidence={confidence} />
+    )}
+
+    {rawStep !== undefined && rawStep !== null && (
+      <div className="border-t pt-4">
+        <button
+          onClick={onToggleRawData}
+          className="text-sm text-neutral-500 hover:text-neutral-700 flex items-center"
+        >
+          <span className="mr-2">{showRawData ? '▼' : '▶'}</span>
+          {showRawData ? '收起原始数据' : '查看原始数据'}
+        </button>
+        {showRawData && (
+          <pre className="mt-2 text-xs bg-neutral-100 p-4 rounded overflow-auto max-h-96 border">
+            {JSON.stringify(rawStep, null, 2)}
+          </pre>
+        )}
+      </div>
     )}
   </div>
 )

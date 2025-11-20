@@ -199,4 +199,18 @@ class Config:
         project_root = find_project_root()
         reports_dir = self.get('storage.paths.reports_dir', 'data/research/reports')
         return project_root / reports_dir
+    
+    def get_editor_config(self) -> dict:
+        """
+        Get editor-specific Qwen configuration.
+        
+        Returns:
+            Configuration dict with model, temperature, max_tokens, and system_prompt_path
+        """
+        return {
+            'model': self.get('qwen.editor.model', 'qwen-plus'),
+            'temperature': self.get('qwen.editor.temperature', 0.7),
+            'max_tokens': self.get_int('qwen.editor.max_tokens', 4000),
+            'system_prompt_path': self.get('qwen.editor.system_prompt_path', 'research/prompts/editor/system.md'),
+        }
 
