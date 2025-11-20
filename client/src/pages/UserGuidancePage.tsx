@@ -27,18 +27,6 @@ const UserGuidancePage: React.FC = () => {
       description: '清晰、易懂、循序渐进',
       color: '#10B981' // green
     },
-    { 
-      id: 'creative', 
-      name: 'UP主', 
-      description: '生动、有趣、引人入胜',
-      color: '#F59E0B' // amber
-    },
-    { 
-      id: 'persuasive', 
-      name: '销售', 
-      description: '有力、有说服力、强调收益',
-      color: '#EF4444' // red
-    },
   ]
 
   const handleSubmit = async (e?: React.FormEvent) => {

@@ -1,33 +1,51 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 interface MagicHeaderTransformProps {
   comprehensiveTopic: string | null
 }
 
+const DEFAULT_TEXT = 'Deep Insights'
+
 const MagicHeaderTransform: React.FC<MagicHeaderTransformProps> = ({ comprehensiveTopic }) => {
-  const [displayText, setDisplayText] = useState('Deep Insights')
+  const [displayText, setDisplayText] = useState(DEFAULT_TEXT)
   const [isAnimating, setIsAnimating] = useState(false)
   const [showShimmer, setShowShimmer] = useState(false)
+  const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([])
+
+  const clearAllTimeouts = () => {
+    timeoutsRef.current.forEach((timeoutId) => clearTimeout(timeoutId))
+    timeoutsRef.current = []
+  }
 
   useEffect(() => {
-    if (comprehensiveTopic && displayText === 'Deep Insights') {
-      setIsAnimating(true)
-      
-      // Sequence: fade out → shimmer → fade in
-      // Step 1: Fade out (300ms)
-      setTimeout(() => {
-        setShowShimmer(true)
-        // Step 2: Shimmer effect (200ms)
-        setTimeout(() => {
-          setShowShimmer(false)
-          setDisplayText(comprehensiveTopic)
-          // Step 3: Fade in (400ms)
-          setTimeout(() => {
-            setIsAnimating(false)
-          }, 400)
-        }, 200)
-      }, 300)
+    const nextText = comprehensiveTopic?.trim() ? comprehensiveTopic : DEFAULT_TEXT
+    if (nextText === displayText) {
+      return
+    }
+
+    clearAllTimeouts()
+
+    setIsAnimating(true)
+
+    // Sequence: fade out → shimmer → fade in
+    const fadeTimeout = setTimeout(() => {
+      setShowShimmer(true)
+      const shimmerTimeout = setTimeout(() => {
+        setShowShimmer(false)
+        setDisplayText(nextText)
+        const finishTimeout = setTimeout(() => {
+          setIsAnimating(false)
+        }, 400)
+        timeoutsRef.current.push(finishTimeout)
+      }, 200)
+      timeoutsRef.current.push(shimmerTimeout)
+    }, 300)
+
+    timeoutsRef.current.push(fadeTimeout)
+
+    return () => {
+      clearAllTimeouts()
     }
   }, [comprehensiveTopic, displayText])
 

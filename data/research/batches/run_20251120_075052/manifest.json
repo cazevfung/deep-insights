@@ -1,0 +1,158 @@
+{
+  "batch_id": "20251120_075052",
+  "total_files": 19,
+  "items": [
+    {
+      "relative_path": "20251120_075052_BILI_bili_req10_complete.json",
+      "batch_id": "20251120_075052",
+      "size_bytes": 19598,
+      "source_prefix": "075052",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251120_075052_BILI_bili_req11_complete.json",
+      "batch_id": "20251120_075052",
+      "size_bytes": 4767,
+      "source_prefix": "075052",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251120_075052_BILI_bili_req12_complete.json",
+      "batch_id": "20251120_075052",
+      "size_bytes": 21834,
+      "source_prefix": "075052",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251120_075052_BILI_bili_req13_complete.json",
+      "batch_id": "20251120_075052",
+      "size_bytes": 3436,
+      "source_prefix": "075052",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251120_075052_BILI_bili_req14_complete.json",
+      "batch_id": "20251120_075052",
+      "size_bytes": 19668,
+      "source_prefix": "075052",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251120_075052_BILI_bili_req15_complete.json",
+      "batch_id": "20251120_075052",
+      "size_bytes": 13612,
+      "source_prefix": "075052",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251120_075052_BILI_bili_req16_complete.json",
+      "batch_id": "20251120_075052",
+      "size_bytes": 23569,
+      "source_prefix": "075052",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251120_075052_BILI_bili_req17_complete.json",
+      "batch_id": "20251120_075052",
+      "size_bytes": 32887,
+      "source_prefix": "075052",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251120_075052_BILI_bili_req18_complete.json",
+      "batch_id": "20251120_075052",
+      "size_bytes": 14567,
+      "source_prefix": "075052",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251120_075052_BILI_bili_req19_complete.json",
+      "batch_id": "20251120_075052",
+      "size_bytes": 9235,
+      "source_prefix": "075052",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251120_075052_BILI_bili_req1_complete.json",
+      "batch_id": "20251120_075052",
+      "size_bytes": 17353,
+      "source_prefix": "075052",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251120_075052_BILI_bili_req2_complete.json",
+      "batch_id": "20251120_075052",
+      "size_bytes": 16363,
+      "source_prefix": "075052",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251120_075052_BILI_bili_req3_complete.json",
+      "batch_id": "20251120_075052",
+      "size_bytes": 13843,
+      "source_prefix": "075052",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251120_075052_BILI_bili_req4_complete.json",
+      "batch_id": "20251120_075052",
+      "size_bytes": 11276,
+      "source_prefix": "075052",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251120_075052_BILI_bili_req5_complete.json",
+      "batch_id": "20251120_075052",
+      "size_bytes": 15560,
+      "source_prefix": "075052",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251120_075052_BILI_bili_req6_complete.json",
+      "batch_id": "20251120_075052",
+      "size_bytes": 6947,
+      "source_prefix": "075052",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251120_075052_BILI_bili_req7_complete.json",
+      "batch_id": "20251120_075052",
+      "size_bytes": 9403,
+      "source_prefix": "075052",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251120_075052_BILI_bili_req8_complete.json",
+      "batch_id": "20251120_075052",
+      "size_bytes": 14229,
+      "source_prefix": "075052",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251120_075052_BILI_bili_req9_complete.json",
+      "batch_id": "20251120_075052",
+      "size_bytes": 13840,
+      "source_prefix": "075052",
+      "link_id": "BILI",
+      "kind": "bili"
+    }
+  ]
+}

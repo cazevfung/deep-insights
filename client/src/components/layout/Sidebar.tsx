@@ -28,7 +28,7 @@ const Sidebar: React.FC = () => {
 
       {/* Sidebar */}
       <aside
-        className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-primary-500 text-neutral-white transform transition-transform duration-300 ease-in-out shadow-[4px_0_8px_rgba(0,0,0,0.1),4px_0_12px_rgba(0,0,0,0.05)] ${
+        className={`fixed lg:static inset-y-0 left-0 z-50 w-52 bg-primary-500 text-neutral-white transform transition-transform duration-300 ease-in-out shadow-[4px_0_8px_rgba(0,0,0,0.1),4px_0_12px_rgba(0,0,0,0.05)] ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
         style={{ backgroundColor: '#FEC74A' }}
@@ -36,10 +36,10 @@ const Sidebar: React.FC = () => {
         <div className="flex flex-col h-full">
           {/* Logo/Brand */}
           <div className="px-4 py-6 flex items-center justify-start">
-            <img 
-              src="/logo.png?v=2" 
-              alt="有料到" 
-              className="h-[108px] w-auto object-contain"
+            <img
+              src="/logo.png?v=2"
+              alt="有料到"
+              className="h-[76px] w-auto object-contain"
             />
           </div>
 

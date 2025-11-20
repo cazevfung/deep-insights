@@ -17,6 +17,40 @@ interface Phase3StepContentProps {
 const baseSectionClass = 'bg-neutral-50 rounded-lg p-4'
 const subSectionClass = 'bg-neutral-100 rounded-lg p-4'
 
+const renderFormattedText = (text: string) => {
+  const nodes: React.ReactNode[] = []
+  const tokens = text.split(/(\*\*[^*]+\*\*)/g)
+
+  tokens.forEach((token, tokenIndex) => {
+    if (!token) {
+      return
+    }
+
+    const isBoldToken = token.startsWith('**') && token.endsWith('**') && token.length > 4
+
+    if (isBoldToken) {
+      nodes.push(
+        <strong key={`bold-${tokenIndex}`} className="font-semibold text-neutral-900">
+          {token.slice(2, -2)}
+        </strong>,
+      )
+      return
+    }
+
+    const lines = token.split('\n')
+    lines.forEach((line, lineIndex) => {
+      nodes.push(
+        <React.Fragment key={`text-${tokenIndex}-${lineIndex}`}>
+          {line}
+          {lineIndex < lines.length - 1 && <br />}
+        </React.Fragment>,
+      )
+    })
+  })
+
+  return nodes
+}
+
 const ConfidenceBar: React.FC<{ confidence: number }> = ({ confidence }) => {
   const getConfidenceColor = () => {
     if (confidence >= 0.8) {
@@ -53,11 +87,15 @@ const KeyClaims: React.FC<{ claims: Phase3StepKeyClaim[] }> = ({ claims }) => {
       <div className="space-y-3">
         {claims.map((claim, index) => (
           <div key={index} className="bg-white rounded-lg p-4 border border-neutral-200">
-            <div className="font-medium text-neutral-800 mb-2">{claim.claim}</div>
+            <div className="font-medium text-neutral-800 mb-2 whitespace-pre-wrap">
+              {renderFormattedText(claim.claim)}
+            </div>
             {claim.supportingEvidence && (
               <div className="text-sm text-neutral-600 mt-2">
                 <span className="font-medium">证据支持：</span>
-                <span className="whitespace-pre-wrap">{claim.supportingEvidence}</span>
+                <span className="whitespace-pre-wrap">
+                  {renderFormattedText(claim.supportingEvidence)}
+                </span>
               </div>
             )}
           </div>
@@ -85,7 +123,9 @@ const NotableEvidence: React.FC<{ evidence?: Phase3StepEvidence[] }> = ({ eviden
               <span className="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded mr-3 mt-1">
                 {item.evidenceType || `发现 ${index + 1}`}
               </span>
-              <p className="text-neutral-700 flex-1 whitespace-pre-wrap">{item.description}</p>
+              <p className="text-neutral-700 flex-1 whitespace-pre-wrap">
+                {renderFormattedText(item.description)}
+              </p>
             </div>
           </div>
         ))}
@@ -126,12 +166,12 @@ const AnalysisSection: React.FC<{ content?: Phase3StepContentModel['analysis'] }
                   </div>
                   {item.question && (
                     <p className="text-sm font-medium text-neutral-800 whitespace-pre-wrap mb-1">
-                      Q：{item.question}
+                      Q：{renderFormattedText(item.question)}
                     </p>
                   )}
                   {item.answer && (
                     <p className="text-sm text-neutral-700 whitespace-pre-wrap">
-                      A：{item.answer}
+                      A：{renderFormattedText(item.answer)}
                     </p>
                   )}
                 </li>
@@ -145,7 +185,7 @@ const AnalysisSection: React.FC<{ content?: Phase3StepContentModel['analysis'] }
             <ul className="list-disc list-inside space-y-1 text-neutral-700">
               {content.assumptions?.map((item, index) => (
                 <li key={index} className="whitespace-pre-wrap">
-                  {item}
+                  {renderFormattedText(item)}
                 </li>
               ))}
             </ul>
@@ -157,7 +197,7 @@ const AnalysisSection: React.FC<{ content?: Phase3StepContentModel['analysis'] }
             <ul className="list-disc list-inside space-y-1 text-neutral-700">
               {content.uncertainties?.map((item, index) => (
                 <li key={index} className="whitespace-pre-wrap">
-                  {item}
+                  {renderFormattedText(item)}
                 </li>
               ))}
             </ul>
@@ -182,7 +222,7 @@ const Phase3StepContent: React.FC<Phase3StepContentProps> = ({
           <Icon name="edit" size={18} strokeWidth={2} className="mr-2" />
           摘要
         </h4>
-        <p className="text-neutral-700 whitespace-pre-wrap">{content.summary}</p>
+        <p className="text-neutral-700 whitespace-pre-wrap">{renderFormattedText(content.summary)}</p>
       </div>
     )}
 
@@ -195,7 +235,7 @@ const Phase3StepContent: React.FC<Phase3StepContentProps> = ({
           <Icon name="file" size={18} strokeWidth={2} className="mr-2" />
           深度文章
         </h4>
-        <p className="text-neutral-700 whitespace-pre-wrap">{content.article}</p>
+        <p className="text-neutral-700 whitespace-pre-wrap">{renderFormattedText(content.article)}</p>
       </div>
     )}
 
@@ -207,7 +247,7 @@ const Phase3StepContent: React.FC<Phase3StepContentProps> = ({
           <Icon name="lightbulb" size={18} strokeWidth={2} className="mr-2" />
           洞察
         </h4>
-        <p className="text-neutral-700 whitespace-pre-wrap">{content.insights}</p>
+        <p className="text-neutral-700 whitespace-pre-wrap">{renderFormattedText(content.insights)}</p>
       </div>
     )}
 
