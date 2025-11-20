@@ -13,18 +13,20 @@ const Phase3SessionPage: React.FC = () => {
     const checkPosition = () => {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect()
-        const mainElement = containerRef.current.closest('main')
+        
+        // Find the scroll container (the div with overflow-y-auto and pt-6)
+        const scrollContainer = containerRef.current.closest('.overflow-y-auto') as HTMLElement | null
         
         // Check if container is at or near the top (within Layout's pt-6 padding)
         const atTop = rect.top <= 24 // 24px = 1.5rem = pt-6
         setIsAtTop(atTop)
         
-        // Directly manipulate the main element's padding-top
-        if (mainElement) {
+        // Directly manipulate the scroll container's padding-top
+        if (scrollContainer) {
           if (atTop) {
-            mainElement.style.paddingTop = '0'
+            scrollContainer.style.paddingTop = '0'
           } else {
-            mainElement.style.paddingTop = '' // Reset to default
+            scrollContainer.style.paddingTop = '' // Reset to default (pt-6)
           }
         }
       }
@@ -38,9 +40,8 @@ const Phase3SessionPage: React.FC = () => {
       return () => {
         scrollContainer.removeEventListener('scroll', checkPosition)
         // Cleanup: restore padding when component unmounts
-        const mainElement = containerRef.current?.closest('main')
-        if (mainElement) {
-          mainElement.style.paddingTop = ''
+        if (scrollContainer instanceof HTMLElement) {
+          scrollContainer.style.paddingTop = ''
         }
       }
     }

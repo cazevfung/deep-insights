@@ -22,7 +22,7 @@ logger.info("Initializing FastAPI application...")
 
 try:
     from core.config import Config
-    from app.routes import links, workflow, research, session, reports, history, exports
+    from app.routes import ingestion, links, workflow, research, session, reports, history, exports
     from app.websocket.manager import WebSocketManager
     logger.info("✓ All modules imported successfully")
 except Exception as e:
@@ -77,6 +77,7 @@ except Exception as e:
 # Include routers with error handling
 try:
     app.include_router(links.router, prefix="/api/links", tags=["links"])
+    app.include_router(ingestion.router, prefix="/api/ingestion", tags=["ingestion"])
     app.include_router(workflow.router, prefix="/api/workflow", tags=["workflow"])
     app.include_router(research.router, prefix="/api/research", tags=["research"])
     app.include_router(session.router, prefix="/api/sessions", tags=["sessions"])

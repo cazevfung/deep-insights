@@ -64,3 +64,7 @@ debug/
 .coverage
 htmlcov/
 
+# Research folder - ignore JSON and MD files
+research/**/*.json
+research/**/*.md
+

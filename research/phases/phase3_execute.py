@@ -1626,7 +1626,7 @@ class Phase3Execute(BasePhase):
                 "step_id": step_id,
                 "goal": goal,
                 "required_data": required_data,
-                "enable_json_streaming": True,  # Enable real-time JSON parsing
+                "enable_json_streaming": False,  # Disable real-time parsing - only parse when step completes
                 "chunk_strategy": chunk_strategy,
                 "vector_enabled": bool(allow_vector),
             },
@@ -1707,7 +1707,7 @@ class Phase3Execute(BasePhase):
                 "step_id": step_id,
                 "goal": goal,
                 "required_data": required_data,
-                "enable_json_streaming": True,  # Enable real-time JSON parsing
+                "enable_json_streaming": False,  # Disable real-time parsing - only parse when step completes
                 "chunk_strategy": chunk_strategy,
                 "vector_enabled": bool(allow_vector),
             },

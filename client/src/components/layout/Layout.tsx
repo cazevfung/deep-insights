@@ -18,20 +18,18 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       {/* Sidebar: Always visible */}
       <Sidebar />
       
-      <div className="flex-1 flex flex-col min-h-0">
+      {/* Main content area: Header only covers this area */}
+      <main className="flex-1 flex flex-col min-h-0">
         <Header />
-        
-        {/* Main content area with right column */}
-        <div className="flex flex-1 flex-col lg:flex-row min-h-0 overflow-hidden">
-          <main className="flex-1 overflow-y-auto px-6 pt-6 pb-10 order-1">
-            {children}
-          </main>
-          {/* Right column: Always visible */}
-          <aside className="order-2 px-6 pt-6 pb-10 lg:flex-none lg:w-[520px] flex flex-col min-h-0">
-            <PhaseInteractionPanel onSendMessage={sendMessage} />
-          </aside>
+        <div className="flex-1 overflow-y-auto px-6 pt-6 pb-10">
+          {children}
         </div>
-      </div>
+      </main>
+      
+      {/* Right column: Full height, independent of Header */}
+      <aside className="hidden lg:flex p-4 lg:w-[640px] flex-col h-full">
+        <PhaseInteractionPanel onSendMessage={sendMessage} />
+      </aside>
     </div>
   )
 }

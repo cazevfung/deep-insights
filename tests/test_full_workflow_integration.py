@@ -218,7 +218,7 @@ def verify_scraper_results(batch_id: str, progress_callback=None) -> bool:
     return True
 
 
-def run_research_agent(batch_id: str, ui=None, progress_callback=None, user_topic: Optional[str] = None, session_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+def run_research_agent(batch_id: str, ui=None, progress_callback=None, user_topic: Optional[str] = None, session_id: Optional[str] = None, resume_point: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
     """
     Run the research agent to analyze the gathered content.
     
@@ -231,6 +231,12 @@ def run_research_agent(batch_id: str, ui=None, progress_callback=None, user_topi
                          use that instead. This callback is for high-level progress only.
         user_topic: Optional user-specified research topic or guidance
         session_id: Optional session ID to resume an existing session instead of creating a new one
+        resume_point: Optional dict with resume information:
+                     {
+                         "phase": str,  # Phase to resume from
+                         "step_id": int | None,  # Step ID for phase3
+                         "skip_phases": List[str]  # Phases to skip
+                     }
         
     Returns:
         Result dictionary from the research agent
@@ -292,7 +298,8 @@ def run_research_agent(batch_id: str, ui=None, progress_callback=None, user_topi
     result = agent.run_research(
         batch_id=batch_id,
         user_topic=user_topic,  # Pass user topic if provided
-        session_id=session_id  # Pass session_id to resume existing session if provided
+        session_id=session_id,  # Pass session_id to resume existing session if provided
+        resume_point=resume_point  # Pass resume point information
     )
     
     elapsed_time = time.time() - start_time

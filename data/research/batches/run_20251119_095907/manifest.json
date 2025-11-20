@@ -1,0 +1,158 @@
+{
+  "batch_id": "20251119_095907",
+  "total_files": 19,
+  "items": [
+    {
+      "relative_path": "20251119_095907_BILI_bili_req10_complete.json",
+      "batch_id": "20251119_095907",
+      "size_bytes": 14093,
+      "source_prefix": "095907",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251119_095907_BILI_bili_req11_complete.json",
+      "batch_id": "20251119_095907",
+      "size_bytes": 10577,
+      "source_prefix": "095907",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251119_095907_BILI_bili_req12_complete.json",
+      "batch_id": "20251119_095907",
+      "size_bytes": 9079,
+      "source_prefix": "095907",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251119_095907_BILI_bili_req13_complete.json",
+      "batch_id": "20251119_095907",
+      "size_bytes": 22539,
+      "source_prefix": "095907",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251119_095907_BILI_bili_req14_complete.json",
+      "batch_id": "20251119_095907",
+      "size_bytes": 7156,
+      "source_prefix": "095907",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251119_095907_BILI_bili_req16_complete.json",
+      "batch_id": "20251119_095907",
+      "size_bytes": 11782,
+      "source_prefix": "095907",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251119_095907_BILI_bili_req1_complete.json",
+      "batch_id": "20251119_095907",
+      "size_bytes": 21298,
+      "source_prefix": "095907",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251119_095907_BILI_bili_req2_complete.json",
+      "batch_id": "20251119_095907",
+      "size_bytes": 13277,
+      "source_prefix": "095907",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251119_095907_BILI_bili_req3_complete.json",
+      "batch_id": "20251119_095907",
+      "size_bytes": 14046,
+      "source_prefix": "095907",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251119_095907_BILI_bili_req4_complete.json",
+      "batch_id": "20251119_095907",
+      "size_bytes": 10401,
+      "source_prefix": "095907",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251119_095907_BILI_bili_req5_complete.json",
+      "batch_id": "20251119_095907",
+      "size_bytes": 12707,
+      "source_prefix": "095907",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251119_095907_BILI_bili_req6_complete.json",
+      "batch_id": "20251119_095907",
+      "size_bytes": 6079,
+      "source_prefix": "095907",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251119_095907_BILI_bili_req7_complete.json",
+      "batch_id": "20251119_095907",
+      "size_bytes": 39553,
+      "source_prefix": "095907",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251119_095907_BILI_bili_req8_complete.json",
+      "batch_id": "20251119_095907",
+      "size_bytes": 18394,
+      "source_prefix": "095907",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251119_095907_BILI_bili_req9_complete.json",
+      "batch_id": "20251119_095907",
+      "size_bytes": 17239,
+      "source_prefix": "095907",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251119_095907_YT_yt_req1_complete.json",
+      "batch_id": "20251119_095907",
+      "size_bytes": 72673,
+      "source_prefix": "095907",
+      "link_id": "YT",
+      "kind": "yt"
+    },
+    {
+      "relative_path": "20251119_095907_YT_yt_req2_complete.json",
+      "batch_id": "20251119_095907",
+      "size_bytes": 67127,
+      "source_prefix": "095907",
+      "link_id": "YT",
+      "kind": "yt"
+    },
+    {
+      "relative_path": "20251119_095907_YT_yt_req3_complete.json",
+      "batch_id": "20251119_095907",
+      "size_bytes": 19877,
+      "source_prefix": "095907",
+      "link_id": "YT",
+      "kind": "yt"
+    },
+    {
+      "relative_path": "20251119_095907_YT_yt_req4_complete.json",
+      "batch_id": "20251119_095907",
+      "size_bytes": 30710,
+      "source_prefix": "095907",
+      "link_id": "YT",
+      "kind": "yt"
+    }
+  ]
+}

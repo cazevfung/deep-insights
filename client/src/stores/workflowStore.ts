@@ -131,6 +131,33 @@ export interface ConversationMessage {
   metadata?: Record<string, any>
 }
 
+export interface ConversationContextRequirement {
+  key: string
+  label: string
+  description?: string
+  required: boolean
+  fulfilled: boolean
+}
+
+export interface ConversationContextAttachment {
+  id: string
+  slot_key: string
+  label: string
+  content_preview?: string
+  provided_by: string
+  provided_at: string
+}
+
+export interface ConversationContextRequest {
+  id: string
+  user_message_id: string
+  reason: string
+  status: 'pending' | 'satisfied' | 'cancelled' | 'expired'
+  created_at: string
+  requirements: ConversationContextRequirement[]
+  attachments: ConversationContextAttachment[]
+}
+
 interface WorkflowState {
   currentPhase: 'input' | 'scraping' | 'research' | 'phase3' | 'phase4' | 'complete'
   batchId: string | null
@@ -231,6 +258,7 @@ interface WorkflowState {
     } | null
     conversationMessages: ConversationMessage[]
   }
+  conversationContextRequests: ConversationContextRequest[]
   
   // Phase 3
   phase3Steps: SessionStep[]
@@ -279,7 +307,11 @@ interface WorkflowState {
   updateLiveAction: (action: Partial<LiveAction> & { id: string }) => void
   updateLiveReportSection: (section: Partial<LiveReportSection> & { id: string }) => void
   upsertConversationMessage: (message: ConversationMessage) => void
+  appendConversationDelta: (messageId: string, delta: string) => void
   resetConversationMessages: () => void
+  upsertConversationContextRequest: (request: ConversationContextRequest) => void
+  removeConversationContextRequest: (requestId: string) => void
+  removeConversationMessage: (messageId: string) => void
   addPhase3Step: (step: SessionStep) => void
   setPhase3Steps: (steps: SessionStep[], nextStepId?: number | null) => void
   setFinalReport: (report: WorkflowState['finalReport']) => void
@@ -385,6 +417,7 @@ const initialState: Omit<WorkflowState, keyof {
     summarizationProgress: null,
     conversationMessages: [],
   },
+  conversationContextRequests: [],
   phase3Steps: [],
   currentStepId: null,
   finalReport: null,
@@ -473,6 +506,7 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
           summarizationProgress: null,
           conversationMessages: [],
         },
+        conversationContextRequests: [],
         phase3Steps: [],
         currentStepId: null,
         finalReport: null,
@@ -1202,12 +1236,74 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
         },
       }
     }),
+  appendConversationDelta: (messageId, delta) =>
+    set((state) => {
+      if (!delta) {
+        return {}
+      }
+      let updated = false
+      const nextMessages = state.researchAgentStatus.conversationMessages.map((item) => {
+        if (item.id !== messageId) {
+          return item
+        }
+        updated = true
+        return {
+          ...item,
+          content: (item.content || '') + delta,
+          timestamp: new Date().toISOString(),
+          status: item.status === 'completed' ? item.status : 'in_progress',
+        }
+      })
+
+      if (!updated) {
+        nextMessages.push({
+          id: messageId,
+          role: 'assistant',
+          content: delta,
+          status: 'in_progress',
+          timestamp: new Date().toISOString(),
+          metadata: {},
+        })
+      }
+
+      return {
+        researchAgentStatus: {
+          ...state.researchAgentStatus,
+          conversationMessages: nextMessages,
+        },
+      }
+    }),
   resetConversationMessages: () =>
     set((state) => ({
       researchAgentStatus: {
         ...state.researchAgentStatus,
         conversationMessages: [],
       },
+    })),
+  removeConversationMessage: (messageId) =>
+    set((state) => ({
+      researchAgentStatus: {
+        ...state.researchAgentStatus,
+        conversationMessages: state.researchAgentStatus.conversationMessages.filter(
+          (item) => item.id !== messageId
+        ),
+      },
+    })),
+  upsertConversationContextRequest: (request) =>
+    set((state) => {
+      const existing = state.conversationContextRequests.filter((item) => item.id !== request.id)
+      const next = [...existing, request].sort((a, b) => {
+        const aTime = new Date(a.created_at).getTime()
+        const bTime = new Date(b.created_at).getTime()
+        return aTime - bTime
+      })
+      return {
+        conversationContextRequests: next,
+      }
+    }),
+  removeConversationContextRequest: (requestId) =>
+    set((state) => ({
+      conversationContextRequests: state.conversationContextRequests.filter((item) => item.id !== requestId),
     })),
   addPhase3Step: (step) =>
     set((state) => {

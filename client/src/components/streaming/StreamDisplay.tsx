@@ -190,7 +190,7 @@ const StreamDisplay: React.FC<StreamDisplayProps> = ({
             </p>
           )
         ) : (
-          <p className="text-sm text-neutral-400">暂无内容</p>
+          <p className="text-sm text-neutral-400">思考中...</p>
         )}
       </div>
     </div>

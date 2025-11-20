@@ -14,6 +14,8 @@ from loguru import logger
 project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
+from core.config import Config
+
 router = APIRouter()
 
 
@@ -57,9 +59,10 @@ def _find_report_file(batch_id: str) -> Tuple[Optional[Path], Optional[str]]:
     """
     Find report file by batch_id.
     
-    Checks:
-    1. tests/results/reports/report_{batch_id}_{session_id}.md
-    2. data/research/reports/report_{session_id}.md (if session can be found)
+    Checks (in order):
+    1. Configured reports_dir/report_{batch_id}_{session_id}.md
+    2. Legacy tests/results/reports/report_{batch_id}_{session_id}.md (backward compatibility)
+    3. Configured reports_dir/report_{session_id}.md (if session can be found)
     
     Args:
         batch_id: Batch ID to search for
@@ -67,18 +70,32 @@ def _find_report_file(batch_id: str) -> Tuple[Optional[Path], Optional[str]]:
     Returns:
         Tuple of (report_file_path, session_id) or (None, None) if not found
     """
-    # Try to find report in tests/results/reports/ (pattern: report_{batch_id}_{session_id}.md)
-    test_reports_dir = project_root / "tests" / "results" / "reports"
-    if test_reports_dir.exists():
+    config = Config()
+    reports_dir = config.get_reports_dir()
+    
+    # First, try configured reports directory (pattern: report_{batch_id}_{session_id}.md)
+    if reports_dir.exists():
         pattern = f"report_{batch_id}_*.md"
-        for report_file in test_reports_dir.glob(pattern):
+        for report_file in reports_dir.glob(pattern):
             # Extract session_id from filename
             match = re.match(rf"report_{re.escape(batch_id)}_(.+?)\.md", report_file.name)
             if match:
                 session_id = match.group(1)
                 return report_file, session_id
     
-    # Try to find report in data/research/reports/ by checking session files
+    # Backward compatibility: Try legacy location (tests/results/reports/)
+    legacy_reports_dir = project_root / "tests" / "results" / "reports"
+    if legacy_reports_dir.exists():
+        pattern = f"report_{batch_id}_*.md"
+        for report_file in legacy_reports_dir.glob(pattern):
+            # Extract session_id from filename
+            match = re.match(rf"report_{re.escape(batch_id)}_(.+?)\.md", report_file.name)
+            if match:
+                session_id = match.group(1)
+                logger.info(f"Found report in legacy location: {report_file}")
+                return report_file, session_id
+    
+    # Try to find report in configured reports_dir by checking session files
     # First, find all sessions that match batch_id
     sessions_dir = project_root / "data" / "research" / "sessions"
     matching_sessions = []
@@ -94,8 +111,7 @@ def _find_report_file(batch_id: str) -> Tuple[Optional[Path], Optional[str]]:
                     session_id_match = re.match(r"session_(.+?)\.json", session_file.name)
                     if session_id_match:
                         session_id = session_id_match.group(1)
-                        # Check if report file exists
-                        reports_dir = project_root / "data" / "research" / "reports"
+                        # Check if report file exists in configured reports directory
                         report_file = reports_dir / f"report_{session_id}.md"
                         if report_file.exists():
                             # Prioritize sessions with:

@@ -47,6 +47,7 @@ from app.services.progress_service import ProgressService
 from app.services.conversation_service import ConversationContextService
 from app.services.websocket_ui import WebSocketUI
 from datetime import datetime
+from core.config import Config
 
 
 # Process count per link type
@@ -183,10 +184,9 @@ def _run_scrapers_in_thread(progress_callback, batch_id, cancellation_checker=No
         # Create batch directory immediately when scraping starts
         # This ensures the directory exists before any files are saved
         from pathlib import Path
-        # Use same path calculation as ResearchDataLoader for consistency
-        # Path(__file__) = backend/app/services/workflow_service.py
-        # .parent.parent.parent.parent = project root
-        output_dir = Path(__file__).parent.parent.parent.parent / "tests" / "results"
+        # Use configured batches directory
+        config = Config()
+        output_dir = config.get_batches_dir()
         output_dir.mkdir(exist_ok=True, parents=True)
         batch_folder = output_dir / f"run_{batch_id}"
         batch_folder.mkdir(exist_ok=True)
@@ -199,9 +199,8 @@ def _run_scrapers_in_thread(progress_callback, batch_id, cancellation_checker=No
         worker_pool_size = 8
         max_concurrent_scrapers = None
         try:
-            from core.config import Config
-            config = Config()
-            scraping_config = config.get('scraping', {}).get('control_center', {})
+            config_obj = Config()
+            scraping_config = config_obj.get('scraping', {}).get('control_center', {})
             worker_pool_size = scraping_config.get('worker_pool_size', 8)
             max_concurrent_scrapers = scraping_config.get('max_concurrent_scrapers')
             # If max_concurrent_scrapers is set and valid, cap worker_pool_size
@@ -254,6 +253,7 @@ class WorkflowService:
         self.progress_service = ProgressService(websocket_manager)
         self.conversation_service = ConversationContextService()
         self.ws_manager.set_conversation_service(self.conversation_service)
+        self.conversation_service.set_websocket_manager(self.ws_manager)
         # Track link context for progress callbacks
         # Maps batch_id -> scraper_type -> list of {link_id, url}
         self.link_context: Dict[str, Dict[str, list]] = {}
@@ -315,6 +315,141 @@ class WorkflowService:
         if cached:
             cache[key] = cached
         return cached
+
+    def _determine_resume_point(self, session_data: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Determine which phase and step to resume from based on session state.
+        
+        Args:
+            session_data: Session data dictionary (from JSON file) or None
+            
+        Returns:
+            {
+                "phase": "scraping" | "research" | "phase3" | "complete",
+                "step_id": int | None,  # For phase3
+                "skip_phases": List[str]  # Phases to skip
+            }
+        """
+        if not session_data:
+            # No session data - start from beginning
+            return {
+                "phase": "scraping",
+                "step_id": None,
+                "skip_phases": []
+            }
+        
+        phase_artifacts = session_data.get("phase_artifacts", {})
+        if not isinstance(phase_artifacts, dict):
+            phase_artifacts = {}
+        
+        # Check phase completion in order (most complete first)
+        if "phase4" in phase_artifacts:
+            return {
+                "phase": "complete",
+                "step_id": None,
+                "skip_phases": ["phase0", "phase0_5", "phase1", "phase2", "phase3", "phase4"]
+            }
+        
+        if "phase3" in phase_artifacts:
+            phase3_entry = phase_artifacts.get("phase3", {})
+            phase3_data = phase3_entry.get("data", {}) if isinstance(phase3_entry, dict) else {}
+            phase3_result = phase3_data.get("phase3_result", {})
+            
+            # Check for completed steps (can be either a count or array) and next step
+            completed_steps_value = phase3_result.get("completed_steps", phase3_result.get("completed_step_ids", []))
+            next_step_id = phase3_result.get("next_step_id")
+            
+            # If there's a next_step_id, resume from that step
+            if next_step_id is not None:
+                return {
+                    "phase": "phase3",
+                    "step_id": next_step_id,
+                    "skip_phases": ["phase0", "phase0_5", "phase1", "phase2"]
+                }
+            
+            # If phase3 exists but no next step, check if all steps are done
+            plan = phase3_result.get("plan", [])
+            if isinstance(plan, list) and len(plan) > 0:
+                total_steps = len(plan)
+                
+                # Handle both formats: completed_steps as count or as array of IDs
+                if isinstance(completed_steps_value, int):
+                    completed_count = completed_steps_value
+                elif isinstance(completed_steps_value, list):
+                    completed_count = len(completed_steps_value)
+                else:
+                    completed_count = 0
+                
+                if completed_count >= total_steps:
+                    # All steps done, move to phase4
+                    return {
+                        "phase": "phase4",
+                        "step_id": None,
+                        "skip_phases": ["phase0", "phase0_5", "phase1", "phase2", "phase3"]
+                    }
+                else:
+                    # Some steps incomplete, find first incomplete step
+                    if isinstance(completed_steps_value, list):
+                        # If we have an array of completed step IDs, find missing ones
+                        step_ids = [step.get("step_id") for step in plan if isinstance(step, dict)]
+                        for step_id in step_ids:
+                            if step_id not in completed_steps_value:
+                                return {
+                                    "phase": "phase3",
+                                    "step_id": step_id,
+                                    "skip_phases": ["phase0", "phase0_5", "phase1", "phase2"]
+                                }
+                    else:
+                        # If we only have a count, resume from next step after completed count
+                        if completed_count < total_steps and completed_count >= 0:
+                            next_step = plan[completed_count] if completed_count < len(plan) else plan[-1]
+                            return {
+                                "phase": "phase3",
+                                "step_id": next_step.get("step_id") if isinstance(next_step, dict) else None,
+                                "skip_phases": ["phase0", "phase0_5", "phase1", "phase2"]
+                            }
+            
+            # Phase3 exists but unclear state - resume from phase3 start
+            return {
+                "phase": "phase3",
+                "step_id": None,
+                "skip_phases": ["phase0", "phase0_5", "phase1", "phase2"]
+            }
+        
+        if "phase2" in phase_artifacts:
+            return {
+                "phase": "phase3",
+                "step_id": None,
+                "skip_phases": ["phase0", "phase0_5", "phase1", "phase2"]
+            }
+        
+        if "phase1" in phase_artifacts:
+            return {
+                "phase": "phase2",
+                "step_id": None,
+                "skip_phases": ["phase0", "phase0_5", "phase1"]
+            }
+        
+        if "phase0_5" in phase_artifacts:
+            return {
+                "phase": "phase1",
+                "step_id": None,
+                "skip_phases": ["phase0", "phase0_5"]
+            }
+        
+        if "phase0" in phase_artifacts:
+            return {
+                "phase": "phase0_5",
+                "step_id": None,
+                "skip_phases": ["phase0"]
+            }
+        
+        # Default: start from scraping
+        return {
+            "phase": "scraping",
+            "step_id": None,
+            "skip_phases": []
+        }
 
     def _execute_phase_sequence(
         self,
@@ -1963,47 +2098,92 @@ class WorkflowService:
                 return {'success': False, 'error': 'Cancelled by user'}
             
             # Check if this is a resume of an existing session
-            # If phase0 exists, scraping is already done - skip directly to research
+            # Always try to find existing session by batch_id
             session_id = None
             skip_scraping = False
-            logger.info(f"[RESUME DEBUG] Checking for existing session with batch_id={batch_id}")
+            existing_session_data = None
+            logger.info(f"[RESUME] Checking for existing session with batch_id={batch_id}")
             try:
                 # Try to find existing session for this batch_id
                 sessions_dir = project_root / "data" / "research" / "sessions"
-                logger.info(f"[RESUME DEBUG] Sessions dir exists: {sessions_dir.exists()}, path: {sessions_dir}")
+                logger.info(f"[RESUME] Sessions dir exists: {sessions_dir.exists()}, path: {sessions_dir}")
                 if sessions_dir.exists():
                     # Look for session files for this batch
                     session_files = list(sessions_dir.glob("session_*.json"))
-                    logger.info(f"[RESUME DEBUG] Found {len(session_files)} session files to check")
+                    logger.info(f"[RESUME] Found {len(session_files)} session files to check")
+                    
+                    # Collect all matching sessions for this batch
+                    matching_sessions = []
                     for session_file in session_files:
                         try:
                             with open(session_file, 'r', encoding='utf-8') as f:
                                 session_data = json.load(f)
                             metadata = session_data.get("metadata", {})
                             session_batch_id = metadata.get("batch_id")
-                            logger.info(f"[RESUME DEBUG] Checking {session_file.name}: batch_id={session_batch_id}, looking for={batch_id}, match={session_batch_id == batch_id}")
+                            logger.info(f"[RESUME] Checking {session_file.name}: batch_id={session_batch_id}, looking for={batch_id}, match={session_batch_id == batch_id}")
                             if session_batch_id == batch_id:
-                                # Found session for this batch
-                                session_id = metadata.get("session_id")
+                                # Found a matching session
                                 phase_artifacts = session_data.get("phase_artifacts", {})
-                                has_phase0 = "phase0" in phase_artifacts
-                                logger.info(f"[RESUME DEBUG] ✓ MATCH! session_id={session_id}, has phase0={has_phase0}, phase_artifacts keys={list(phase_artifacts.keys())}")
-                                # If phase0 exists, scraping is done
-                                if has_phase0:
-                                    skip_scraping = True
-                                    logger.info(f"[RESUME DEBUG] ✓ SKIPPING SCRAPING - Found existing session {session_id} with phase0 complete")
-                                else:
-                                    logger.info(f"[RESUME DEBUG] ✗ NOT SKIPPING - phase0 not found in artifacts")
-                                break
+                                matching_sessions.append({
+                                    "file": session_file,
+                                    "session_id": metadata.get("session_id"),
+                                    "session_data": session_data,
+                                    "phase_artifacts": phase_artifacts,
+                                    "phase_count": len(phase_artifacts),
+                                    "updated_at": metadata.get("updated_at", ""),
+                                })
+                                logger.info(f"[RESUME] Found matching session {metadata.get('session_id')}: {len(phase_artifacts)} phases ({list(phase_artifacts.keys())})")
                         except Exception as e:
-                            logger.warning(f"[RESUME DEBUG] Error checking session file {session_file}: {e}")
+                            logger.warning(f"[RESUME] Error checking session file {session_file}: {e}")
                             continue
+                    
+                    # If multiple sessions found, select the one with most progress
+                    if matching_sessions:
+                        if len(matching_sessions) > 1:
+                            logger.info(f"[RESUME] Found {len(matching_sessions)} sessions for batch {batch_id}, selecting most complete...")
+                            # Sort by phase count (descending), then by updated_at (descending)
+                            matching_sessions.sort(key=lambda s: (s["phase_count"], s["updated_at"]), reverse=True)
+                            logger.info(f"[RESUME] Selected session {matching_sessions[0]['session_id']} with {matching_sessions[0]['phase_count']} phases")
+                        
+                        best_session = matching_sessions[0]
+                        session_id = best_session["session_id"]
+                        existing_session_data = best_session["session_data"]
+                        phase_artifacts = best_session["phase_artifacts"]
+                        has_phase0 = "phase0" in phase_artifacts
+                        
+                        logger.info(f"[RESUME] ✓ MATCH! session_id={session_id}, has phase0={has_phase0}, phase_artifacts keys={list(phase_artifacts.keys())}")
+                        
+                        # If phase0 exists, scraping is done
+                        if has_phase0:
+                            skip_scraping = True
+                            logger.info(f"[RESUME] ✓ SKIPPING SCRAPING - Found existing session {session_id} with phase0 complete")
+                        else:
+                            logger.info(f"[RESUME] ✗ NOT SKIPPING - phase0 not found in artifacts")
                 else:
-                    logger.warning(f"[RESUME DEBUG] Sessions directory does not exist: {sessions_dir}")
+                    logger.warning(f"[RESUME] Sessions directory does not exist: {sessions_dir}")
             except Exception as e:
-                logger.error(f"[RESUME DEBUG] Error checking for existing session: {e}", exc_info=True)
+                logger.error(f"[RESUME] Error checking for existing session: {e}", exc_info=True)
             
-            logger.info(f"[RESUME DEBUG] Final decision: skip_scraping={skip_scraping}, session_id={session_id}")
+            # FALLBACK: If no session found, use batch_id as session_id
+            # (This matches how sessions are initially created during scraping)
+            if session_id is None:
+                session_id = batch_id
+                logger.info(f"[RESUME] No existing session found for batch {batch_id}, will use batch_id as session_id")
+            
+            # Determine resume point based on existing session data
+            resume_point = self._determine_resume_point(existing_session_data)
+            logger.info(f"[RESUME] Resume point determined: phase={resume_point['phase']}, step_id={resume_point.get('step_id')}, skip_phases={resume_point.get('skip_phases', [])}")
+
+            if resume_point.get("phase") == "complete":
+                logger.info(f"[RESUME] Batch {batch_id} already complete - skipping workflow resume")
+                return {
+                    "success": True,
+                    "status": "already_complete",
+                    "session_id": session_id,
+                    "batch_id": batch_id,
+                }
+            
+            logger.info(f"[RESUME] Final decision: skip_scraping={skip_scraping}, session_id={session_id}")
             
             # Load link context for this batch
             await self._load_link_context(batch_id)
@@ -2545,7 +2725,8 @@ class WorkflowService:
                     batch_id,
                     ui=ui,
                     progress_callback=progress_callback,
-                    session_id=session_id  # Pass session_id to resume existing session if found
+                    session_id=session_id,  # Pass session_id to resume existing session if found
+                    resume_point=resume_point  # Pass resume point information
                 )
                 
                 if not result:

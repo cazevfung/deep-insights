@@ -1,0 +1,86 @@
+{
+  "batch_id": "20251118_061428",
+  "link_id": "yt_req2",
+  "source": "youtube",
+  "metadata": {
+    "title": "Training in the Morning vs. Evening | Biolayne Educational Video",
+    "author": "Dr. Layne Norton",
+    "url": "https://www.youtube.com/watch?v=V_kT29SMYgE",
+    "word_count": 754,
+    "publish_date": ""
+  },
+  "transcript": "what's up guys we are back with another educational video and this week we are talking about training in the morning versus training in the afternoon or evening which is better for the gains i will give you my perspective coming into this i have always been somebody who has enjoyed training in the early to mid afternoon i always felt like if i woke up in the morning and tried to go straight to the gym i just didn't feel my best but other people have said well i enjoy training in the morning i feel better at that time etc etc my wife likes to train in the morning but what does the research actually say can you make more gains at a certain time of day so there was a study that came out by i think it's kuzma and they looked at training in the morning versus training in the evening who made better gains they actually did show that people training in the evening made better gains in terms of muscle mass and people training in the morning the problem with this study is the people were randomized and it's possible that most of them were used to training at a certain time already and if they got changed from that that's confounding variable there was also another study in basketball players where they looked at training in the morning versus training in the afternoon and its effects on performance doing stuff like counter movement jump which is basically a standing high jump and their power output and they actually found that training in the afternoon improve their metrics of performance better than training in the morning now why would we have these differences well there's some evidence that there are what's called neuromuscular deficits in the morning basically for lack of better term it takes your neuromuscular system time to be optimized for lifting the most weight possible or for power output those sorts of things however much of this appears to be an adaptation effect so there was a study where they took groups of people and they had them either adapt to training in the morning or training in the evening for six weeks and what they found was that after being adapted to training in the morning the people got basically just as good of improvements on performance and power output and those sorts of things as people training in the evening but when they crossed them over so basically they took people adapted to the morning had them test in the evening and they had people test that were adapted in the evening test in the morning they found that the people that went from morning to evening did so just fine they didn't really have a drop off but the people that went from evening to morning had a pretty decent drop-off so that seems to suggest that maybe training in the morning makes you a little bit more adaptable at the end of the day pun intended it doesn't seem to matter that much long term when you choose to train and so you should train when is one most convenient for you to be consistent with it and two when you personally feel best so if you like training in the afternoon or evening and it fits your schedule best by all means do that and i can tell you anecdotally while i started out preferring training in the afternoon and evening now since i'm married to my lovely wife who trains in the morning i train in the morning because i'd like to stay married and after doing it for a while i feel fine in fact on the off occasion i go in to train in the afternoon or evening i wouldn't say i feel weaker or anything like that it just feels weird and kind of off i think a lot of it at least in my actual experience that seems to be backed up by some of the research is it's mostly about what you're adapted to so if you guys want to read more about these studies you can click the links in the description also if you're looking to optimize your training check out the bio lane workout builder click the link in the description 12.99 a month for customized training templates that are tailored towards your goal and individual progressions alright guys hope you enjoyed the video and i will catch you next week",
+  "comments": null,
+  "summary": {
+    "transcript_summary": {
+      "key_facts": [
+        "Morning training may lead to neuromuscular deficits due to system not being fully optimized.",
+        "Evening training has been associated with better muscle mass gains in one study.",
+        "Morning training performance improvements were observed after six weeks of adaptation.",
+        "After six weeks of adaptation, morning-trained individuals showed similar performance gains as evening-trained ones.",
+        "Switching from evening to morning training resulted in a noticeable drop in performance.",
+        "Switching from morning to evening training did not cause a significant performance decline.",
+        "Neuromuscular optimization for lifting and power output takes time in the morning.",
+        "Adaptation to training time significantly impacts performance outcomes.",
+        "Long-term training gains are not significantly affected by time of day when consistent.",
+        "Personal preference and schedule convenience are key factors in choosing training time.",
+        "Training consistency is more important than timing for long-term results.",
+        "The research suggests that performance differences are largely due to habituation.",
+        "Individual adaptation to training time influences how well performance is maintained.",
+        "Morning training may be more adaptable over time compared to evening training.",
+        "Some athletes report feeling off when deviating from their usual training time.",
+        "The Kuzma study compared morning vs. evening training and found better gains in the evening group.",
+        "Basketball players showed improved counter movement jump and power output when training in the afternoon.",
+        "Randomization in studies may introduce confounding variables if participants were already accustomed to a specific time.",
+        "Performance metrics include power output, vertical jump height, and neuromuscular efficiency.",
+        "Training time adaptation can take at least six weeks to establish measurable effects.",
+        "Morning training does not inherently reduce strength or power capacity long-term.",
+        "Evening training does not guarantee superior results without individual adaptation.",
+        "Subjective feelings of readiness vary based on habitual training time.",
+        "Consistency in training schedule outweighs time-of-day benefits for most individuals."
+      ],
+      "key_opinions": [
+        "The author personally prefers afternoon and evening training but now trains in the morning.",
+        "Morning training is acceptable if it fits one's lifestyle and schedule.",
+        "The author believes personal comfort and consistency matter more than optimal timing.",
+        "Anecdotally, the author feels fine training in the morning despite initial preference for later hours.",
+        "The author finds afternoon/evening sessions feel strange after adapting to morning training.",
+        "The author recommends training when it’s most convenient and enjoyable for the individual.",
+        "The author views morning training as potentially more adaptable over time.",
+        "The author suggests that people should train when they feel best regardless of research findings.",
+        "The author implies that research supports flexibility in training timing.",
+        "The author believes that long-term success depends more on adherence than time of day."
+      ],
+      "key_datapoints": [
+        "Six-week adaptation period was used in a neuromuscular study.",
+        "Counter movement jump is a measure of lower-body power output.",
+        "Power output was higher in afternoon training sessions among basketball players.",
+        "Muscle mass gains were greater in evening training group in one study.",
+        "No significant performance drop occurred when switching from morning to evening training.",
+        "A notable performance drop occurred when switching from evening to morning training.",
+        "One study involved randomized assignment between morning and evening training groups.",
+        "Research indicates that adaptation reduces time-of-day performance differences.",
+        "The author mentions a $12.99 monthly cost for a workout builder tool.",
+        "The video includes links in the description for further reading on the studies."
+      ],
+      "topic_areas": [
+        "Morning vs. Evening Training",
+        "Neuromuscular Performance",
+        "Training Adaptation",
+        "Muscle Mass Gains",
+        "Athletic Performance Metrics",
+        "Consistency Over Timing",
+        "Individual Preference",
+        "Study Limitations",
+        "Habitual Training Effects",
+        "Optimal Training Schedule"
+      ],
+      "word_count": 754,
+      "total_markers": 44
+    },
+    "comments_summary": {},
+    "created_at": "2025-11-18T14:14:56.247668",
+    "model_used": "qwen-flash"
+  },
+  "completed_at": 1763446503.8483746
+}

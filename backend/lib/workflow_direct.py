@@ -46,6 +46,7 @@ from scrapers.bilibili_comments_scraper import BilibiliCommentsScraper
 from scrapers.article_scraper import ArticleScraper
 from scrapers.reddit_scraper import RedditScraper
 from tests.test_links_loader import TestLinksLoader
+from core.config import Config
 
 
 def _validate_message(message: dict, message_type: str) -> tuple[bool, Optional[str]]:
@@ -486,7 +487,8 @@ def _save_results(results: List[Dict], batch_id: str, scraper_name: str, link_ty
     if not results:
         return
     
-    output_dir = Path(__file__).parent.parent.parent / "tests" / "results"
+    config = Config()
+    output_dir = config.get_batches_dir()
     output_dir.mkdir(exist_ok=True, parents=True)
     batch_folder = output_dir / f"run_{batch_id}"
     batch_folder.mkdir(exist_ok=True)

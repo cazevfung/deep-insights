@@ -113,12 +113,8 @@ class StreamingSummarizationManagerV2:
         # Batch directory for saving files and file-based completion checks
         from core.config import Config
         config_obj = Config()
-        results_base_path = config_obj.get("paths.results_base_path")
-        if results_base_path:
-            self.batch_dir = Path(results_base_path) / f"run_{batch_id}"
-        else:
-            # Fallback to default path
-            self.batch_dir = Path(__file__).parent.parent.parent / "tests" / "results" / f"run_{batch_id}"
+        results_base_path = config_obj.get_batches_dir()
+        self.batch_dir = results_base_path / f"run_{batch_id}"
         self.batch_dir.mkdir(parents=True, exist_ok=True)
         
         logger.info(f"[SummarizationV2] Initialized for batch {batch_id}")
@@ -870,6 +866,16 @@ class StreamingSummarizationManagerV2:
             else:
                 stats['completion_percentage'] = 100.0
                 stats['is_complete'] = True
+
+            # Backward-compatibility fields expected by legacy callers
+            stats['expected_items'] = max(self.stats.get('total', 0), len(self.items))
+            stats['summaries_created'] = self.stats.get('created', 0)
+            stats['summaries_reused'] = self.stats.get('reused', 0)
+            stats['summaries_failed'] = self.stats.get('failed', 0)
+            stats['queue_size'] = self.processing_queue.qsize()
+            # Ensure legacy field names are populated
+            stats['scraped'] = stats.get('scraped', self.stats.get('scraped', 0))
+            stats['summarized'] = stats.get('summarized', stats.get('summarized_count', 0))
             
             return stats
     

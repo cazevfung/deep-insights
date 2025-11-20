@@ -177,4 +177,26 @@ class Config:
             'password': password,
             'bypass': bypass_list,
         }
+    
+    def get_batches_dir(self) -> Path:
+        """
+        Get batches directory path where batch run directories are stored.
+        
+        Returns:
+            Path object pointing to batches directory
+        """
+        project_root = find_project_root()
+        batches_dir = self.get('storage.paths.batches_dir', 'data/research/batches')
+        return project_root / batches_dir
+    
+    def get_reports_dir(self) -> Path:
+        """
+        Get reports directory path where research reports are stored.
+        
+        Returns:
+            Path object pointing to reports directory
+        """
+        project_root = find_project_root()
+        reports_dir = self.get('storage.paths.reports_dir', 'data/research/reports')
+        return project_root / reports_dir
 

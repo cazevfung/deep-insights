@@ -196,6 +196,14 @@
    - 输入链接并开始研究
    - 在研究完成后，通过导出功能下载报告与会话数据
 
+## 脚本与工具位置
+
+- Windows 一键安装脚本：`scripts/install/run_windows.bat`（根目录 `run.bat` 仅保留为兼容入口）
+- macOS / Linux 启动脚本：`python scripts/install/run_mac.py`（根目录 `run_mac.py` 为兼容入口）
+- 跨平台依赖安装器：`python scripts/install/install_dependencies.py`（根目录 `install_dependencies.py` 为兼容入口）
+- OSS 运维脚本：集中在 `scripts/oss/`（例如 `enable_website_mode.py`、`check_bucket_config.py` 等）
+
+
 ### 方式二：使用命令行
 
 1. **安装依赖:**

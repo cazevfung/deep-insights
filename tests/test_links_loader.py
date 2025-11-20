@@ -61,8 +61,10 @@ class TestLinksLoader:
             ids_seen.add(lid)
             if ltype not in VALID_TYPES:
                 raise ValueError(f"links[{idx}] invalid type: {ltype}; valid: {sorted(VALID_TYPES)}")
-            if not url or not isinstance(url, str) or not (url.startswith("http://") or url.startswith("https://")):
+            if not url or not isinstance(url, str):
                 raise ValueError(f"links[{idx}] invalid url: {url}")
+            if not (url.startswith("http://") or url.startswith("https://") or url.startswith("file://")):
+                raise ValueError(f"links[{idx}] invalid url scheme: {url}")
 
         return data
 

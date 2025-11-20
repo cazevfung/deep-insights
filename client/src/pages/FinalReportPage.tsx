@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { useWorkflowStore } from '../stores/workflowStore'
 import { useUiStore } from '../stores/uiStore'
 import { apiService } from '../services/api'
@@ -10,6 +10,8 @@ const FinalReportPage: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
+  const loadingRef = useRef(false)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     if (finalReport?.content) {
@@ -21,17 +23,42 @@ const FinalReportPage: React.FC = () => {
       return
     }
 
+    // Prevent duplicate calls
+    if (loadingRef.current) {
+      return
+    }
+
+    // Abort any previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+
     const fetchReport = async () => {
+      // Create new AbortController for this request
+      const abortController = new AbortController()
+      abortControllerRef.current = abortController
+      
+      loadingRef.current = true
       setLoading(true)
       setError(null)
       try {
         const reportData = await apiService.getFinalReport(batchId)
+        
+        // Check if request was aborted
+        if (abortController.signal.aborted) {
+          return
+        }
+        
         setFinalReport({
           content: reportData.content,
           generatedAt: reportData.metadata.generatedAt,
           status: reportData.status as 'generating' | 'ready' | 'error',
         })
       } catch (err: any) {
+        // Ignore abort errors
+        if (err.name === 'AbortError' || abortController.signal.aborted) {
+          return
+        }
         console.error('Failed to fetch report:', err)
         if (err.response?.status === 404) {
           setError('报告正在生成中，请稍候...')
@@ -39,11 +66,22 @@ const FinalReportPage: React.FC = () => {
           setError(err.response?.data?.detail || err.message || '无法加载报告，请刷新页面重试')
         }
       } finally {
+        loadingRef.current = false
         setLoading(false)
+        if (abortControllerRef.current === abortController) {
+          abortControllerRef.current = null
+        }
       }
     }
 
     fetchReport()
+    
+    // Cleanup function
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
   }, [batchId, finalReport, setFinalReport])
 
   const handleExport = async () => {

@@ -55,13 +55,15 @@ export interface FinalReportResponse {
 }
 
 export interface ConversationMessageResponse {
-  status: 'ok' | 'queued'
+  status: 'ok' | 'queued' | 'context_required'
   user_message_id: string
   assistant_message_id?: string | null
   reply?: string | null
   metadata?: Record<string, unknown> | null
   context_bundle?: Record<string, unknown> | null
   queued_reason?: string | null
+  context_request_id?: string | null
+  required_context?: Array<Record<string, unknown>> | null
 }
 
 export const apiService = {
@@ -89,6 +91,15 @@ export const apiService = {
     const response = await api.post('/links/format', {
       urls,
       session_id: sessionId || null
+    })
+    return response.data
+  },
+
+  ingestSources: async (formData: FormData): Promise<FormatLinksResponse> => {
+    const response = await api.post('/ingestion/sources', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
     })
     return response.data
   },
@@ -249,6 +260,45 @@ export const apiService = {
     session_id?: string | null
   }): Promise<ConversationMessageResponse> => {
     const response = await api.post('/research/conversation', payload)
+    return response.data
+  },
+
+  supplyConversationContext: async (payload: {
+    batch_id: string
+    request_id: string
+    items: Array<{
+      slot_key?: string | null
+      label?: string | null
+      content: string
+    }>
+    provided_by?: string
+  }): Promise<ConversationMessageResponse> => {
+    const response = await api.post('/research/conversation/context-supply', payload)
+    return response.data
+  },
+
+  /**
+   * Get suggested questions for conversation
+   */
+  getSuggestedQuestions: async (
+    payload: {
+      batch_id: string
+      session_id?: string | null
+      conversation_context: Array<{
+        role: 'user' | 'assistant'
+        content: string
+        timestamp: string
+      }>
+    },
+    options?: { signal?: AbortSignal }
+  ): Promise<{
+    questions: string[]
+    generated_at: string
+    model_used: string
+  }> => {
+    const response = await api.post('/research/conversation/suggest-questions', payload, {
+      signal: options?.signal,
+    })
     return response.data
   },
 }

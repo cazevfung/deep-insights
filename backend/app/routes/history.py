@@ -13,13 +13,18 @@ from typing import Any, Dict, List, Optional, Tuple
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from loguru import logger
 
+from app.services.conversation_storage import load_conversation_state
+
 # Add project root to path (for compatibility with existing imports)
 project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
+from core.config import Config
+
 # Sessions and reports directories
 sessions_dir = project_root / "data" / "research" / "sessions"
-reports_dir = project_root / "data" / "research" / "reports"
+config = Config()
+reports_dir = config.get_reports_dir()
 
 router = APIRouter()
 
@@ -35,7 +40,7 @@ def _safe_load_json_file(
     retry_delay: float = 0.1,
 ) -> Dict[str, Any]:
     """
-    Safely load JSON file with retry logic.
+    Safely load JSON file with retry logic and encoding fallback.
 
     Args:
         file_path: Path to JSON file
@@ -46,22 +51,67 @@ def _safe_load_json_file(
         Parsed JSON dictionary
     """
     last_error: Optional[Exception] = None
+    last_unicode_error: Optional[UnicodeDecodeError] = None
+
+    # Try different encodings in order of preference
+    encodings = ["utf-8", "utf-8-sig", "latin-1", "cp1252", "iso-8859-1"]
 
     for attempt in range(max_retries):
-        try:
-            with open(file_path, "r", encoding="utf-8") as handle:
-                return json.load(handle)
-        except json.JSONDecodeError as exc:
-            logger.error(f"JSON decode error in {file_path}: {exc}")
-            raise
-        except (IOError, OSError) as exc:
-            last_error = exc
-            if attempt < max_retries - 1:
-                time.sleep(retry_delay)
+        for encoding in encodings:
+            try:
+                with open(file_path, "r", encoding=encoding) as handle:
+                    return json.load(handle)
+            except UnicodeDecodeError as exc:
+                # Save the error and try next encoding
+                last_unicode_error = exc
                 continue
-            raise IOError(f"Failed to read {file_path}: {exc}") from last_error
+            except json.JSONDecodeError as exc:
+                # Check if it's an "Extra data" error - means valid JSON followed by extra content
+                if "Extra data" in str(exc):
+                    try:
+                        # Try to parse just the first valid JSON object using raw_decode
+                        with open(file_path, "r", encoding=encoding) as handle:
+                            content = handle.read()
+                            decoder = json.JSONDecoder()
+                            result, idx = decoder.raw_decode(content)
+                            logger.warning(
+                                f"Loaded {file_path} with extra data truncated "
+                                f"(encoding: {encoding}, truncated at position {idx}, "
+                                f"file size: {len(content)})"
+                            )
+                            return result
+                    except Exception as fallback_exc:
+                        # Fallback parsing failed, log and continue to next encoding
+                        logger.debug(f"Fallback parsing failed for {file_path}: {fallback_exc}")
+                        pass
+                
+                # For other JSON errors or if fallback failed, try next encoding if available
+                if encoding == encodings[-1]:
+                    # Last encoding failed, this is a real JSON error
+                    logger.error(f"JSON decode error in {file_path} (encoding: {encoding}): {exc}")
+                    raise
+                continue
+            except (IOError, OSError) as exc:
+                last_error = exc
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay)
+                    break  # Break out of encoding loop, retry with first encoding
+                raise IOError(f"Failed to read {file_path}: {exc}") from last_error
 
-    raise IOError(f"Failed to read {file_path}: {last_error}")  # pragma: no cover
+    # If all encodings failed due to Unicode errors, try with error handling as last resort
+    if last_unicode_error:
+        try:
+            with open(file_path, "r", encoding="utf-8", errors="replace") as handle:
+                logger.warning(f"Loaded {file_path} with UTF-8 error replacement (some characters may be corrupted)")
+                return json.load(handle)
+        except Exception as exc:
+            raise IOError(f"Failed to read {file_path} after encoding fallback: {exc}") from last_unicode_error
+
+    # If we get here, it was an I/O error that couldn't be retried
+    if last_error:
+        raise IOError(f"Failed to read {file_path} after {max_retries} attempts: {last_error}") from last_error
+    
+    raise IOError(f"Failed to read {file_path}: unknown error")  # pragma: no cover
 
 
 def _parse_datetime(value: Optional[str]) -> Optional[datetime]:
@@ -325,9 +375,24 @@ def _collect_session_records() -> List[Dict[str, Any]]:
         batch_id = metadata.get("batch_id")
         session_id = metadata.get("session_id")
 
-        if not (batch_id and session_id):
-            logger.warning(f"Session {session_path} missing batch_id or session_id")
-            continue
+        # Try to extract session_id from filename if missing: session_YYYYMMDD_HHMMSS.json
+        if not session_id:
+            filename = session_path.stem  # e.g., "session_20251116_000037"
+            if filename.startswith("session_"):
+                session_id = filename.replace("session_", "", 1)
+                # Update metadata for consistency
+                metadata["session_id"] = session_id
+
+        # Use session_id as batch_id fallback if batch_id is null/empty
+        if not batch_id:
+            if session_id:
+                batch_id = session_id
+                # Update metadata for consistency
+                metadata["batch_id"] = batch_id
+                logger.info(f"Session {session_path} missing batch_id, using session_id as fallback: {batch_id}")
+            else:
+                logger.warning(f"Session {session_path} missing both batch_id and session_id")
+                continue
 
         raw_status = metadata.get("status")
         status, normalized_status = _map_status(raw_status)
@@ -547,6 +612,13 @@ async def get_history_session(
             and not scraping_status.get("is100Percent", False),
         }
 
+        conversation_state = load_conversation_state(batch_id) or {}
+        details["conversation"] = {
+            "session_id": conversation_state.get("session_id"),
+            "updated_at": conversation_state.get("updated_at"),
+            "messages": conversation_state.get("messages") or [],
+        }
+
         return details
     except HTTPException:
         raise
@@ -568,6 +640,15 @@ async def resume_session(batch_id: str, background_tasks: BackgroundTasks) -> Di
         record = _find_session_by_batch(batch_id)
         if not record:
             raise HTTPException(status_code=404, detail="Session not found")
+
+        # Prevent resuming already completed sessions
+        record_status = record.get("status")
+        record_phase = record.get("current_phase")
+        if record_status == "completed" or record_phase == "complete":
+            raise HTTPException(
+                status_code=400,
+                detail="会话已完成，无需继续",
+            )
 
         # Import lazily to avoid circular dependency at module import time
         from app.routes import workflow as workflow_routes  # Local import

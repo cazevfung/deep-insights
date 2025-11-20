@@ -7,6 +7,7 @@ from pathlib import Path
 from queue import Queue, Empty
 from typing import Dict, Any, List, Optional, Set
 from loguru import logger
+from core.config import Config
 
 from research.summarization.content_summarizer import ContentSummarizer
 from research.phases.progress_tracker import ProactiveProgressTracker, ItemState
@@ -187,8 +188,9 @@ class StreamingSummarizationManager:
         The payload includes transcript, comments, metadata, and the summary.
         """
         try:
-            # Derive batch directory in the same way as ResearchDataLoader
-            results_base_path = Path(__file__).parent.parent / "tests" / "results"
+            # Use configured batches directory
+            config = Config()
+            results_base_path = config.get_batches_dir()
             batch_dir = results_base_path / f"run_{self.batch_id}"
             batch_dir.mkdir(parents=True, exist_ok=True)
             

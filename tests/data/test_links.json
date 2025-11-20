@@ -1,256 +1,81 @@
 {
-  "batchId": "20251117_104824",
-  "createdAt": "2025-11-17T10:48:24.481422+00:00",
+  "batchId": "20251119_105234",
+  "createdAt": "2025-11-19T10:52:34Z",
   "links": [
-    {
-      "id": "yt_req1",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=hKok1-AJNh4"
-    },
-    {
-      "id": "yt_req2",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=ivTGJk0kx2A"
-    },
-    {
-      "id": "yt_req3",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=y4FrKGBuZf4"
-    },
-    {
-      "id": "yt_req4",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=O5bHj59V-vE"
-    },
-    {
-      "id": "yt_req5",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=am2Jl7o3roQ"
-    },
-    {
-      "id": "yt_req6",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=1u6IfvGvx7Y"
-    },
-    {
-      "id": "yt_req7",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=eTgYehlVEBo"
-    },
-    {
-      "id": "yt_req8",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=LrYmKDFKhe0"
-    },
-    {
-      "id": "yt_req9",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=CjY-Do7aJpU"
-    },
-    {
-      "id": "yt_req10",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=fxas_vG6E9A"
-    },
-    {
-      "id": "yt_req11",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=aihq6jhdW-Q&t=347s"
-    },
-    {
-      "id": "yt_req12",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=dnd9_i5v8OQ"
-    },
-    {
-      "id": "yt_req13",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=xxynE5MjzS0"
-    },
-    {
-      "id": "yt_req14",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=7SZT4GK6dS0&t=600s"
-    },
-    {
-      "id": "yt_req15",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=z98IdBAM4NM"
-    },
-    {
-      "id": "yt_req16",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=o5baCWvugMI&t=125s"
-    },
-    {
-      "id": "art_req1",
-      "type": "article",
-      "url": "https://www.red3d.com/cwr/steer/gdc99/#:~:text=Autonomous%20characters%20are%20a%20type,ability%20to%20improvise%20their%20actions."
-    },
-    {
-      "id": "rd_req1",
-      "type": "reddit",
-      "url": "https://www.reddit.com/r/writing/comments/17l9nk/the_trouble_with_autonomous_characters_or_why_you/"
-    },
-    {
-      "id": "yt_req17",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=-QHVfUbDtCg"
-    },
-    {
-      "id": "yt_req18",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=AktpkGuiqmk"
-    },
-    {
-      "id": "yt_req19",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=kTQXzpMUa-w"
-    },
-    {
-      "id": "yt_req20",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=TnxHTke6CYo"
-    },
-    {
-      "id": "yt_req21",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=8ov377uoqZE"
-    },
-    {
-      "id": "art_req2",
-      "type": "article",
-      "url": "https://arxiv.org/abs/2312.04547"
-    },
-    {
-      "id": "art_req3",
-      "type": "article",
-      "url": "https://www.nvidia.com/en-us/geforce/news/nvidia-ace-autonomous-ai-companions-pubg-naraka-bladepoint/"
-    },
-    {
-      "id": "art_req4",
-      "type": "article",
-      "url": "https://illuminaire.io/bringing-disney-characters-to-life-with-ai-and-robotics/"
-    },
-    {
-      "id": "yt_req22",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=M8HbJzbEnHc"
-    },
-    {
-      "id": "yt_req23",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=9tgVqe0c8ps"
-    },
-    {
-      "id": "yt_req24",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=xfGfxHEUB1Q"
-    },
-    {
-      "id": "yt_req25",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=9bbhJi0NBkk"
-    },
-    {
-      "id": "yt_req26",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=_N_dvr9wjJk"
-    },
-    {
-      "id": "yt_req27",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=5FTSjIu4204"
-    },
-    {
-      "id": "yt_req28",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=4O8f76JtOj0"
-    },
-    {
-      "id": "yt_req29",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=KxT1Se_Rt70"
-    },
-    {
-      "id": "yt_req30",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=otAWu-bLv0Q&t=202s"
-    },
     {
       "id": "bili_req1",
       "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV1YhXjY3EFM/"
+      "url": "https://www.bilibili.com/video/BV1SaC9BGEKk/"
     },
     {
       "id": "bili_req2",
       "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV1SkeuzLE1a/"
+      "url": "https://www.bilibili.com/video/BV15RW2zvENr/"
     },
     {
       "id": "bili_req3",
       "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV158Z4YnEmX/"
+      "url": "https://www.bilibili.com/video/BV1nZsBzsEs3/"
     },
     {
       "id": "bili_req4",
       "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV1tr1sBhEbi/"
+      "url": "https://www.bilibili.com/video/BV14AonYDEXh/"
     },
     {
       "id": "bili_req5",
       "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV1mJxCzUExK/"
+      "url": "https://www.bilibili.com/video/BV1GSWQz5E7u/"
     },
     {
       "id": "bili_req6",
       "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV1vv4y1J7Li/"
+      "url": "https://www.bilibili.com/video/BV14g4y1u7cB/"
     },
     {
       "id": "bili_req7",
       "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV174421o7KL/"
+      "url": "https://www.bilibili.com/video/BV1zv411c7Wn/"
     },
     {
       "id": "bili_req8",
       "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV1NCyUBWEwk/"
+      "url": "https://www.bilibili.com/video/BV1py411i7RJ/"
     },
     {
       "id": "bili_req9",
       "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV1PP411U7j1/"
+      "url": "https://www.bilibili.com/video/BV1Fz4y1i7RL/"
     },
     {
       "id": "bili_req10",
       "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV1vv4y1J7Li/"
+      "url": "https://www.bilibili.com/video/BV1kCntzJEzP/"
     },
     {
       "id": "bili_req11",
       "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV12x4y1Y7cs/"
+      "url": "https://www.bilibili.com/video/BV1xKW3zHEXt/"
     },
     {
       "id": "bili_req12",
       "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV1K6otYzEGp/"
-    },
-    {
-      "id": "yt_req31",
-      "type": "youtube",
-      "url": "https://www.youtube.com/watch?v=ICjubxfeICo"
+      "url": "https://www.bilibili.com/video/BV1nY8mzcE2P/"
     },
     {
       "id": "bili_req13",
       "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV1KE41137Mb/"
+      "url": "https://www.bilibili.com/video/BV1ywCkBPEGx/"
     },
     {
       "id": "bili_req14",
       "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV1gFkkBkEbZ/"
+      "url": "https://www.bilibili.com/video/BV1oUoyYTECa/"
+    },
+    {
+      "id": "bili_req15",
+      "type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1XwCTBjEmS/"
     }
   ]
 }

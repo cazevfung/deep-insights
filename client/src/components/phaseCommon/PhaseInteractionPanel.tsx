@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { usePhaseInteraction, PhaseTimelineItem } from '../../hooks/usePhaseInteraction'
-import { useWorkflowStore } from '../../stores/workflowStore'
+import { useWorkflowStore, ConversationContextRequest } from '../../stores/workflowStore'
 import { useUiStore } from '../../stores/uiStore'
 import Button from '../common/Button'
 import StreamTimeline from './StreamTimeline'
+import SuggestedQuestions from './SuggestedQuestions'
 import { apiService } from '../../services/api'
 
 interface PhaseInteractionPanelProps {
@@ -47,17 +48,50 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
   const [isPromptExiting, setIsPromptExiting] = useState(false)
   const [lastProcessedPromptId, setLastProcessedPromptId] = useState<string | null>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const panelContainerRef = useRef<HTMLDivElement>(null)
   const [dismissedItems, setDismissedItems] = useState<Set<string>>(new Set())
+  const [pinnedItems, setPinnedItems] = useState<Set<string>>(new Set())
   const [isPinnedToBottom, setIsPinnedToBottom] = useState(true)
   const [pendingItemCount, setPendingItemCount] = useState(0)
   const previousVisibleLengthRef = useRef(0)
   const lastScrollTopRef = useRef(0)
+  const isProgrammaticScrollRef = useRef(false)
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const isSendingRef = useRef(false) // Synchronous guard to prevent duplicate sends
   const batchId = useWorkflowStore((state) => state.batchId)
   const sessionId = useWorkflowStore((state) => state.sessionId)
+  const contextRequests = useWorkflowStore((state) => state.conversationContextRequests)
+  const conversationMessages = useWorkflowStore((state) => state.researchAgentStatus.conversationMessages)
+  const upsertConversationMessage = useWorkflowStore((state) => state.upsertConversationMessage)
+  const removeConversationMessage = useWorkflowStore((state) => state.removeConversationMessage)
 
   const promptId = userInputRequired?.prompt_id
   const hasProceduralPrompt =
     waitingForUser && typeof promptId === 'string' && promptId.trim().length > 0 && !promptSubmitted
+  const pendingContextRequests = useMemo(
+    () => contextRequests.filter((request) => request.status === 'pending'),
+    [contextRequests]
+  )
+  const [contextDrafts, setContextDrafts] = useState<Record<string, Record<string, string>>>({})
+  const [isSubmittingContextId, setIsSubmittingContextId] = useState<string | null>(null)
+  const [isPanelAtTop, setIsPanelAtTop] = useState(true)
+  useEffect(() => {
+    const updatePanelState = () => {
+      if (!panelContainerRef.current) return
+      const rect = panelContainerRef.current.getBoundingClientRect()
+      const atTop = rect.top <= 24
+      setIsPanelAtTop(atTop)
+    }
+
+    updatePanelState()
+    const scrollHost = panelContainerRef.current?.closest('.overflow-y-auto')
+    if (scrollHost) {
+      scrollHost.addEventListener('scroll', updatePanelState, { passive: true })
+      return () => {
+        scrollHost.removeEventListener('scroll', updatePanelState)
+      }
+    }
+  }, [])
   
   // Debug logging for state
   useEffect(() => {
@@ -136,13 +170,31 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
 
     if (isCritical) {
       if (isPinnedToBottom) {
+        // Mark as programmatic scroll to prevent scroll handler from interfering
+        isProgrammaticScrollRef.current = true
         container.scrollTo({ top: container.scrollHeight })
+        // Clear flag after scroll completes
+        if (scrollTimeoutRef.current) {
+          clearTimeout(scrollTimeoutRef.current)
+        }
+        scrollTimeoutRef.current = setTimeout(() => {
+          isProgrammaticScrollRef.current = false
+        }, 100)
         setPendingItemCount(0)
       } else {
         setPendingItemCount((prev) => prev + pendingIncrement)
       }
     } else if (isPinnedToBottom) {
+      // Mark as programmatic scroll to prevent scroll handler from interfering
+      isProgrammaticScrollRef.current = true
       container.scrollTo({ top: container.scrollHeight })
+      // Clear flag after scroll completes
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current)
+      }
+      scrollTimeoutRef.current = setTimeout(() => {
+        isProgrammaticScrollRef.current = false
+      }, 100)
       if (newItemsCount > 0) {
         setPendingItemCount(0)
       }
@@ -163,32 +215,52 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
     const REPIN_THRESHOLD = 40
 
     const handleScroll = () => {
+      // Ignore programmatic scrolls (from auto-scroll)
+      if (isProgrammaticScrollRef.current) {
+        // Update lastScrollTopRef but don't change pin state
+        lastScrollTopRef.current = container.scrollTop
+        return
+      }
+
       const currentTop = container.scrollTop
       const previousTop = lastScrollTopRef.current
       const scrollingUp = currentTop < previousTop
       lastScrollTopRef.current = currentTop
 
-      if (scrollingUp) {
-        setIsPinnedToBottom(false)
-        return
-      }
+      // Use requestAnimationFrame to ensure accurate scroll position after content changes
+      requestAnimationFrame(() => {
+        // Re-read scroll position in case it changed
+        const latestTop = container.scrollTop
+        const distanceFromBottom = container.scrollHeight - latestTop - container.clientHeight
 
-      const distanceFromBottom = container.scrollHeight - currentTop - container.clientHeight
+        if (scrollingUp) {
+          // User scrolled up - definitely unpin
+          setIsPinnedToBottom(false)
+          return
+        }
 
-      if (distanceFromBottom <= REPIN_THRESHOLD) {
-        setIsPinnedToBottom((prev) => {
-          if (!prev) {
-            setPendingItemCount(0)
-          }
-          return true
-        })
-      } else if (distanceFromBottom > RELEASE_THRESHOLD) {
-        setIsPinnedToBottom((prev) => (prev ? false : prev))
-      }
+        // User scrolled down - check if near bottom
+        if (distanceFromBottom <= REPIN_THRESHOLD) {
+          setIsPinnedToBottom((prev) => {
+            if (!prev) {
+              setPendingItemCount(0)
+            }
+            return true
+          })
+        } else if (distanceFromBottom > RELEASE_THRESHOLD) {
+          // Only unpin if user is significantly away from bottom
+          setIsPinnedToBottom((prev) => (prev ? false : prev))
+        }
+      })
     }
 
     container.addEventListener('scroll', handleScroll, { passive: true })
-    return () => container.removeEventListener('scroll', handleScroll)
+    return () => {
+      container.removeEventListener('scroll', handleScroll)
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current)
+      }
+    }
   }, [])
 
   const handleDismissItem = useCallback((item: PhaseTimelineItem) => {
@@ -198,6 +270,43 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
       return next
     })
   }, [])
+
+  const handlePinItem = useCallback((item: PhaseTimelineItem) => {
+    setPinnedItems((prev) => {
+      const next = new Set(prev)
+      if (next.has(item.id)) {
+        next.delete(item.id)
+        addNotification('已取消固定消息', 'info')
+      } else {
+        next.add(item.id)
+        addNotification('已固定消息', 'success')
+      }
+      return next
+    })
+  }, [addNotification])
+
+  const handleScrollToPinned = useCallback((itemId: string) => {
+    if (!scrollContainerRef.current) return
+    
+    // Find the element with the item ID
+    const itemElement = scrollContainerRef.current.querySelector(`[data-item-id="${itemId}"]`)
+    if (itemElement) {
+      // Temporarily unpin from bottom to allow scrolling
+      setIsPinnedToBottom(false)
+      // Mark as programmatic scroll
+      isProgrammaticScrollRef.current = true
+      itemElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      // Clear flag after scroll completes
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current)
+      }
+      scrollTimeoutRef.current = setTimeout(() => {
+        isProgrammaticScrollRef.current = false
+      }, 500)
+    } else {
+      addNotification('无法找到固定消息', 'warning')
+    }
+  }, [addNotification])
 
   // Auto-dismiss errors after 5 seconds (only if not manually dismissed)
   useEffect(() => {
@@ -225,10 +334,19 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
 
   const handleJumpToBottom = useCallback(() => {
     if (!scrollContainerRef.current) return
+    // Mark as programmatic scroll
+    isProgrammaticScrollRef.current = true
     scrollContainerRef.current.scrollTo({
       top: scrollContainerRef.current.scrollHeight,
       behavior: 'smooth',
     })
+    // Clear flag after scroll completes
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current)
+    }
+    scrollTimeoutRef.current = setTimeout(() => {
+      isProgrammaticScrollRef.current = false
+    }, 500) // Longer timeout for smooth scroll
     setIsPinnedToBottom(true)
     setPendingItemCount(0)
   }, [])
@@ -240,6 +358,19 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
   }, [visibleItems.length])
 
   const handleConversationSend = useCallback(async () => {
+    // Synchronous ref-based guard - prevents duplicate sends even if state hasn't updated yet
+    if (isSendingRef.current) {
+      console.warn('⚠️ Conversation send attempted while previous send still in progress (ref guard)')
+      return
+    }
+    if (isConversationSending) {
+      console.warn('⚠️ Conversation send attempted while previous send still in progress (state guard)')
+      return
+    }
+    
+    // Set guard immediately (synchronous)
+    isSendingRef.current = true
+    
     console.log('🟣 handleConversationSend called (CONVERSATION MODE - not prompt response!)', {
       draft: draft.substring(0, 50),
       batchId,
@@ -248,15 +379,30 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
     
     const trimmed = draft.trim()
     if (!trimmed) {
+      isSendingRef.current = false // Reset guard on early return
       addNotification('请输入内容后再发送', 'warning')
       return
     }
     if (!batchId) {
+      isSendingRef.current = false // Reset guard on early return
       addNotification('当前批次未初始化，无法发送消息', 'warning')
       return
     }
 
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const timestamp = new Date().toISOString()
+
+    upsertConversationMessage({
+      id: tempId,
+      role: 'user',
+      content: trimmed,
+      status: 'in_progress',
+      timestamp,
+      metadata: { pending: true },
+    })
+
     setIsConversationSending(true)
+    setDraft('')
     try {
       console.log('🟣 Sending via HTTP API (not WebSocket prompt response)')
       const response = await apiService.sendConversationMessage({
@@ -265,19 +411,116 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
         session_id: sessionId ?? undefined,
       })
       console.log('🟣 Conversation message sent via API:', response)
+      removeConversationMessage(tempId)
+      const nextStatus =
+        response.status === 'ok'
+          ? 'completed'
+          : response.status === 'queued'
+          ? 'queued'
+          : 'in_progress'
+      upsertConversationMessage({
+        id: response.user_message_id ?? tempId,
+        role: 'user',
+        content: trimmed,
+        status: nextStatus,
+        timestamp,
+        metadata: response.metadata ?? {},
+      })
       if (response.status === 'queued') {
         addNotification(response.queued_reason || '阶段提示等待完成，消息已排队', 'info')
+      } else if (response.status === 'context_required') {
+        addNotification('AI 需要更多上下文，请在下方补充信息。', 'info')
       }
-      setDraft('')
     } catch (error) {
       console.error('❌ Failed to send conversation message', error)
+      setDraft(trimmed)
+      upsertConversationMessage({
+        id: tempId,
+        role: 'user',
+        content: trimmed,
+        status: 'error',
+        timestamp,
+        metadata: {
+          pending: false,
+          error: '发送失败，请稍后重试',
+        },
+      })
       addNotification('发送反馈消息失败，请稍后重试', 'error')
     } finally {
       setIsConversationSending(false)
+      isSendingRef.current = false // Reset synchronous guard
     }
-  }, [addNotification, batchId, draft, sessionId])
+  }, [
+    addNotification,
+    batchId,
+    draft,
+    isConversationSending,
+    sessionId,
+    upsertConversationMessage,
+    removeConversationMessage,
+  ])
+
+  const handleContextFieldChange = useCallback(
+    (requestId: string, slotKey: string, value: string) => {
+      setContextDrafts((prev) => ({
+        ...prev,
+        [requestId]: {
+          ...(prev[requestId] || {}),
+          [slotKey]: value,
+        },
+      }))
+    },
+    []
+  )
+
+  const handleContextSubmit = useCallback(
+    async (request: ConversationContextRequest) => {
+      if (!batchId) {
+        addNotification('当前批次未初始化，无法提交上下文', 'warning')
+        return
+      }
+      const drafts = contextDrafts[request.id] || {}
+      const items = (request.requirements || []).map((req) => ({
+        slot_key: req.key,
+        label: req.label,
+        content: (drafts[req.key] || '').trim(),
+      })).filter((item) => item.content.length > 0)
+
+      if (!items.length) {
+        addNotification('请至少填写一条上下文内容', 'warning')
+        return
+      }
+
+      setIsSubmittingContextId(request.id)
+      try {
+        await apiService.supplyConversationContext({
+          batch_id: batchId,
+          request_id: request.id,
+          items,
+        })
+        addNotification('上下文已提交，AI 将继续处理该消息。', 'success')
+        setContextDrafts((prev) => {
+          const next = { ...prev }
+          delete next[request.id]
+          return next
+        })
+      } catch (error) {
+        console.error('❌ Failed to supply conversation context', error)
+        addNotification('提交上下文失败，请稍后再试', 'error')
+      } finally {
+        setIsSubmittingContextId(null)
+      }
+    },
+    [addNotification, batchId, contextDrafts]
+  )
 
   const handleSendDraft = useCallback(() => {
+    // Early guard check - prevent duplicate sends
+    if (isSendingRef.current || isConversationSending) {
+      console.warn('⚠️ handleSendDraft: Send already in progress, ignoring duplicate call')
+      return
+    }
+    
     console.log('🔵 handleSendDraft called', {
       waitingForUser,
       promptId,
@@ -343,6 +586,7 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
     batchId,
     draft,
     handleConversationSend,
+    isConversationSending,
     onSendMessage,
     promptId,
     promptSubmitted,
@@ -441,19 +685,24 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
   const currentActionSingleLine = currentAction?.split('\n')[0] ?? ''
 
   return (
-    <div className="flex flex-col rounded-2xl border border-neutral-200 bg-neutral-white shadow-[0_30px_80px_-40px_rgba(15,23,42,0.45)] h-full min-h-0">
+    <div
+      ref={panelContainerRef}
+      className={`flex flex-col rounded-2xl border bg-neutral-white h-full min-h-0 transition-all duration-200 ${
+        isPanelAtTop ? 'border-transparent' : 'border-neutral-200'
+      }`}
+    >
       <header className="px-3 py-3 border-b border-neutral-200 space-y-2 flex-shrink-0">
-        <div className="flex items-center justify-between text-[10px] font-medium text-neutral-700">
+        <div className="flex items-center justify-between text-[13px] font-medium text-neutral-700">
           <div className="flex items-center gap-2">
             <span className={`h-1.5 w-1.5 rounded-full ${statusIndicatorClass}`} aria-hidden="true" />
             {statusLabel}
             <span className="text-neutral-300">•</span>
             <span className="text-neutral-500">阶段 {phase ?? '—'}</span>
           </div>
-          <div className="text-[10px] text-neutral-400">最近更新延迟 {latencyLabel}</div>
+          <div className="text-[13px] text-neutral-400">最近更新延迟 {latencyLabel}</div>
         </div>
         {currentActionSingleLine && (
-          <div className="rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-[10px] text-primary-700 whitespace-nowrap overflow-hidden text-ellipsis">
+          <div className="rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-[13px] text-primary-700 whitespace-nowrap overflow-hidden text-ellipsis">
             当前动作：{currentActionSingleLine}
           </div>
         )}
@@ -465,7 +714,7 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
           <button
             type="button"
             onClick={handleJumpToBottom}
-            className="sticky top-2 left-1/2 transform -translate-x-1/2 z-10 rounded-full bg-primary-500 text-white px-3 py-1.5 text-[10px] font-medium shadow-lg hover:bg-primary-600 transition-colors mb-2"
+            className="sticky top-2 left-1/2 transform -translate-x-1/2 z-10 rounded-full bg-primary-500 text-white px-3 py-1.5 text-[13px] font-medium shadow-lg hover:bg-primary-600 transition-colors mb-2"
             style={{ backgroundColor: '#FEC74A' }}
           >
             ↓ 新消息 · {pendingItemCount}
@@ -478,6 +727,9 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
           onShowMore={handleShowMore}
           hasMore={hasMoreItems}
           onDismiss={handleDismissItem}
+          onPin={handlePinItem}
+          pinnedItems={pinnedItems}
+          onScrollToPinned={handleScrollToPinned}
         />
         
         {/* Jump to bottom button (floating) */}
@@ -498,7 +750,7 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
 
       <footer className="border-t border-neutral-200 px-3 py-3 space-y-2 flex-shrink-0">
         {hasProceduralPrompt && userInputRequired?.data?.prompt && (
-          <div 
+            <div 
             className={`rounded-lg border-2 border-amber-400 bg-amber-50 px-3 py-2 space-y-1.5 transition-all duration-300 ${
               isPromptExiting ? 'opacity-0 scale-95 -translate-y-2' : 'opacity-100 scale-100 translate-y-0'
             }`}
@@ -506,8 +758,8 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
             <div className="flex items-start gap-2">
               <span className="text-amber-600 text-base">⚠️</span>
               <div className="flex-1">
-                <div className="font-medium text-amber-900 text-[10px] mb-0.5">需要用户输入</div>
-                <div className="text-amber-800 text-[10px]">{userInputRequired.data.prompt}</div>
+                <div className="font-medium text-amber-900 text-[13px] mb-0.5">需要用户输入</div>
+                <div className="text-amber-800 text-[13px]">{userInputRequired.data.prompt}</div>
               </div>
             </div>
             {choiceOptions.length > 0 && (
@@ -517,17 +769,170 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
                     key={choice}
                     type="button"
                     onClick={() => handleChoiceSelect(choice)}
-                    className="px-3 py-1.5 rounded-lg border border-amber-300 bg-amber-100 text-[10px] font-medium text-amber-900 transition hover:bg-amber-200"
+                    className="px-3 py-1.5 rounded-lg border border-amber-300 bg-amber-100 text-[13px] font-medium text-amber-900 transition hover:bg-amber-200"
                   >
                     {choice}
                   </button>
                 ))}
               </div>
             )}
-            <div className="text-[10px] text-amber-700 pt-0.5">
+            <div className="text-[13px] text-amber-700 pt-0.5">
               💡 留空并按 Enter 将使用默认设置
             </div>
           </div>
+        )}
+
+        {pendingContextRequests.length > 0 && (
+          <div className="space-y-3 mb-3">
+            {pendingContextRequests.map((request) => (
+              <div
+                key={request.id}
+                className="rounded-xl border border-indigo-200 bg-indigo-50/70 px-3 py-2 text-[13px] text-indigo-900"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-indigo-800">需要补充上下文</span>
+                  <span className="text-indigo-500">
+                    {new Date(request.created_at).toLocaleTimeString()}
+                  </span>
+                </div>
+                <div className="mt-1 text-indigo-600">
+                  {request.reason || '提供 Phase 3 摘要或要点后，AI 将继续回答。'}
+                </div>
+                <div className="mt-2 space-y-2">
+                  {request.requirements?.map((requirement) => (
+                    <div key={`${request.id}-${requirement.key}`}>
+                      <div className="flex items-center justify-between text-indigo-700 font-medium">
+                        <span>{requirement.label}</span>
+                        {!requirement.required && <span className="text-indigo-400">可选</span>}
+                      </div>
+                      <div className="text-indigo-500 mb-1">{requirement.description}</div>
+                      <textarea
+                        className="w-full rounded-lg border border-indigo-200 bg-white/80 px-2 py-1 text-[13px] text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                        rows={3}
+                        value={contextDrafts[request.id]?.[requirement.key] ?? ''}
+                        onChange={(event) =>
+                          handleContextFieldChange(request.id, requirement.key, event.target.value)
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
+                {request.attachments?.length ? (
+                  <div className="mt-2 text-indigo-600">
+                    已提供的附件：
+                    <ul className="list-disc pl-4">
+                      {request.attachments.map((attachment) => (
+                        <li key={attachment.id} className="mt-0.5">
+                          <span className="font-medium">{attachment.label}</span>
+                          {attachment.content_preview && (
+                            <div className="text-indigo-500 whitespace-pre-line">
+                              {attachment.content_preview}
+                            </div>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                <div className="mt-3 flex justify-end">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => handleContextSubmit(request)}
+                    disabled={isSubmittingContextId === request.id || !batchId}
+                  >
+                    {isSubmittingContextId === request.id ? '提交中...' : '提交上下文'}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {!hasProceduralPrompt && (
+          <SuggestedQuestions
+            batchId={batchId}
+            sessionId={sessionId}
+            conversationMessages={conversationMessages}
+            onQuestionClick={async (question) => {
+              // Auto-send: directly send the question without setting draft
+              if (isSendingRef.current || isConversationSending) {
+                console.log('⏸️  Skipping duplicate suggested question click')
+                return
+              }
+              if (!batchId) {
+                addNotification('当前批次未初始化，无法发送消息', 'warning')
+                return
+              }
+
+              const trimmed = question.trim()
+              if (!trimmed) {
+                return
+              }
+
+              console.log('🚀 Sending suggested question:', trimmed)
+              isSendingRef.current = true
+              setIsConversationSending(true)
+
+              const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+              const timestamp = new Date().toISOString()
+
+              upsertConversationMessage({
+                id: tempId,
+                role: 'user',
+                content: trimmed,
+                status: 'in_progress',
+                timestamp,
+                metadata: { pending: true },
+              })
+
+              try {
+                const response = await apiService.sendConversationMessage({
+                  batch_id: batchId,
+                  message: trimmed,
+                  session_id: sessionId ?? undefined,
+                })
+                removeConversationMessage(tempId)
+                const nextStatus =
+                  response.status === 'ok'
+                    ? 'completed'
+                    : response.status === 'queued'
+                    ? 'queued'
+                    : 'in_progress'
+                upsertConversationMessage({
+                  id: response.user_message_id ?? tempId,
+                  role: 'user',
+                  content: trimmed,
+                  status: nextStatus,
+                  timestamp,
+                  metadata: response.metadata ?? {},
+                })
+                if (response.status === 'queued') {
+                  addNotification(response.queued_reason || '阶段提示等待完成，消息已排队', 'info')
+                } else if (response.status === 'context_required') {
+                  addNotification('AI 需要更多上下文，请在下方补充信息。', 'info')
+                }
+              } catch (error) {
+                console.error('❌ Failed to send conversation message', error)
+                upsertConversationMessage({
+                  id: tempId,
+                  role: 'user',
+                  content: trimmed,
+                  status: 'error',
+                  timestamp,
+                  metadata: {
+                    pending: false,
+                    error: '发送失败，请稍后重试',
+                  },
+                })
+                addNotification('发送反馈消息失败，请稍后重试', 'error')
+              } finally {
+                setIsConversationSending(false)
+                isSendingRef.current = false
+              }
+            }}
+            disabled={isConversationSending || !batchId || isStreaming}
+          />
         )}
 
         <div className={`rounded-xl border shadow-inner px-3 py-2 transition-colors duration-300 ${
@@ -545,10 +950,10 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
             }
             onKeyDown={handleKeyDown}
             rows={hasProceduralPrompt ? 3 : 2}
-            className="w-full resize-none border-0 bg-transparent text-[10px] text-neutral-700 placeholder:text-neutral-300 focus:outline-none focus:ring-0"
+            className="w-full resize-none border-0 bg-transparent text-[13px] text-neutral-700 placeholder:text-neutral-300 focus:outline-none focus:ring-0"
             disabled={!hasProceduralPrompt && (isConversationSending || !batchId)}
           />
-          <div className="flex items-center justify-between pt-1.5 text-[10px] text-neutral-400">
+          <div className="flex items-center justify-between pt-1.5 text-[13px] text-neutral-400">
             <span>{hasProceduralPrompt ? '⏰ 回复阶段提示或留空使用默认' : 'Shift + Enter 换行'}</span>
             <div className="flex items-center gap-2">
               <button
@@ -590,7 +995,7 @@ const PhaseInteractionPanel: React.FC<PhaseInteractionPanelProps> = ({ onSendMes
           </div>
         </div>
         {!hasProceduralPrompt && !batchId && (
-          <div className="text-[10px] text-warning-500 mt-1">请先启动研究工作流，再发送对话消息。</div>
+          <div className="text-[13px] text-warning-500 mt-1">请先启动研究工作流，再发送对话消息。</div>
         )}
       </footer>
     </div>

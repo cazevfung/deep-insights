@@ -11,6 +11,8 @@ const STEP_ROUTES: Record<number, string> = {
   5: '/report',
 }
 
+const WORKFLOW_ROUTES = Object.values(STEP_ROUTES)
+
 /**
  * Hook to automatically navigate to the current active step based on workflow progress
  */
@@ -41,17 +43,17 @@ export const useProgressNavigation = () => {
     const currentRoute = location.pathname
     const expectedRoute = STEP_ROUTES[currentActiveStep]
     
+    if (!WORKFLOW_ROUTES.includes(currentRoute)) {
+      lastRouteRef.current = currentRoute
+      return
+    }
+    
     // If route changed and doesn't match expected step, it's likely manual navigation
     if (currentRoute !== lastRouteRef.current && currentRoute !== expectedRoute) {
-      // Check if this route is a valid workflow route (not history, export, etc.)
-      const isValidWorkflowRoute = Object.values(STEP_ROUTES).includes(currentRoute)
-      
-      if (isValidWorkflowRoute) {
-        console.log(`Manual navigation detected to: ${currentRoute} (expected: ${expectedRoute})`)
-        manualNavigationRef.current = {
-          route: currentRoute,
-          timestamp: Date.now()
-        }
+      console.log(`Manual navigation detected to: ${currentRoute} (expected: ${expectedRoute})`)
+      manualNavigationRef.current = {
+        route: currentRoute,
+        timestamp: Date.now()
       }
     }
     
@@ -68,9 +70,16 @@ export const useProgressNavigation = () => {
     const currentRoute = location.pathname
     const expectedRoute = STEP_ROUTES[currentActiveStep]
     
+    if (!WORKFLOW_ROUTES.includes(currentRoute)) {
+      if (navigationTimeoutRef.current) {
+        clearTimeout(navigationTimeoutRef.current)
+      }
+      return
+    }
+    
     // Check if we're currently on a route that doesn't match the expected step
     // This indicates manual navigation that we should respect
-    if (currentRoute !== expectedRoute && Object.values(STEP_ROUTES).includes(currentRoute)) {
+    if (currentRoute !== expectedRoute && WORKFLOW_ROUTES.includes(currentRoute)) {
       // User manually navigated to a different phase - respect this choice
       console.log(`Respecting manual navigation to ${currentRoute} (expected step ${currentActiveStep}: ${expectedRoute})`)
       

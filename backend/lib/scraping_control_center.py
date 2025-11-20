@@ -33,6 +33,7 @@ from scrapers.bilibili_comments_scraper import BilibiliCommentsScraper
 from scrapers.article_scraper import ArticleScraper
 from scrapers.reddit_scraper import RedditScraper
 import json
+from core.config import Config
 
 
 def _save_single_result(result: Dict[str, Any], batch_id: str, scraper_name: str, link_type: str) -> Optional[Path]:
@@ -55,7 +56,8 @@ def _save_single_result(result: Dict[str, Any], batch_id: str, scraper_name: str
         return None
     
     # Create output directory structure
-    output_dir = Path(__file__).parent.parent.parent / "tests" / "results"
+    config = Config()
+    output_dir = config.get_batches_dir()
     output_dir.mkdir(exist_ok=True, parents=True)
     batch_folder = output_dir / f"run_{batch_id}"
     batch_folder.mkdir(exist_ok=True)  # Create batch folder if it doesn't exist

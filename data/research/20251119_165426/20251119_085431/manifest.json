@@ -1,0 +1,167 @@
+{
+  "session_id": "20251119_165426",
+  "batch_id": "20251119_085431",
+  "created_at": "2025-11-19T08:54:31Z",
+  "items": [
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV16ATuzoEho/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV16ATuzoEho/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req1",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV16ATuzoEho/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1F9N5z3Eor/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1F9N5z3Eor/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req2",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1F9N5z3Eor/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1YL41167Xz/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1YL41167Xz/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req3",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1YL41167Xz/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1MRCXBBEpC/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1MRCXBBEpC/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req4",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1MRCXBBEpC/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1m9ZyYoEJK/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1m9ZyYoEJK/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req5",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1m9ZyYoEJK/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1ea2oY3EzY/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1ea2oY3EzY/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req6",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1ea2oY3EzY/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1FbCrBoEB4/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1FbCrBoEB4/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req7",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1FbCrBoEB4/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1SiTLzbE9p/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1SiTLzbE9p/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req8",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1SiTLzbE9p/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1LD421s7C9/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1LD421s7C9/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req9",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1LD421s7C9/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.youtube.com/watch?v=4yiRVxLj2MU&t=87s&pp=ygUNc2hvb3RlciBnZW5yZQ%3D%3D",
+      "original_url": "https://www.youtube.com/watch?v=4yiRVxLj2MU&t=87s&pp=ygUNc2hvb3RlciBnZW5yZQ%3D%3D",
+      "link_id": "yt_req1",
+      "link_type": "youtube",
+      "url": "https://www.youtube.com/watch?v=4yiRVxLj2MU&t=87s"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.youtube.com/watch?v=9gLLLeHdfNA&pp=ygUbd2hhdHMgd3JvbmcgZ2FtaW5nIGluZHVzdHJ5",
+      "original_url": "https://www.youtube.com/watch?v=9gLLLeHdfNA&pp=ygUbd2hhdHMgd3JvbmcgZ2FtaW5nIGluZHVzdHJ5",
+      "link_id": "yt_req2",
+      "link_type": "youtube",
+      "url": "https://www.youtube.com/watch?v=9gLLLeHdfNA"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.youtube.com/watch?v=xUJ7IKwqows&pp=ygUbd2hhdHMgd3JvbmcgZ2FtaW5nIGluZHVzdHJ5",
+      "original_url": "https://www.youtube.com/watch?v=xUJ7IKwqows&pp=ygUbd2hhdHMgd3JvbmcgZ2FtaW5nIGluZHVzdHJ5",
+      "link_id": "yt_req3",
+      "link_type": "youtube",
+      "url": "https://www.youtube.com/watch?v=xUJ7IKwqows"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.youtube.com/watch?v=_80DVbedWiI&pp=ygUbd2hhdHMgd3JvbmcgZ2FtaW5nIGluZHVzdHJ5",
+      "original_url": "https://www.youtube.com/watch?v=_80DVbedWiI&pp=ygUbd2hhdHMgd3JvbmcgZ2FtaW5nIGluZHVzdHJ5",
+      "link_id": "yt_req4",
+      "link_type": "youtube",
+      "url": "https://www.youtube.com/watch?v=_80DVbedWiI"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1hhKuzyE6j/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1hhKuzyE6j/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req10",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1hhKuzyE6j/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1RJGczrEuZ/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1RJGczrEuZ/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req11",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1RJGczrEuZ/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1dSTEzjE4X/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1dSTEzjE4X/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req12",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1dSTEzjE4X/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1sVCDBZE19/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1sVCDBZE19/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req13",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1sVCDBZE19/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1dnCHB8EWK/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1dnCHB8EWK/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req14",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1dnCHB8EWK/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1MRCXBBEpC/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1MRCXBBEpC/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req15",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1MRCXBBEpC/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV16i2FBDEpp/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV16i2FBDEpp/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req16",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV16i2FBDEpp/"
+    }
+  ]
+}

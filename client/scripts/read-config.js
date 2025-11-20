@@ -30,7 +30,7 @@ try {
 const envBackendPort = process.env.BACKEND_PORT_OVERRIDE;
 const envFrontendPort = process.env.FRONTEND_PORT_OVERRIDE;
 
-// Try to read port info from file (written by install_dependencies.py)
+// Try to read port info from file (written by scripts/install/install_dependencies.py)
 let portInfoFile = null;
 try {
   const portInfoPath = path.resolve(__dirname, '../../.server-ports.json');

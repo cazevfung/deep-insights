@@ -5,12 +5,22 @@ import { useWorkflowStore } from '../stores/workflowStore'
 import { useUiStore } from '../stores/uiStore'
 import { apiService } from '../services/api'
 
+interface TextEntry {
+  id: string
+  label: string
+  content: string
+}
+
 const LinkInputPage: React.FC = () => {
   const navigate = useNavigate()
   const [urls, setUrls] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hasExistingSession, setHasExistingSession] = useState(false)
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
+  const [textEntries, setTextEntries] = useState<TextEntry[]>([])
+  const [textDraft, setTextDraft] = useState('')
+  const [textLabel, setTextLabel] = useState('')
   const { 
     batchId, 
     setBatchId, 
@@ -47,9 +57,43 @@ const LinkInputPage: React.FC = () => {
       reset()
       setHasExistingSession(false)
       setUrls('')
+      setUploadedFiles([])
+      setTextEntries([])
+      setTextDraft('')
+      setTextLabel('')
       setError(null)
       addNotification('会话已清除，可以开始新的研究', 'info')
     }
+  }
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files) return
+    const files = Array.from(event.target.files)
+    setUploadedFiles((prev) => [...prev, ...files])
+    event.target.value = ''
+  }
+
+  const handleRemoveFile = (index: number) => {
+    setUploadedFiles((prev) => prev.filter((_, idx) => idx !== index))
+  }
+
+  const handleAddTextEntry = () => {
+    if (!textDraft.trim()) {
+      addNotification('请输入要添加的文本内容', 'warning')
+      return
+    }
+    const entry: TextEntry = {
+      id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`,
+      label: textLabel.trim() || `手动文本 ${textEntries.length + 1}`,
+      content: textDraft.trim(),
+    }
+    setTextEntries((prev) => [...prev, entry])
+    setTextDraft('')
+    setTextLabel('')
+  }
+
+  const handleRemoveTextEntry = (id: string) => {
+    setTextEntries((prev) => prev.filter((entry) => entry.id !== id))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -69,28 +113,30 @@ const LinkInputPage: React.FC = () => {
       setHasExistingSession(false)
     }
     
-    if (!urls.trim()) {
-      setError('请输入至少一个URL')
+    const urlList = urls
+      .split('\n')
+      .map((url) => url.trim())
+      .filter((url) => url.length > 0)
+
+    const hasSources = urlList.length > 0 || uploadedFiles.length > 0 || textEntries.length > 0
+
+    if (!hasSources) {
+      setError('请至少添加一个来源（链接、文件或文本）')
       return
     }
 
     setIsLoading(true)
 
     try {
-      // Parse URLs (one per line)
-      const urlList = urls
-        .split('\n')
-        .map((url) => url.trim())
-        .filter((url) => url.length > 0)
-
       // Validate URLs
-      const urlPattern = /^https?:\/\/.+/i
-      const invalidUrls = urlList.filter((url) => !urlPattern.test(url))
-      
-      if (invalidUrls.length > 0) {
-        setError(`无效的URL格式: ${invalidUrls.join(', ')}`)
-        setIsLoading(false)
-        return
+      if (urlList.length > 0) {
+        const urlPattern = /^https?:\/\/.+/i
+        const invalidUrls = urlList.filter((url) => !urlPattern.test(url))
+        if (invalidUrls.length > 0) {
+          setError(`无效的URL格式: ${invalidUrls.join(', ')}`)
+          setIsLoading(false)
+          return
+        }
       }
 
       console.log('Formatting links:', urlList)
@@ -146,15 +192,45 @@ const LinkInputPage: React.FC = () => {
       
       // Format links and create batch (using existing session_id)
       const startTime = Date.now()
-      let response
       try {
-        response = await apiService.formatLinks(urlList, sessionId || undefined)
+        const formData = new FormData()
+        formData.append('links', JSON.stringify(urlList))
+        formData.append(
+          'text_entries',
+          JSON.stringify(
+            textEntries.map((entry) => ({
+              label: entry.label,
+              content: entry.content,
+            }))
+          )
+        )
+        if (sessionId) {
+          formData.append('session_id', sessionId)
+        }
+        uploadedFiles.forEach((file) => formData.append('files', file))
+
+        const response = await apiService.ingestSources(formData)
         const duration = Date.now() - startTime
         console.log(`Format links response received in ${duration}ms:`, response)
         
-        // Update session_id if returned from backend (for backward compatibility)
-        if (response.session_id && !sessionId) {
+        if (response.session_id) {
           setSessionId(response.session_id)
+        }
+
+        if (response.batch_id) {
+          console.log('Setting batchId:', response.batch_id)
+          setBatchId(response.batch_id)
+          setCurrentPhase('scraping')
+          setUrls('')
+          setUploadedFiles([])
+          setTextEntries([])
+          setTextDraft('')
+          setTextLabel('')
+          addNotification('已准备所有来源，开始抓取...', 'success')
+          console.log('Navigating to /scraping')
+          navigate('/scraping')
+        } else {
+          throw new Error('未返回批次ID')
         }
       } catch (error: any) {
         const duration = Date.now() - startTime
@@ -176,27 +252,18 @@ const LinkInputPage: React.FC = () => {
         } else {
           const errorMsg = error.response?.data?.detail || error.message || '格式化链接时出错'
           setError(errorMsg)
-          addNotification(`链接格式有误，请检查后重试`, 'error')
+          addNotification(`来源配置有误，请检查后重试`, 'error')
         }
         setIsLoading(false)
         return
-      }
-      
-      if (response.batch_id) {
-        console.log('Setting batchId:', response.batch_id)
-        setBatchId(response.batch_id)
-        setCurrentPhase('scraping')
-        addNotification('链接格式化成功，开始抓取...', 'success')
-        console.log('Navigating to /scraping')
-        navigate('/scraping')
-      } else {
-        throw new Error('未返回批次ID')
       }
     } catch (err: any) {
       console.error('Error formatting links:', err)
       const errorMessage = err.response?.data?.detail || err.response?.data?.message || err.message || '格式化链接时出错'
       setError(errorMessage)
-      addNotification(`链接格式有误，请检查后重试`, 'error')
+      addNotification(`来源配置有误，请检查后重试`, 'error')
+      setIsLoading(false)
+    } finally {
       setIsLoading(false)
     }
   }
@@ -266,11 +333,114 @@ const LinkInputPage: React.FC = () => {
           </p>
         </div>
 
+        <div className="max-w-2xl mx-auto mb-8">
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">上传文件</h3>
+                <p className="text-sm text-gray-500 mt-1">支持 PDF、Word、PowerPoint、Excel、Markdown、TXT</p>
+              </div>
+              <span className="text-sm text-gray-500">{uploadedFiles.length} 个文件</span>
+            </div>
+            <label
+              htmlFor="file-upload"
+              className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-gray-400 transition-colors"
+            >
+              <span className="text-sm text-gray-600">拖拽文件到此处，或点击选择</span>
+              <span className="text-xs text-gray-400 mt-1">单个 25MB，合计 100MB</span>
+            </label>
+            <input
+              id="file-upload"
+              type="file"
+              multiple
+              accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.md,.markdown"
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+            {uploadedFiles.length > 0 && (
+              <ul className="divide-y divide-gray-100 text-sm">
+                {uploadedFiles.map((file, index) => (
+                  <li key={`${file.name}-${index}`} className="flex items-center justify-between py-2">
+                    <div className="text-gray-700 truncate pr-4">
+                      {file.name} <span className="text-xs text-gray-400">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveFile(index)}
+                      className="text-xs text-gray-500 hover:text-red-500"
+                    >
+                      移除
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+
+        <div className="max-w-2xl mx-auto mb-8">
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">添加手动文本</h3>
+                <p className="text-sm text-gray-500 mt-1">用于会议纪要、访谈记录或研究背景描述</p>
+              </div>
+              <span className="text-sm text-gray-500">{textEntries.length} 段文本</span>
+            </div>
+            <div className="space-y-3">
+              <input
+                type="text"
+                value={textLabel}
+                onChange={(e) => setTextLabel(e.target.value)}
+                placeholder="可选标题，例如「访谈总结」"
+                className="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
+              />
+              <textarea
+                value={textDraft}
+                onChange={(e) => setTextDraft(e.target.value)}
+                rows={4}
+                placeholder="粘贴或输入文本内容..."
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
+              />
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleAddTextEntry}
+                  className="px-4 py-2 bg-gray-900 text-white rounded-xl text-sm hover:bg-gray-800 transition-colors"
+                >
+                  添加文本
+                </button>
+              </div>
+            </div>
+            {textEntries.length > 0 && (
+              <ul className="divide-y divide-gray-100 text-sm">
+                {textEntries.map((entry) => (
+                  <li key={entry.id} className="flex items-center justify-between py-2">
+                    <div className="text-gray-700 truncate pr-4">
+                      {entry.label} <span className="text-xs text-gray-400">({entry.content.length} 字)</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTextEntry(entry.id)}
+                      className="text-xs text-gray-500 hover:text-red-500"
+                    >
+                      移除
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+
         {/* Action Button - Circular */}
         <div className="flex justify-center">
           <button
             type="submit"
-            disabled={isLoading || !urls.trim()}
+            disabled={
+              isLoading ||
+              (!urls.trim() && uploadedFiles.length === 0 && textEntries.length === 0)
+            }
             className="w-16 h-16 rounded-full text-white shadow-xl hover:scale-110 transition-all duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
             style={{ backgroundColor: '#FEC74A' }}
             aria-label="开始研究"

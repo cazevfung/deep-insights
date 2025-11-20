@@ -9,6 +9,7 @@ import random
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from loguru import logger
+from core.config import Config
 
 
 class ResearchDataLoader:
@@ -19,14 +20,12 @@ class ResearchDataLoader:
         Initialize data loader.
         
         Args:
-            results_base_path: Base path for test results (defaults to tests/results/)
+            results_base_path: Base path for batch results (defaults to configured batches_dir)
         """
         if results_base_path is None:
-            # Default to project root/tests/results/
-            # Path(__file__) = research/data_loader.py
-            # .parent = research/
-            # .parent = project root
-            self.results_base_path = Path(__file__).parent.parent / "tests" / "results"
+            # Default to configured batches directory
+            config = Config()
+            self.results_base_path = config.get_batches_dir()
         else:
             self.results_base_path = Path(results_base_path)
         

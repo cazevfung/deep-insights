@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Trash2 } from 'lucide-react'
 import Card from '../components/common/Card'
 import Button from '../components/common/Button'
 import { apiService } from '../services/api'
-import { SessionStep, useWorkflowStore } from '../stores/workflowStore'
+import { ConversationMessage, SessionStep, useWorkflowStore } from '../stores/workflowStore'
 import { useUiStore } from '../stores/uiStore'
 
 interface HistorySession {
@@ -38,6 +38,21 @@ interface Phase3State {
   synthesized_goal?: any
 }
 
+interface ConversationHistory {
+  session_id?: string
+  updated_at?: string
+  messages?: Array<{
+    id: string
+    role?: string
+    content?: string
+    status?: string
+    created_at?: string
+    updated_at?: string
+    timestamp?: string
+    metadata?: Record<string, any>
+  }>
+}
+
 interface HistorySessionDetail extends HistorySession {
   session_id?: string
   metadata?: Record<string, any>
@@ -45,9 +60,11 @@ interface HistorySessionDetail extends HistorySession {
   phase3?: Phase3State
   resume_required?: boolean
   data_loaded?: boolean
+  conversation?: ConversationHistory
 }
 
 const HistoryPage: React.FC = () => {
+  console.log('[HistoryPage] Component rendering')
   const navigate = useNavigate()
   const {
     setBatchId,
@@ -60,6 +77,10 @@ const HistoryPage: React.FC = () => {
     updateScrapingStatus,
     updateResearchAgentStatus,
     setGoals,
+    setFinalReport,
+    setReportStale,
+    resetConversationMessages,
+    upsertConversationMessage,
   } = useWorkflowStore()
   const { addNotification } = useUiStore()
   const [sessions, setSessions] = useState<HistorySession[]>([])
@@ -68,10 +89,105 @@ const HistoryPage: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [exportingBatchId, setExportingBatchId] = useState<string | null>(null)
+  const loadingRef = useRef(false)
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const previousFilterStatusRef = useRef<string | null>(null)
+
+  const loadHistory = useCallback(async () => {
+    // Prevent duplicate calls
+    if (loadingRef.current) {
+      console.log('[HistoryPage] loadHistory: Already loading, skipping')
+      return
+    }
+    
+    console.log('[HistoryPage] loadHistory: Starting...')
+    
+    // Create new AbortController for this request
+    const abortController = new AbortController()
+    abortControllerRef.current = abortController
+    
+    loadingRef.current = true
+    setLoading(true)
+    setError(null)
+    try {
+      const params: any = {}
+      if (filterStatus !== 'all') {
+        params.status = filterStatus
+      }
+      console.log('[HistoryPage] loadHistory: Calling API with params:', params)
+      const data = await apiService.getHistory(params)
+      console.log('[HistoryPage] loadHistory: API response received:', data)
+      
+      // Check if request was aborted
+      if (abortController.signal.aborted) {
+        console.log('[HistoryPage] loadHistory: Request was aborted')
+        return
+      }
+      
+      const sessionsList = data.sessions || data || []
+      console.log('[HistoryPage] Loaded history:', { 
+        total: sessionsList.length, 
+        sessions: sessionsList,
+        rawData: data,
+        filterStatus 
+      })
+      console.log('[HistoryPage] Setting sessions state with', sessionsList.length, 'sessions')
+      setSessions(sessionsList)
+    } catch (err: any) {
+      // Ignore abort errors
+      if (err.name === 'AbortError' || abortController.signal.aborted) {
+        console.log('[HistoryPage] loadHistory: Request aborted')
+        return
+      }
+      console.error('[HistoryPage] Failed to load history:', err)
+      console.error('[HistoryPage] Error details:', {
+        message: err.message,
+        response: err.response,
+        stack: err.stack
+      })
+      setError(err.response?.data?.detail || err.message || '无法加载历史记录，请刷新页面重试')
+      addNotification('无法加载历史记录，请刷新页面重试', 'error')
+    } finally {
+      loadingRef.current = false
+      setLoading(false)
+      if (abortControllerRef.current === abortController) {
+        abortControllerRef.current = null
+      }
+      console.log('[HistoryPage] loadHistory: Finished, loading:', loadingRef.current)
+    }
+  }, [filterStatus, addNotification])
 
   useEffect(() => {
+    console.log('[HistoryPage] Component mounted/updated, filterStatus:', filterStatus)
+    
+    // Check if this is initial mount or filter actually changed
+    const isInitialMount = previousFilterStatusRef.current === null
+    const filterChanged = !isInitialMount && previousFilterStatusRef.current !== filterStatus
+    previousFilterStatusRef.current = filterStatus
+    
+    // Abort previous request only if filter actually changed (not on initial mount)
+    if (filterChanged && abortControllerRef.current) {
+      console.log('[HistoryPage] Filter changed, aborting previous request')
+      abortControllerRef.current.abort()
+      // Reset loading flag so new request can proceed
+      loadingRef.current = false
+    }
+    
+    // Prevent duplicate calls only if we're not changing filters
+    if (loadingRef.current && !filterChanged) {
+      console.log('[HistoryPage] Already loading, skipping')
+      return
+    }
+    
+    console.log('[HistoryPage] Calling loadHistory', isInitialMount ? '(initial mount)' : '(filter changed)')
     loadHistory()
-  }, [filterStatus])
+    
+    // Cleanup function - only abort if component unmounts
+    return () => {
+      // Don't abort on filter change - let the new request handle it
+      // Only abort if component is actually unmounting
+    }
+  }, [filterStatus, loadHistory])
 
   /**
    * Hydrate workflow store with session data.
@@ -158,26 +274,54 @@ const HistoryPage: React.FC = () => {
         setPhase3Steps(phase3Steps, sessionData.phase3.next_step_id ?? null)
       }
     }
-  }
 
-  const loadHistory = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const params: any = {}
-      if (filterStatus !== 'all') {
-        params.status = filterStatus
+    // Hydrate conversation history
+    resetConversationMessages()
+    const historyMessages = sessionData.conversation?.messages || []
+    historyMessages.forEach((message) => {
+      if (!message?.id) {
+        return
       }
-      const data = await apiService.getHistory(params)
-      setSessions(data.sessions || data || [])
-    } catch (err: any) {
-      console.error('Failed to load history:', err)
-      setError(err.response?.data?.detail || err.message || '无法加载历史记录，请刷新页面重试')
-      addNotification('无法加载历史记录，请刷新页面重试', 'error')
-    } finally {
-      setLoading(false)
+      upsertConversationMessage({
+        id: message.id,
+        role: (message.role as ConversationMessage['role']) || 'assistant',
+        content: message.content || '',
+        status: (message.status as ConversationMessage['status']) || 'completed',
+        timestamp:
+          message.timestamp ||
+          message.created_at ||
+          message.updated_at ||
+          new Date().toISOString(),
+        metadata: message.metadata || {},
+      })
+    })
+
+    // Hydrate final report if available
+    const finalReportContent =
+      metadata.final_report ||
+      sessionData.final_report ||
+      metadata.phase4_final_report
+
+    if (finalReportContent) {
+      const generatedAt =
+        metadata.final_report_generated_at ||
+        metadata.generated_at ||
+        metadata.updated_at ||
+        sessionData.updated_at ||
+        new Date().toISOString()
+
+      setFinalReport({
+        content: finalReportContent,
+        generatedAt,
+        status: 'ready',
+      })
+      setReportStale(Boolean(metadata.report_stale))
+    } else if (sessionData.status !== 'completed') {
+      setFinalReport(null)
+      setReportStale(false)
     }
   }
+
 
   const handleResume = async (batchId: string, sessionId?: string) => {
     try {
@@ -236,7 +380,15 @@ const HistoryPage: React.FC = () => {
       navigate(route)
     } catch (err: any) {
       console.error('Failed to resume session:', err)
-      addNotification('无法恢复会话，请重试', 'error')
+      const detail = err?.response?.data?.detail || err?.message || '无法恢复会话，请重试'
+      if (err?.response?.status === 400) {
+        addNotification(detail, 'info')
+        if (sessionId) {
+          await handleView(batchId, sessionId)
+        }
+        return
+      }
+      addNotification(detail, 'error')
     }
   }
 
@@ -339,6 +491,18 @@ const HistoryPage: React.FC = () => {
     }
     return true
   })
+  
+  // Debug logging
+  console.log('[HistoryPage] Render state:', {
+    sessionsCount: sessions.length,
+    filteredCount: filteredSessions.length,
+    loading,
+    error,
+    searchQuery,
+    filterStatus,
+    sessions,
+    filteredSessions
+  })
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -403,7 +567,7 @@ const HistoryPage: React.FC = () => {
                 <div className="space-y-3">
                   {filteredSessions.map((session) => (
                     <div
-                      key={session.batch_id}
+                      key={`${session.batch_id}_${session.session_id}`}
                       className="bg-white border border-gray-100 rounded-2xl p-6 hover:shadow-md transition-shadow"
                     >
                       <div className="flex items-center justify-between">

@@ -202,6 +202,13 @@ research:
       model: "qwen-plus"
       enable_thinking: true
       stream: true
+  chat:
+    model: "qwen-flash"
+    enable_thinking: false
+    thinking_budget: null
+    stream: false
+    temperature: 0.7
+    max_tokens: 200
   synthesis:
     min_words_total: 5000
     section_min_words: 350

@@ -1,0 +1,605 @@
+{
+  "batch_id": "20251118_040058",
+  "items": [
+    {
+      "relative_path": "20251118_040058_AR_art_req1_tsct.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 3746,
+      "source_prefix": "AR",
+      "kind": "tsct",
+      "link_id": "art_req1"
+    },
+    {
+      "relative_path": "20251118_040058_ARTICLE_art_req1_complete.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 7324,
+      "source_prefix": "ARTICLE",
+      "kind": "complete",
+      "link_id": "art_req1"
+    },
+    {
+      "relative_path": "20251118_040058_ARTICLE_art_req1_scraped.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 3631,
+      "source_prefix": "ARTICLE",
+      "kind": "scraped",
+      "link_id": "art_req1"
+    },
+    {
+      "relative_path": "20251118_040058_BILI_bili_req1_complete.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 18574,
+      "source_prefix": "BILI",
+      "kind": "complete",
+      "link_id": "bili_req1"
+    },
+    {
+      "relative_path": "20251118_040058_BILI_bili_req1_scraped.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 11635,
+      "source_prefix": "BILI",
+      "kind": "scraped",
+      "link_id": "bili_req1"
+    },
+    {
+      "relative_path": "20251118_040058_BILI_bili_req1_tsct.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 11762,
+      "source_prefix": "BILI",
+      "kind": "tsct",
+      "link_id": "bili_req1"
+    },
+    {
+      "relative_path": "20251118_040058_BILI_bili_req2_complete.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 8123,
+      "source_prefix": "BILI",
+      "kind": "complete",
+      "link_id": "bili_req2"
+    },
+    {
+      "relative_path": "20251118_040058_BILI_bili_req2_scraped.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 4561,
+      "source_prefix": "BILI",
+      "kind": "scraped",
+      "link_id": "bili_req2"
+    },
+    {
+      "relative_path": "20251118_040058_BILI_bili_req2_tsct.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 4688,
+      "source_prefix": "BILI",
+      "kind": "tsct",
+      "link_id": "bili_req2"
+    },
+    {
+      "relative_path": "20251118_040058_BILI_bili_req3_complete.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 20846,
+      "source_prefix": "BILI",
+      "kind": "complete",
+      "link_id": "bili_req3"
+    },
+    {
+      "relative_path": "20251118_040058_BILI_bili_req3_scraped.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 20519,
+      "source_prefix": "BILI",
+      "kind": "scraped",
+      "link_id": "bili_req3"
+    },
+    {
+      "relative_path": "20251118_040058_BILI_bili_req3_tsct.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 20646,
+      "source_prefix": "BILI",
+      "kind": "tsct",
+      "link_id": "bili_req3"
+    },
+    {
+      "relative_path": "20251118_040058_BILI_bili_req4_complete.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 7065,
+      "source_prefix": "BILI",
+      "kind": "complete",
+      "link_id": "bili_req4"
+    },
+    {
+      "relative_path": "20251118_040058_BILI_bili_req4_scraped.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 3306,
+      "source_prefix": "BILI",
+      "kind": "scraped",
+      "link_id": "bili_req4"
+    },
+    {
+      "relative_path": "20251118_040058_BILI_bili_req4_tsct.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 3434,
+      "source_prefix": "BILI",
+      "kind": "tsct",
+      "link_id": "bili_req4"
+    },
+    {
+      "relative_path": "20251118_040058_BILI_bili_req5_complete.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 11336,
+      "source_prefix": "BILI",
+      "kind": "complete",
+      "link_id": "bili_req5"
+    },
+    {
+      "relative_path": "20251118_040058_BILI_bili_req5_scraped.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 7549,
+      "source_prefix": "BILI",
+      "kind": "scraped",
+      "link_id": "bili_req5"
+    },
+    {
+      "relative_path": "20251118_040058_BILI_bili_req5_tsct.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 7677,
+      "source_prefix": "BILI",
+      "kind": "tsct",
+      "link_id": "bili_req5"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req10_complete.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 89776,
+      "source_prefix": "YT",
+      "kind": "complete",
+      "link_id": "yt_req10"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req10_scraped.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 89446,
+      "source_prefix": "YT",
+      "kind": "scraped",
+      "link_id": "yt_req10"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req10_tsct.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 89536,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req10"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req11_complete.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 42845,
+      "source_prefix": "YT",
+      "kind": "complete",
+      "link_id": "yt_req11"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req11_scraped.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 42515,
+      "source_prefix": "YT",
+      "kind": "scraped",
+      "link_id": "yt_req11"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req11_tsct.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 42605,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req11"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req12_complete.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 28660,
+      "source_prefix": "YT",
+      "kind": "complete",
+      "link_id": "yt_req12"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req12_scraped.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 22037,
+      "source_prefix": "YT",
+      "kind": "scraped",
+      "link_id": "yt_req12"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req12_tsct.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 22128,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req12"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req13_complete.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 136398,
+      "source_prefix": "YT",
+      "kind": "complete",
+      "link_id": "yt_req13"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req13_scraped.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 127008,
+      "source_prefix": "YT",
+      "kind": "scraped",
+      "link_id": "yt_req13"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req13_tsct.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 127098,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req13"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req14_complete.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 27335,
+      "source_prefix": "YT",
+      "kind": "complete",
+      "link_id": "yt_req14"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req14_scraped.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 19711,
+      "source_prefix": "YT",
+      "kind": "scraped",
+      "link_id": "yt_req14"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req14_tsct.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 19801,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req14"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req15_complete.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 26525,
+      "source_prefix": "YT",
+      "kind": "complete",
+      "link_id": "yt_req15"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req15_scraped.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 18544,
+      "source_prefix": "YT",
+      "kind": "scraped",
+      "link_id": "yt_req15"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req15_tsct.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 18635,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req15"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req16_complete.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 47761,
+      "source_prefix": "YT",
+      "kind": "complete",
+      "link_id": "yt_req16"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req16_scraped.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 47431,
+      "source_prefix": "YT",
+      "kind": "scraped",
+      "link_id": "yt_req16"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req16_tsct.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 47521,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req16"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req17_complete.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 32482,
+      "source_prefix": "YT",
+      "kind": "complete",
+      "link_id": "yt_req17"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req17_scraped.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 25106,
+      "source_prefix": "YT",
+      "kind": "scraped",
+      "link_id": "yt_req17"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req17_tsct.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 25196,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req17"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req18_complete.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 49030,
+      "source_prefix": "YT",
+      "kind": "complete",
+      "link_id": "yt_req18"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req18_scraped.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 37998,
+      "source_prefix": "YT",
+      "kind": "scraped",
+      "link_id": "yt_req18"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req18_tsct.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 38089,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req18"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req19_complete.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 10158,
+      "source_prefix": "YT",
+      "kind": "complete",
+      "link_id": "yt_req19"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req19_scraped.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 5008,
+      "source_prefix": "YT",
+      "kind": "scraped",
+      "link_id": "yt_req19"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req19_tsct.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 5099,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req19"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req1_complete.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 141220,
+      "source_prefix": "YT",
+      "kind": "complete",
+      "link_id": "yt_req1"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req1_scraped.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 132640,
+      "source_prefix": "YT",
+      "kind": "scraped",
+      "link_id": "yt_req1"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req1_tsct.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 132731,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req1"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req2_complete.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 7669,
+      "source_prefix": "YT",
+      "kind": "complete",
+      "link_id": "yt_req2"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req2_scraped.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 2633,
+      "source_prefix": "YT",
+      "kind": "scraped",
+      "link_id": "yt_req2"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req2_tsct.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 2723,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req2"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req3_complete.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 6790,
+      "source_prefix": "YT",
+      "kind": "complete",
+      "link_id": "yt_req3"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req3_scraped.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 1964,
+      "source_prefix": "YT",
+      "kind": "scraped",
+      "link_id": "yt_req3"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req3_tsct.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 2054,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req3"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req4_complete.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 15460,
+      "source_prefix": "YT",
+      "kind": "complete",
+      "link_id": "yt_req4"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req4_scraped.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 15130,
+      "source_prefix": "YT",
+      "kind": "scraped",
+      "link_id": "yt_req4"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req4_tsct.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 15221,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req4"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req5_complete.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 12822,
+      "source_prefix": "YT",
+      "kind": "complete",
+      "link_id": "yt_req5"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req5_scraped.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 6926,
+      "source_prefix": "YT",
+      "kind": "scraped",
+      "link_id": "yt_req5"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req5_tsct.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 7016,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req5"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req6_complete.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 43189,
+      "source_prefix": "YT",
+      "kind": "complete",
+      "link_id": "yt_req6"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req6_scraped.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 42859,
+      "source_prefix": "YT",
+      "kind": "scraped",
+      "link_id": "yt_req6"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req6_tsct.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 42949,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req6"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req7_complete.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 14775,
+      "source_prefix": "YT",
+      "kind": "complete",
+      "link_id": "yt_req7"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req7_scraped.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 9056,
+      "source_prefix": "YT",
+      "kind": "scraped",
+      "link_id": "yt_req7"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req7_tsct.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 9146,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req7"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req8_complete.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 19608,
+      "source_prefix": "YT",
+      "kind": "complete",
+      "link_id": "yt_req8"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req8_scraped.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 13819,
+      "source_prefix": "YT",
+      "kind": "scraped",
+      "link_id": "yt_req8"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req8_tsct.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 13909,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req8"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req9_complete.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 45796,
+      "source_prefix": "YT",
+      "kind": "complete",
+      "link_id": "yt_req9"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req9_scraped.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 45467,
+      "source_prefix": "YT",
+      "kind": "scraped",
+      "link_id": "yt_req9"
+    },
+    {
+      "relative_path": "20251118_040058_YT_yt_req9_tsct.json",
+      "batch_id": "20251118_040058",
+      "size_bytes": 45557,
+      "source_prefix": "YT",
+      "kind": "tsct",
+      "link_id": "yt_req9"
+    }
+  ]
+}

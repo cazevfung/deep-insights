@@ -15,6 +15,7 @@ from research.phases.phase3_execute import Phase3Execute
 from research.phases.phase4_synthesize import Phase4Synthesize
 from research.ui.console_interface import ConsoleInterface
 from pathlib import Path
+from core.config import Config
 
 
 class DeepResearchAgent:
@@ -351,7 +352,17 @@ class DeepResearchAgent:
         self.ui.display_header("Phase 2: 确定研究主题")
         phase2 = Phase2Finalize(self.client, session, ui=self.ui)
         phase1_result = phase1_artifact.get("phase1_result", {})
-        post_phase1_feedback = phase1_artifact.get("post_phase1_feedback") or None
+        
+        # Prioritize session metadata for post_phase1_feedback (supports resume scenarios)
+        # When resuming from history, new user input is stored in session metadata,
+        # but the artifact contains old feedback. Always check session first.
+        post_phase1_feedback = (
+            session.get_metadata("phase_feedback_post_phase1", "") or
+            session.get_metadata("phase1_user_input", "") or
+            phase1_artifact.get("post_phase1_feedback") or
+            None
+        )
+        
         phase2_result = phase2.execute(
             phase1_result,
             combined_abstract,
@@ -522,7 +533,8 @@ class DeepResearchAgent:
         report = phase4_result.get("report", "")
         from datetime import datetime
 
-        reports_dir = Path(__file__).parent.parent / "tests" / "results" / "reports"
+        config = Config()
+        reports_dir = config.get_reports_dir()
         reports_dir.mkdir(parents=True, exist_ok=True)
 
         report_file = reports_dir / f"report_{batch_id}_{session.session_id}.md"
@@ -567,7 +579,8 @@ class DeepResearchAgent:
         self,
         batch_id: str,
         user_topic: Optional[str] = None,
-        session_id: Optional[str] = None
+        session_id: Optional[str] = None,
+        resume_point: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         if session_id:
             try:
@@ -581,57 +594,117 @@ class DeepResearchAgent:
 
         logger.info(f"Starting research for batch: {batch_id}, session: {session.session_id}")
         session.set_metadata("user_topic", user_topic or "")
+        session.set_metadata("batch_id", batch_id)
+
+        # Determine which phases to skip based on resume point
+        skip_phases = resume_point.get("skip_phases", []) if resume_point else []
+        resume_step_id = resume_point.get("step_id") if resume_point else None
+        
+        logger.info(f"Resume point: skip_phases={skip_phases}, resume_step_id={resume_step_id}")
 
         try:
-            phase0_artifact = self.run_phase0_prepare(
-                batch_id=batch_id,
-                session=session,
-                force=True,
-            )
-            phase0_5_artifact = self.run_phase0_5_role_generation(
-                session=session,
-                combined_abstract=phase0_artifact["combined_abstract"],
-                user_topic=user_topic,
-                force=True,
-            )
-            phase1_artifact = self.run_phase1_discover(
-                session=session,
-                combined_abstract=phase0_artifact["combined_abstract"],
-                user_topic=user_topic,
-                research_role=phase0_5_artifact.get("research_role"),
-                pre_role_feedback=phase0_5_artifact.get("pre_role_feedback"),
-                batch_data=phase0_artifact["batch_data"],
-                force=True,
-            )
-            phase2_artifact = self.run_phase2_synthesize(
-                session=session,
-                phase1_artifact=phase1_artifact,
-                combined_abstract=phase0_artifact["combined_abstract"],
-                user_topic=user_topic,
-                pre_role_feedback=phase0_5_artifact.get("pre_role_feedback"),
-                force=True,
-            )
+            # Phase 0: Prepare (scraping summary)
+            if "phase0" in skip_phases:
+                phase0_artifact = session.get_phase_artifact("phase0")
+                if not phase0_artifact:
+                    raise ValueError("Cannot skip phase0: artifact not found in session")
+                logger.info("Skipping phase0 - using existing artifact")
+            else:
+                phase0_artifact = self.run_phase0_prepare(
+                    batch_id=batch_id,
+                    session=session,
+                    force=True,
+                )
+            
+            # Phase 0.5: Role generation
+            if "phase0_5" in skip_phases:
+                phase0_5_artifact = session.get_phase_artifact("phase0_5")
+                if not phase0_5_artifact:
+                    raise ValueError("Cannot skip phase0_5: artifact not found in session")
+                logger.info("Skipping phase0_5 - using existing artifact")
+            else:
+                phase0_5_artifact = self.run_phase0_5_role_generation(
+                    session=session,
+                    combined_abstract=phase0_artifact["combined_abstract"],
+                    user_topic=user_topic,
+                    force=True,
+                )
+            
+            # Phase 1: Discover goals
+            if "phase1" in skip_phases:
+                phase1_artifact = session.get_phase_artifact("phase1")
+                if not phase1_artifact:
+                    raise ValueError("Cannot skip phase1: artifact not found in session")
+                logger.info("Skipping phase1 - using existing artifact")
+            else:
+                phase1_artifact = self.run_phase1_discover(
+                    session=session,
+                    combined_abstract=phase0_artifact["combined_abstract"],
+                    user_topic=user_topic,
+                    research_role=phase0_5_artifact.get("research_role"),
+                    pre_role_feedback=phase0_5_artifact.get("pre_role_feedback"),
+                    batch_data=phase0_artifact["batch_data"],
+                    force=True,
+                )
+            
+            # Phase 2: Synthesize plan
+            if "phase2" in skip_phases:
+                phase2_artifact = session.get_phase_artifact("phase2")
+                if not phase2_artifact:
+                    raise ValueError("Cannot skip phase2: artifact not found in session")
+                logger.info("Skipping phase2 - using existing artifact")
+            else:
+                phase2_artifact = self.run_phase2_synthesize(
+                    session=session,
+                    phase1_artifact=phase1_artifact,
+                    combined_abstract=phase0_artifact["combined_abstract"],
+                    user_topic=user_topic,
+                    pre_role_feedback=phase0_5_artifact.get("pre_role_feedback"),
+                    force=True,
+                )
 
             plan = phase2_artifact.get("plan", [])
             if not plan:
                 raise ValueError("Phase 2 did not produce a valid research plan")
 
-            phase3_artifact = self.run_phase3_execute(
-                session=session,
-                plan=plan,
-                batch_data=phase0_artifact["batch_data"],
-                force=True,
-            )
+            # Phase 3: Execute plan
+            if "phase3" in skip_phases and resume_step_id is None:
+                # Skip phase3 entirely - use existing artifact
+                phase3_artifact = session.get_phase_artifact("phase3")
+                if not phase3_artifact:
+                    raise ValueError("Cannot skip phase3: artifact not found in session")
+                logger.info("Skipping phase3 - using existing artifact")
+            else:
+                # Run phase3 (either fresh or resuming from a step)
+                if resume_step_id is not None:
+                    logger.info(f"Resuming phase3 from step {resume_step_id}")
+                    # Note: resume_from_step parameter not yet implemented in Phase3Execute
+                    # For now, this will run phase3 normally and Phase3Execute should handle
+                    # step resumption internally based on session state
+                
+                phase3_artifact = self.run_phase3_execute(
+                    session=session,
+                    plan=plan,
+                    batch_data=phase0_artifact["batch_data"],
+                    force=True,  # Force to ensure execution continues
+                )
             if phase3_artifact.get("cancelled"):
                 return {"status": "cancelled"}
 
-            phase4_artifact = self.run_phase4_synthesize(
-                session=session,
-                phase2_artifact=phase2_artifact,
-                phase3_artifact=phase3_artifact,
-                batch_id=batch_id,
-                force=True,
-            )
+            # Phase 4: Synthesize final report
+            if "phase4" in skip_phases:
+                phase4_artifact = session.get_phase_artifact("phase4")
+                if not phase4_artifact:
+                    raise ValueError("Cannot skip phase4: artifact not found in session")
+                logger.info("Skipping phase4 - using existing artifact")
+            else:
+                phase4_artifact = self.run_phase4_synthesize(
+                    session=session,
+                    phase2_artifact=phase2_artifact,
+                    phase3_artifact=phase3_artifact,
+                    batch_id=batch_id,
+                    force=True,
+                )
 
             synthesized_goal = phase2_artifact.get("synthesized_goal", {})
             comprehensive_topic = synthesized_goal.get("comprehensive_topic", "")

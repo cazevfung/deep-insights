@@ -6,6 +6,15 @@ import { useUiStore } from '../stores/uiStore'
 const wsConnections = new Map<string, WebSocket>()
 const wsConnectionRefs = new Map<string, Set<React.RefObject<WebSocket | null>>>()
 
+const isDevMode = (() => {
+  try {
+    const mode = ((import.meta as any)?.env?.MODE ?? 'development') as string
+    return mode !== 'production'
+  } catch {
+    return true
+  }
+})()
+
 // Track if we've already set up the message handler for a connection
 const wsMessageHandlersSet = new Set<string>()
 
@@ -13,6 +22,7 @@ export const useWebSocket = (batchId: string) => {
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectAttemptsRef = useRef(0)
   const maxReconnectAttempts = 5
+  const previousBatchIdRef = useRef<string | null>(null)
   
   // Stabilize batchId to prevent unnecessary reconnections
   const stableBatchId = useMemo(() => batchId, [batchId])
@@ -20,7 +30,6 @@ export const useWebSocket = (batchId: string) => {
   const {
     updateProgress,
     updateScrapingStatus,
-    updateScrapingItem,
     updateScrapingItemProgress,
     updateResearchAgentStatus,
     setGoals,
@@ -33,8 +42,6 @@ export const useWebSocket = (batchId: string) => {
     setStreamError,
     updateStreamJson,
     setActiveStream,
-    pinStream,
-    unpinStream,
     addPhase3Step,
     setFinalReport,
     addError,
@@ -44,13 +51,35 @@ export const useWebSocket = (batchId: string) => {
     setPhaseRerunState,
     setStepRerunState,
     upsertConversationMessage,
+    appendConversationDelta,
+    upsertConversationContextRequest,
+    removeConversationContextRequest,
   } = useWorkflowStore()
 
   const { addNotification } = useUiStore()
 
   useEffect(() => {
     let isManualClose = false
-    let reconnectTimeout: NodeJS.Timeout | null = null
+    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null
+
+    // If batchId changed, explicitly close the old connection first
+    if (previousBatchIdRef.current && previousBatchIdRef.current !== stableBatchId) {
+      console.log(`BatchId changed from ${previousBatchIdRef.current} to ${stableBatchId}, closing old connection`)
+      const oldBatchId = previousBatchIdRef.current
+      const oldConnection = wsConnections.get(oldBatchId)
+      if (oldConnection && oldConnection.readyState === WebSocket.OPEN) {
+        try {
+          oldConnection.close(1000, 'BatchId changed')
+        } catch (error) {
+          console.error('Error closing old WebSocket connection:', error)
+        }
+      }
+      // Clean up old connection references
+      wsConnections.delete(oldBatchId)
+      wsConnectionRefs.delete(oldBatchId)
+      wsMessageHandlersSet.delete(oldBatchId)
+    }
+    previousBatchIdRef.current = stableBatchId
 
     // Cleanup function to close WebSocket when batchId changes or component unmounts
     const cleanup = () => {
@@ -519,7 +548,7 @@ export const useWebSocket = (batchId: string) => {
 
         case 'research:stream_start': {
           const streamId = data.stream_id || `stream:${Date.now()}`
-          if (process.env.NODE_ENV !== 'production') {
+          if (isDevMode) {
             console.debug('[stream_start]', streamId, {
               phase: data.phase,
               metadata: data.metadata,
@@ -620,7 +649,7 @@ export const useWebSocket = (batchId: string) => {
 
         case 'research:stream_end': {
           if (data.stream_id) {
-            if (process.env.NODE_ENV !== 'production') {
+            if (isDevMode) {
               console.debug('[stream_end]', data.stream_id, {
                 phase: data.phase,
                 metadata: data.metadata,
@@ -722,6 +751,36 @@ export const useWebSocket = (batchId: string) => {
                 new Date().toISOString(),
               metadata: payload.metadata ?? {},
             })
+          }
+          break
+        }
+
+        case 'conversation:delta': {
+          const payload = data.message
+          if (payload?.id && typeof payload.delta === 'string') {
+            appendConversationDelta(payload.id, payload.delta)
+          }
+          break
+        }
+
+        case 'conversation:context_request': {
+          if (data.request) {
+            upsertConversationContextRequest(data.request)
+            addNotification('需要补充研究上下文，请查看右侧面板中的请求卡片。', 'info')
+          }
+          break
+        }
+
+        case 'conversation:context_update': {
+          if (data.request) {
+            upsertConversationContextRequest(data.request)
+          }
+          break
+        }
+
+        case 'conversation:context_resolved': {
+          if (data.request?.id) {
+            removeConversationContextRequest(data.request.id)
           }
           break
         }
@@ -847,6 +906,21 @@ export const useWebSocket = (batchId: string) => {
           updateResearchAgentStatus({
             currentAction: data.message || '开始研究阶段',
           })
+          break
+
+        case 'research:complete':
+          // Research phase completed
+          if (data.session_id) {
+            setSessionId(data.session_id)
+          }
+          updateResearchAgentStatus({
+            currentAction: data.message || '研究完成',
+            phase: 'complete',
+          })
+          if (data.message) {
+            addNotification(data.message, 'success')
+          }
+          // If report is ready, it will be handled by phase4:report_ready
           break
 
         case 'error':

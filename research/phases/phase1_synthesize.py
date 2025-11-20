@@ -63,6 +63,11 @@ class Phase1Synthesize(BasePhase):
         }
         style_name = style_file_map.get(writing_style, 'consultant')
         
+        # Pull user topic (if any) for prompt context (initial topic or latest amendment)
+        user_topic = ""
+        if self.session:
+            user_topic = self.session.get_metadata("user_topic", "") or ""
+        
         # Compose messages from externalized prompt templates
         context = {
             "goals_list": goals_list,
@@ -74,6 +79,7 @@ class Phase1Synthesize(BasePhase):
             "user_guidance": user_intent["user_guidance"],
             "user_context": user_intent["user_context"],  # Contains user feedback from Phase 1
             "writing_style": style_name,  # For dynamic partial resolution
+            "user_topic": user_topic,
         }
         messages = compose_messages("phase1_synthesize", context=context)
         
