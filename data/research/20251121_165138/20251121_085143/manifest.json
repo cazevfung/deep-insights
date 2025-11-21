@@ -1,0 +1,127 @@
+{
+  "session_id": "20251121_165138",
+  "batch_id": "20251121_085143",
+  "created_at": "2025-11-21T08:51:43Z",
+  "items": [
+    {
+      "source_kind": "upload",
+      "display_name": "ABB-医疗行业电气应用方案.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_165138\\20251121_085143\\uploads\\f2bc1bb498f64a20bbbab87c6c1a834c.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req1",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_165138/20251121_085143/uploads/f2bc1bb498f64a20bbbab87c6c1a834c.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "agilent product catalog.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_165138\\20251121_085143\\uploads\\548137d56f6e402d958ef4b9a53991ae.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req2",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_165138/20251121_085143/uploads/548137d56f6e402d958ef4b9a53991ae.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "eaton-电气解决方案-医疗.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_165138\\20251121_085143\\uploads\\ebf485d1c6ee47468041b28977729565.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req3",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_165138/20251121_085143/uploads/ebf485d1c6ee47468041b28977729565.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "mettler-2024-annual.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_165138\\20251121_085143\\uploads\\a5779057247840148735d5626c533480.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req4",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_165138/20251121_085143/uploads/a5779057247840148735d5626c533480.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "mettler-2025q3.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_165138\\20251121_085143\\uploads\\cbf5addbf1ec490d95c044c065e77260.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req5",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_165138/20251121_085143/uploads/cbf5addbf1ec490d95c044c065e77260.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "Mettler-Toledo_product catalog.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_165138\\20251121_085143\\uploads\\cc48756762e844b1ab55054488d4a9cd.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req6",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_165138/20251121_085143/uploads/cc48756762e844b1ab55054488d4a9cd.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "sartorius product catalog.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_165138\\20251121_085143\\uploads\\8f65026375114e159f1b6443fe542af8.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req7",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_165138/20251121_085143/uploads/8f65026375114e159f1b6443fe542af8.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "satorius_9m-2025-download-earnings-report-sag-en-data.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_165138\\20251121_085143\\uploads\\e60a726ea58342ea97933c2cbe4b0bf1.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req8",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_165138/20251121_085143/uploads/e60a726ea58342ea97933c2cbe4b0bf1.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "satorius_fy-2024-download-sag-annual-report-en-data.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_165138\\20251121_085143\\uploads\\8c21b19eefe94bc38726573079125126.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req9",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_165138/20251121_085143/uploads/8c21b19eefe94bc38726573079125126.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "satorius_h1-2025-download-half-year-report-sag-en-data.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_165138\\20251121_085143\\uploads\\c5d6cf7bae11486db7063a711c03b3b1.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req10",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_165138/20251121_085143/uploads/c5d6cf7bae11486db7063a711c03b3b1.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "satorius_q1-2025-download-earnings-report-sag-en-data.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_165138\\20251121_085143\\uploads\\ef5d66a4436941b2bb8985e5939cf579.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req11",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_165138/20251121_085143/uploads/ef5d66a4436941b2bb8985e5939cf579.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "satorius_sag-annual-report-2023-en-data.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_165138\\20251121_085143\\uploads\\5e1f1276f1b448f2ad4eb8951cf735a8.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req12",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_165138/20251121_085143/uploads/5e1f1276f1b448f2ad4eb8951cf735a8.pdf"
+    }
+  ]
+}

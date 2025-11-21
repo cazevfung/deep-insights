@@ -1,0 +1,27 @@
+{
+  "batch_id": "20251121_095126",
+  "session_id": null,
+  "active_phase": "phase0.5",
+  "phase_history": [
+    {
+      "phase": "research",
+      "completed_at": "2025-11-21T10:01:32.437340+00:00",
+      "summary": "阶段0.5: 角色生成"
+    }
+  ],
+  "goals": [],
+  "plan": [],
+  "synthesized_goal": null,
+  "known_constraints": [],
+  "updated_at": "2025-11-21T10:01:32.437372+00:00",
+  "messages": [],
+  "writing_style": "explanatory",
+  "data_abstract": null,
+  "user_guidance": null,
+  "system_role_description": null,
+  "research_role_rationale": null,
+  "phase3_summaries": [],
+  "phase3_points": [],
+  "context_requests": [],
+  "awaiting_context_for_message": {}
+}

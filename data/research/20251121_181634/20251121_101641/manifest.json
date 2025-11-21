@@ -1,0 +1,195 @@
+{
+  "session_id": "20251121_181634",
+  "batch_id": "20251121_101641",
+  "created_at": "2025-11-21T10:16:42Z",
+  "items": [
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1VYtwz2EP4/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1VYtwz2EP4/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req1",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1VYtwz2EP4/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1j44y1W7Ad/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1j44y1W7Ad/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req2",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1j44y1W7Ad/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1ADCYB6EBM/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1ADCYB6EBM/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req3",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1ADCYB6EBM/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.tipranks.com/news/the-fly/mettler-toledo-board-authorizes-additional-2-75b-to-share-buyback-thefly",
+      "original_url": "https://www.tipranks.com/news/the-fly/mettler-toledo-board-authorizes-additional-2-75b-to-share-buyback-thefly",
+      "link_id": "art_req1",
+      "link_type": "article",
+      "url": "https://www.tipranks.com/news/the-fly/mettler-toledo-board-authorizes-additional-2-75b-to-share-buyback-thefly"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.eecextech.cn/2025/01/5-2/",
+      "original_url": "https://www.eecextech.cn/2025/01/5-2/",
+      "link_id": "art_req2",
+      "link_type": "article",
+      "url": "https://www.eecextech.cn/2025/01/5-2/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1UDywBwERM/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1UDywBwERM/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req4",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1UDywBwERM/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1X94y1T7H1/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1X94y1T7H1/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req5",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1X94y1T7H1/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1HS411c7AC/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1HS411c7AC/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req6",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1HS411c7AC/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1qR4y1K7HT/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1qR4y1K7HT/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req7",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1qR4y1K7HT/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1Ng4y1M7kx/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1Ng4y1M7kx/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req8",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1Ng4y1M7kx/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1Lr4y1i7Hy/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1Lr4y1i7Hy/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req9",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1Lr4y1i7Hy/"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "20250326_CPC_2025年版《中国药典》实施有关事项解读（一）.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_181634\\20251121_101641\\uploads\\e6c3ad26efce4556bd6b757af5d6b82b.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req3",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_181634/20251121_101641/uploads/e6c3ad26efce4556bd6b757af5d6b82b.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "ABB-医疗行业电气应用方案.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_181634\\20251121_101641\\uploads\\402c6eec7c0344dd8bf4107bbed7de8c.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req4",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_181634/20251121_101641/uploads/402c6eec7c0344dd8bf4107bbed7de8c.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "agilent product catalog.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_181634\\20251121_101641\\uploads\\207f7e22a4314a68956f88c374500286.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req5",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_181634/20251121_101641/uploads/207f7e22a4314a68956f88c374500286.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "eaton-电气解决方案-医疗.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_181634\\20251121_101641\\uploads\\1aa93077a68b4c12b44ef225fae06e98.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req6",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_181634/20251121_101641/uploads/1aa93077a68b4c12b44ef225fae06e98.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "mettler-2024-annual.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_181634\\20251121_101641\\uploads\\b26faf9dee3d445aadbf79ae57ccefad.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req7",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_181634/20251121_101641/uploads/b26faf9dee3d445aadbf79ae57ccefad.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "mettler-2025q3.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_181634\\20251121_101641\\uploads\\39eee9072fe84010875068ededf775c3.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req8",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_181634/20251121_101641/uploads/39eee9072fe84010875068ededf775c3.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "Mettler-Toledo_product catalog.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_181634\\20251121_101641\\uploads\\8f2a84fa6ca742e189ac6327c101cb8d.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req9",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_181634/20251121_101641/uploads/8f2a84fa6ca742e189ac6327c101cb8d.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "sartorius product catalog.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_181634\\20251121_101641\\uploads\\5ba3efa3cf9a48b7ac277e6f59d0265b.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req10",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_181634/20251121_101641/uploads/5ba3efa3cf9a48b7ac277e6f59d0265b.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "satorius_9m-2025-download-earnings-report-sag-en-data.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_181634\\20251121_101641\\uploads\\6376132c12ba4eb489a21613da709614.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req11",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_181634/20251121_101641/uploads/6376132c12ba4eb489a21613da709614.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "satorius_h1-2025-download-half-year-report-sag-en-data.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_181634\\20251121_101641\\uploads\\0598a3eba10d44f9bd2104daf4ff6b91.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req12",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_181634/20251121_101641/uploads/0598a3eba10d44f9bd2104daf4ff6b91.pdf"
+    }
+  ]
+}

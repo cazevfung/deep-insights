@@ -1,0 +1,191 @@
+{
+  "session_id": "20251121_191251",
+  "batch_id": "20251121_111258",
+  "created_at": "2025-11-21T11:12:58Z",
+  "items": [
+    {
+      "source_kind": "url",
+      "display_name": "https://www.hkma.gov.hk/eng/news-and-media/speeches/2025/04/20250429-1/",
+      "original_url": "https://www.hkma.gov.hk/eng/news-and-media/speeches/2025/04/20250429-1/",
+      "link_id": "art_req1",
+      "link_type": "article",
+      "url": "https://www.hkma.gov.hk/eng/news-and-media/speeches/2025/04/20250429-1/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.youtube.com/watch?v=oudEPOocOHA&pp=ygUYaG9uZyBrb25nIHNpbmdhcG9yZSBjYmRj",
+      "original_url": "https://www.youtube.com/watch?v=oudEPOocOHA&pp=ygUYaG9uZyBrb25nIHNpbmdhcG9yZSBjYmRj",
+      "link_id": "yt_req1",
+      "link_type": "youtube",
+      "url": "https://www.youtube.com/watch?v=oudEPOocOHA"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1SquEzGERq/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1SquEzGERq/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req1",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1SquEzGERq/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.youtube.com/watch?v=CoS2uyc2XI8&pp=ygUL6aaZ5rivIGNiZGM%3D",
+      "original_url": "https://www.youtube.com/watch?v=CoS2uyc2XI8&pp=ygUL6aaZ5rivIGNiZGM%3D",
+      "link_id": "yt_req2",
+      "link_type": "youtube",
+      "url": "https://www.youtube.com/watch?v=CoS2uyc2XI8"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.youtube.com/watch?v=Oi0d5q21pME&pp=ygUL6aaZ5rivIGNiZGM%3D",
+      "original_url": "https://www.youtube.com/watch?v=Oi0d5q21pME&pp=ygUL6aaZ5rivIGNiZGM%3D",
+      "link_id": "yt_req3",
+      "link_type": "youtube",
+      "url": "https://www.youtube.com/watch?v=Oi0d5q21pME"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.youtube.com/watch?v=rtrV9QQNLTE&pp=ygUL6aaZ5rivIGNiZGM%3D",
+      "original_url": "https://www.youtube.com/watch?v=rtrV9QQNLTE&pp=ygUL6aaZ5rivIGNiZGM%3D",
+      "link_id": "yt_req4",
+      "link_type": "youtube",
+      "url": "https://www.youtube.com/watch?v=rtrV9QQNLTE"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.youtube.com/watch?v=SmEd5GHRSgQ&pp=ygUUcmVubWluYmkgc3RhYmxlIGNvaW4%3D",
+      "original_url": "https://www.youtube.com/watch?v=SmEd5GHRSgQ&pp=ygUUcmVubWluYmkgc3RhYmxlIGNvaW4%3D",
+      "link_id": "yt_req5",
+      "link_type": "youtube",
+      "url": "https://www.youtube.com/watch?v=SmEd5GHRSgQ"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.youtube.com/watch?v=yFN0hclBofg&pp=ygUUcmVubWluYmkgc3RhYmxlIGNvaW4%3D",
+      "original_url": "https://www.youtube.com/watch?v=yFN0hclBofg&pp=ygUUcmVubWluYmkgc3RhYmxlIGNvaW4%3D",
+      "link_id": "yt_req6",
+      "link_type": "youtube",
+      "url": "https://www.youtube.com/watch?v=yFN0hclBofg"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.youtube.com/watch?v=IAChB5ls6eU&pp=ygUUcmVubWluYmkgc3RhYmxlIGNvaW4%3D",
+      "original_url": "https://www.youtube.com/watch?v=IAChB5ls6eU&pp=ygUUcmVubWluYmkgc3RhYmxlIGNvaW4%3D",
+      "link_id": "yt_req7",
+      "link_type": "youtube",
+      "url": "https://www.youtube.com/watch?v=IAChB5ls6eU"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.youtube.com/watch?v=OPKtHIQfujs&pp=ygUUcmVubWluYmkgc3RhYmxlIGNvaW4%3D",
+      "original_url": "https://www.youtube.com/watch?v=OPKtHIQfujs&pp=ygUUcmVubWluYmkgc3RhYmxlIGNvaW4%3D",
+      "link_id": "yt_req8",
+      "link_type": "youtube",
+      "url": "https://www.youtube.com/watch?v=OPKtHIQfujs"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.youtube.com/watch?v=s8raYTsfiWk&pp=ygUYaG9uZyBrb25nIHNpbmdhcG9yZSBjYmRj",
+      "original_url": "https://www.youtube.com/watch?v=s8raYTsfiWk&pp=ygUYaG9uZyBrb25nIHNpbmdhcG9yZSBjYmRj",
+      "link_id": "yt_req9",
+      "link_type": "youtube",
+      "url": "https://www.youtube.com/watch?v=s8raYTsfiWk"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.youtube.com/watch?v=dMh88kZ_zQg&pp=ygUYaG9uZyBrb25nIHNpbmdhcG9yZSBjYmRj",
+      "original_url": "https://www.youtube.com/watch?v=dMh88kZ_zQg&pp=ygUYaG9uZyBrb25nIHNpbmdhcG9yZSBjYmRj",
+      "link_id": "yt_req10",
+      "link_type": "youtube",
+      "url": "https://www.youtube.com/watch?v=dMh88kZ_zQg"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.youtube.com/watch?v=fkNUFsvdhpE&pp=ygUYaG9uZyBrb25nIHNpbmdhcG9yZSBjYmRj",
+      "original_url": "https://www.youtube.com/watch?v=fkNUFsvdhpE&pp=ygUYaG9uZyBrb25nIHNpbmdhcG9yZSBjYmRj",
+      "link_id": "yt_req11",
+      "link_type": "youtube",
+      "url": "https://www.youtube.com/watch?v=fkNUFsvdhpE"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.hkma.gov.hk/eng/news-and-media/speeches/2024/09/20240927-3/",
+      "original_url": "https://www.hkma.gov.hk/eng/news-and-media/speeches/2024/09/20240927-3/",
+      "link_id": "art_req2",
+      "link_type": "article",
+      "url": "https://www.hkma.gov.hk/eng/news-and-media/speeches/2024/09/20240927-3/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.hkma.gov.hk/eng/news-and-media/speeches/2025/02/20250217-1/",
+      "original_url": "https://www.hkma.gov.hk/eng/news-and-media/speeches/2025/02/20250217-1/",
+      "link_id": "art_req3",
+      "link_type": "article",
+      "url": "https://www.hkma.gov.hk/eng/news-and-media/speeches/2025/02/20250217-1/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.hkma.gov.hk/eng/news-and-media/speeches/2024/04/20240411-1/",
+      "original_url": "https://www.hkma.gov.hk/eng/news-and-media/speeches/2024/04/20240411-1/",
+      "link_id": "art_req4",
+      "link_type": "article",
+      "url": "https://www.hkma.gov.hk/eng/news-and-media/speeches/2024/04/20240411-1/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.hkma.gov.hk/eng/news-and-media/press-releases/2025/10/20251028-4/",
+      "original_url": "https://www.hkma.gov.hk/eng/news-and-media/press-releases/2025/10/20251028-4/",
+      "link_id": "art_req5",
+      "link_type": "article",
+      "url": "https://www.hkma.gov.hk/eng/news-and-media/press-releases/2025/10/20251028-4/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.globalgovernmentfintech.com/hong-kong-monetary-authority-e-hdk-pilots-phase-two/",
+      "original_url": "https://www.globalgovernmentfintech.com/hong-kong-monetary-authority-e-hdk-pilots-phase-two/",
+      "link_id": "art_req6",
+      "link_type": "article",
+      "url": "https://www.globalgovernmentfintech.com/hong-kong-monetary-authority-e-hdk-pilots-phase-two/"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "e-HKD_A_Policy_and_Design_Perspective.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_191251\\20251121_111258\\uploads\\1dd0d857c97740138863849606f9723e.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req7",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_191251/20251121_111258/uploads/1dd0d857c97740138863849606f9723e.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "e-HKD_A_technical_perspective.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_191251\\20251121_111258\\uploads\\3270aead21384cbfba7fb9664382a5a7.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req8",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_191251/20251121_111258/uploads/3270aead21384cbfba7fb9664382a5a7.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "e-hkd-and-the-future-of-global-money-movement.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_191251\\20251121_111258\\uploads\\0fef3e21b8b541009cb41421ccdd3b52.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req9",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_191251/20251121_111258/uploads/0fef3e21b8b541009cb41421ccdd3b52.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "envisioning_programmable_payments_in_hong_kong.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_191251\\20251121_111258\\uploads\\1c1230c9d3694ee0b7453fe6174bc527.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req10",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_191251/20251121_111258/uploads/1c1230c9d3694ee0b7453fe6174bc527.pdf"
+    }
+  ]
+}

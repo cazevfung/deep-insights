@@ -1,0 +1,110 @@
+{
+  "batch_id": "20251120_101923",
+  "total_files": 13,
+  "items": [
+    {
+      "relative_path": "20251120_101923_BILI_bili_req1_complete.json",
+      "batch_id": "20251120_101923",
+      "size_bytes": 40085,
+      "source_prefix": "101923",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251120_101923_BILI_bili_req2_complete.json",
+      "batch_id": "20251120_101923",
+      "size_bytes": 14942,
+      "source_prefix": "101923",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251120_101923_BILI_bili_req3_complete.json",
+      "batch_id": "20251120_101923",
+      "size_bytes": 10866,
+      "source_prefix": "101923",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251120_101923_BILI_bili_req4_complete.json",
+      "batch_id": "20251120_101923",
+      "size_bytes": 5777,
+      "source_prefix": "101923",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251120_101923_BILI_bili_req5_complete.json",
+      "batch_id": "20251120_101923",
+      "size_bytes": 41024,
+      "source_prefix": "101923",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251120_101923_BILI_bili_req6_complete.json",
+      "batch_id": "20251120_101923",
+      "size_bytes": 44648,
+      "source_prefix": "101923",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251120_101923_BILI_bili_req7_complete.json",
+      "batch_id": "20251120_101923",
+      "size_bytes": 15405,
+      "source_prefix": "101923",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251120_101923_BILI_bili_req8_complete.json",
+      "batch_id": "20251120_101923",
+      "size_bytes": 16833,
+      "source_prefix": "101923",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251120_101923_BILI_bili_req9_complete.json",
+      "batch_id": "20251120_101923",
+      "size_bytes": 13206,
+      "source_prefix": "101923",
+      "link_id": "BILI",
+      "kind": "bili"
+    },
+    {
+      "relative_path": "20251120_101923_YT_yt_req1_complete.json",
+      "batch_id": "20251120_101923",
+      "size_bytes": 20589,
+      "source_prefix": "101923",
+      "link_id": "YT",
+      "kind": "yt"
+    },
+    {
+      "relative_path": "20251120_101923_YT_yt_req2_complete.json",
+      "batch_id": "20251120_101923",
+      "size_bytes": 8719,
+      "source_prefix": "101923",
+      "link_id": "YT",
+      "kind": "yt"
+    },
+    {
+      "relative_path": "20251120_101923_YT_yt_req3_complete.json",
+      "batch_id": "20251120_101923",
+      "size_bytes": 24969,
+      "source_prefix": "101923",
+      "link_id": "YT",
+      "kind": "yt"
+    },
+    {
+      "relative_path": "20251120_101923_YT_yt_req4_complete.json",
+      "batch_id": "20251120_101923",
+      "size_bytes": 9641,
+      "source_prefix": "101923",
+      "link_id": "YT",
+      "kind": "yt"
+    }
+  ]
+}

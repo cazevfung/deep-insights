@@ -1,0 +1,177 @@
+{
+  "session_id": "20251121_175118",
+  "batch_id": "20251121_095126",
+  "created_at": "2025-11-21T09:51:26Z",
+  "items": [
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1WQ4EzyEns/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1WQ4EzyEns/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req1",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1WQ4EzyEns/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1VYtwz2EP4/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1VYtwz2EP4/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req2",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1VYtwz2EP4/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1j44y1W7Ad/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1j44y1W7Ad/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req3",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1j44y1W7Ad/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1TnkzBhEXW/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1TnkzBhEXW/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req4",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1TnkzBhEXW/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1ADCYB6EBM/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1ADCYB6EBM/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req5",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1ADCYB6EBM/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.tipranks.com/news/the-fly/mettler-toledo-board-authorizes-additional-2-75b-to-share-buyback-thefly",
+      "original_url": "https://www.tipranks.com/news/the-fly/mettler-toledo-board-authorizes-additional-2-75b-to-share-buyback-thefly",
+      "link_id": "art_req1",
+      "link_type": "article",
+      "url": "https://www.tipranks.com/news/the-fly/mettler-toledo-board-authorizes-additional-2-75b-to-share-buyback-thefly"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.eecextech.cn/2025/01/5-2/",
+      "original_url": "https://www.eecextech.cn/2025/01/5-2/",
+      "link_id": "art_req2",
+      "link_type": "article",
+      "url": "https://www.eecextech.cn/2025/01/5-2/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1UDywBwERM/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1UDywBwERM/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req6",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1UDywBwERM/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1X94y1T7H1/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1X94y1T7H1/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req7",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1X94y1T7H1/"
+    },
+    {
+      "source_kind": "url",
+      "display_name": "https://www.bilibili.com/video/BV1HS411c7AC/?spm_id_from=333.337.search-card.all.click",
+      "original_url": "https://www.bilibili.com/video/BV1HS411c7AC/?spm_id_from=333.337.search-card.all.click",
+      "link_id": "bili_req8",
+      "link_type": "bilibili",
+      "url": "https://www.bilibili.com/video/BV1HS411c7AC/"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "ABB-医疗行业电气应用方案.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_175118\\20251121_095126\\uploads\\c421b96cf39d4a02a744068d8302f690.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req3",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_175118/20251121_095126/uploads/c421b96cf39d4a02a744068d8302f690.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "agilent product catalog.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_175118\\20251121_095126\\uploads\\76763b978ccf4070954460191ae1e267.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req4",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_175118/20251121_095126/uploads/76763b978ccf4070954460191ae1e267.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "eaton-电气解决方案-医疗.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_175118\\20251121_095126\\uploads\\835c034bec4f459492e8e000757c93ed.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req5",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_175118/20251121_095126/uploads/835c034bec4f459492e8e000757c93ed.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "mettler-2024-annual.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_175118\\20251121_095126\\uploads\\61d2f292a37c4240ab87154a1e3c7bea.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req6",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_175118/20251121_095126/uploads/61d2f292a37c4240ab87154a1e3c7bea.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "mettler-2025q3.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_175118\\20251121_095126\\uploads\\fdd00757fc89463f953af1bb2bd273af.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req7",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_175118/20251121_095126/uploads/fdd00757fc89463f953af1bb2bd273af.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "Mettler-Toledo_product catalog.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_175118\\20251121_095126\\uploads\\7d2f97ceb5e84dabaca5b19e6821de3b.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req8",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_175118/20251121_095126/uploads/7d2f97ceb5e84dabaca5b19e6821de3b.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "sartorius product catalog.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_175118\\20251121_095126\\uploads\\03cf7ec9e24f4d40bb602b13c839bd7f.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req9",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_175118/20251121_095126/uploads/03cf7ec9e24f4d40bb602b13c839bd7f.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "satorius_9m-2025-download-earnings-report-sag-en-data.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_175118\\20251121_095126\\uploads\\c24dda4830ce4a45becc00c90f42155d.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req10",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_175118/20251121_095126/uploads/c24dda4830ce4a45becc00c90f42155d.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "satorius_h1-2025-download-half-year-report-sag-en-data.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_175118\\20251121_095126\\uploads\\498ff9a6696a4943aa01814cf36ca826.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req11",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_175118/20251121_095126/uploads/498ff9a6696a4943aa01814cf36ca826.pdf"
+    }
+  ]
+}

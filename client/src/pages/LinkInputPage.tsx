@@ -347,7 +347,6 @@ const LinkInputPage: React.FC = () => {
               className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-gray-400 transition-colors"
             >
               <span className="text-sm text-gray-600">拖拽文件到此处，或点击选择</span>
-              <span className="text-xs text-gray-400 mt-1">单个 25MB，合计 100MB</span>
             </label>
             <input
               id="file-upload"

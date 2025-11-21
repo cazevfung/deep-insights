@@ -1,0 +1,656 @@
+### UNITED STATES
+
+### SECURITIES AND EXCHANGE COMMISSION
+
+```
+Washington, D.C. 20549
+```
+## Form 8-K
+
+### CURRENT REPORT
+
+```
+Pursuant to Section 13 OR 15(d) of The Securities Exchange Act of 1934
+```
+```
+Date of Report (Date of earliest event reported): November 6, 2025
+```
+# Mettler-Toledo International Inc.
+
+```
+(Exact name of registrant as specified in its charter)
+Delaware File No.001-13595 13-
+(State or other jurisdiction of incorporation) (Commission File Number) (IRS Employer Identification No.)
+```
+```
+1900 Polaris Parkway
+Columbus,OH
+and
+Im Langacher, P.O. Box MT-
+CH Greifensee, Switzerland 43240 and 8606
+(Address of principal executive offices) (Zip Code)
+```
+```
+Registrant’s telephone number, including area code: 1-614-438-4511 and +41-44-944-22-1 1
+```
+```
+(Former name or former address, if changed since last report.)
+```
+Check the appropriate box below if the Form 8-K filing is intended to simultaneously satisfy the filing obligation of the registrant
+under any of the following provisions:
+
+```
+☐ Written communications pursuant to Rule 425 under the Securities Act (17 CFR 230.425)
+☐ Soliciting material pursuant to Rule 14a-12 under the Exchange Act (17 CFR 240.14a-12)
+☐ Pre-commencement communications pursuant to Rule 14d-2(b) under the Exchange Act (17 CFR 240.14d-2(b))
+☐ Pre-commencement communications pursuant to Rule 13e-4(c) under the Exchange Act (17 CFR 240.13e-4(c))
+```
+Securities registered pursuant to Section 12(b) of the Act:
+
+```
+Title of each class Trading Symbol(s) Name of each exchange on which registered
+Common Stock, $0.01 par value MTD New York Stock Exchange
+```
+Indicate by check mark whether the registrant is an emerging growth company as defined in Rule 405 of the Securities Act of 1933 (§230.405 of
+this chapter) or Rule 12b-2 of the Securities Exchange Act of 1934 (§240.12b-2 of this chapter). Emerging growth company ☐
+
+If an emerging growth company, indicate by check mark if the registrant has elected not to use the extended transition period for complying with
+any new or revised financial accounting standards provided pursuant to Section 13(a) of the Exchange Act. ☐
+
+
+**Item 2.02 Results of Operations and Financial Condition**
+
+The following information is furnished pursuant to Item 2.02, “Results of Operations and Financial Condition.” The information
+furnished in this Form 8-K and the Exhibit attached hereto shall not be treated as filed for purposes of the Securities Exchange Act of
+1934, nor shall it be deemed incorporated by reference in any filing under the Securities Act of 1933, except as shall be expressly set
+forth by specific reference in such filing.
+
+On November 6, 2025 Mettler-Toledo International Inc. ("Mettler-Toledo") issued a press release (the Release) setting forth its
+
+financial results for the three and nine months ended September 30, 2025. A copy of the Release is furnished hereto as Exhibit 99.
+to this report.
+
+**Non-GAAP Financial Measures**
+
+Mettler-Toledo supplements its U.S. GAAP results with non-GAAP financial measures. The principal non-GAAP financial
+measures Mettler-Toledo uses are Adjusted Earnings per Share, Adjusted Operating Profit, Adjusted Free Cash Flow and Local
+Currency Sales Growth.
+
+_Adjusted Earnings per Share_
+
+Mettler-Toledo defines Adjusted Earnings per Share as diluted earnings per common share excluding certain non-recurring
+discrete tax items, amortization of purchased intangible assets, net of tax, restructuring charges, net of tax and certain other one-time
+charges, net of tax. The most directly comparable U.S. GAAP financial measure is diluted earnings per common share.
+
+Mettler-Toledo believes that Adjusted Earnings per Share is important supplemental information for investors. Mettler-Toledo
+uses this measure because it excludes certain non-recurring discrete tax items, amortization of purchased intangibles, net of tax,
+restructuring charges, net of tax and certain other one-time charges, net of tax, which management believes are not directly related to
+current and ongoing operations thereby providing investors with information that helps to compare ongoing operating performance.
+
+Adjusted Earnings per Share is used in addition to and in conjunction with results presented in accordance with U.S. GAAP.
+Adjusted Earnings per Share is not intended to represent diluted earnings per common share under U.S. GAAP and should not be
+considered as an alternative to diluted earnings per common share as an indicator of Mettler-Toledo’s performance because of the
+following limitations.
+
+_Limitations of Mettler-Toledo’s non-GAAP measure, Adjusted Earnings per Share_
+
+Mettler-Toledo’s non-GAAP measure, Adjusted Earnings per Share, has certain material limitations as follows:
+
+It does not include certain non-recurring discrete tax items, amortization expense of purchased intangibles, net of tax,
+restructuring charges, net of tax and certain other one-time charges, net of tax. Because non-recurring discrete tax items,
+
+amortization of purchased intangibles, restructuring charges and certain other one-time charges are components of diluted earnings
+per share under U.S. GAAP, any measure that excludes non-recurring discrete tax items, amortization of purchased intangibles,
+restructuring charges and certain other one-time charges, has material limitations.
+
+```
+2
+```
+
+_Adjusted Operating Profit_
+
+Mettler-Toledo defines Adjusted Operating Profit as gross profit less research and development and selling, general and
+administrative expenses before amortization, interest, restructuring charges and other charges (income), net and taxes. The most
+directly comparable U.S. GAAP financial measure is earnings before taxes.
+
+Mettler-Toledo believes that Adjusted Operating Profit is important supplemental information for investors. Adjusted Operating
+Profit is used internally as the principal profit measurement by its segments in their reporting to management. Mettler-Toledo uses
+this measure because it excludes amortization, interest, restructuring charges and other charges (income), net and taxes, which are
+
+not allocated to the segments.
+
+On a consolidated basis, Mettler-Toledo also believes Adjusted Operating Profit is an important supplemental method of
+
+measuring profitability. It is used internally by senior management for measuring profitability and setting performance targets for
+managers, and has historically been used as one of the means of publicly providing guidance on possible future results. Mettler-
+Toledo also believes that Adjusted Operating Profit is an important performance measure because it provides a measure of
+comparability to other companies with different capital or legal structures, which accordingly may be subject to disparate interest
+rates and effective tax rates, and to companies which may incur different amortization expenses or impairment charges related to
+
+intangible assets.
+
+Adjusted Operating Profit is used in addition to and in conjunction with results presented in accordance with U.S. GAAP.
+Adjusted Operating Profit is not intended to represent operating income under U.S. GAAP and should not be considered as an
+alternative to earnings before taxes as an indicator of Mettler-Toledo’s performance because of the following limitations.
+
+_Limitations of Mettler-Toledo’s non-GAAP measure, Adjusted Operating Profit_
+
+Mettler-Toledo’s non-GAAP measure, Adjusted Operating Profit, has certain material limitations as follows:
+
+**-** It excludes amortization expense. Because this item is recurring, any measure that excludes amortization expense has
+    material limitations.
+**-** It does not include interest expense. Because Mettler-Toledo has borrowed money to finance some of its operations, interest
+    is a necessary and ongoing part of its costs and has assisted Mettler-Toledo in generating revenue. Therefore any measure
+    that excludes interest expense has material limitations.
+**-** It excludes restructuring charges. Because restructuring charges are a component of operating income under U.S. GAAP,
+    any measure that excludes restructuring charges, has material limitations.
+**-** It excludes other charges (income), net. Because other charges (income), net is a component of operating income under U.S.
+    GAAP, any measure that excludes other charges (income), net, has material limitations.
+
+_Adjusted Free Cash Flow_
+
+Mettler-Toledo defines Adjusted Free Cash Flow as net cash provided by operating activities including proceeds from the sale of
+property, plant and equipment, less capital expenditures, and before restructuring, acquisition cost payments, and tax reform
+payments. The most directly comparable U.S. GAAP financial measure is net cash provided by operating activities
+
+```
+3
+```
+
+Mettler-Toledo believes Adjusted Free Cash Flow is important supplemental information for investors. It is used internally by
+senior management for measuring operating cash flow generation and setting performance targets for managers, and has historically
+
+been used as one of the means of providing guidance on possible future cash flows.
+
+Adjusted Free Cash Flow is used in addition to and in conjunction with results presented in accordance with U.S. GAAP. Adjusted
+Free Cash Flow is not intended to represent net cash provided by operating activities recorded under U.S. GAAP and should not be
+considered as an alternative to net cash provided by operating activities as an indicator of Mettler-Toledo’s performance because of
+the following limitations.
+
+_Limitations of Mettler-Toledo’s non-GAAP measure, Adjusted Free Cash Flow_
+
+Mettler-Toledo’s non-GAAP measure, Adjusted Free Cash Flow, has certain material limitations as follows:
+
+**-** It includes proceeds from the sale of property, plant and equipment and purchases of property, plant and equipment, which
+    are not considered to be components of net cash provided by operating activities under U.S. GAAP. Therefore any measure
+    that includes proceeds from the sale of property, plant and equipment and purchases of property, plant and equipment has
+    material limitations.
+**-** It excludes restructuring, acquisition cost payments, and tax reform payments which is considered to be a component of net
+    cash provided by operating activities under U.S. GAAP. Therefore any measure that excludes these items has material
+    limitations.
+
+_Local Currency Sales Growth_
+
+Mettler-Toledo defines Local Currency Sales Growth as sales growth excluding the effect of currency exchange rate fluctuations
+that result from translating activity outside of the United States into U.S. dollars. The most directly comparable U.S. GAAP financial
+measure is U.S. dollar sales growth.
+
+Mettler-Toledo believes that Local Currency Sales Growth is important supplemental information for investors. Mettler-Toledo
+believes local currency information provides a helpful assessment of business performance and a useful measure of results between
+periods.
+
+Local Currency Sales Growth is used in addition to and in conjunction with results presented in accordance with U.S. GAAP.
+Local Currency Sales Growth is not intended to represent U.S. dollar sales growth under U.S. GAAP and should not be considered
+as an alternative to U.S. dollar sales growth as an indicator of Mettler-Toledo’s performance because of the following limitations.
+
+_Limitations of Mettler-Toledo’s non-GAAP measure, Local Currency Sales Growth_
+
+Mettler-Toledo’s non-GAAP measure, Local Currency Sales Growth, has certain material limitations as follows:
+
+It does not include the effect of currency exchange rate fluctuations that result from translating activity outside of the United
+States into U.S. dollars. Because the effect of changes in foreign currency exchange rates is a component of sales growth under U.S.
+GAAP, any measure that excludes the effect of changes in foreign currency exchange rates, has material limitations.
+
+Adjusted Earnings per Share, Adjusted Operating Income, Adjusted Free Cash Flow and Local Currency Sales Growth should not
+be relied upon to the exclusion of U.S. GAAP financial measures, but reflect additional measures of comparability and means of
+viewing aspects of Mettler-Toledo’s operations that, when viewed together with its U.S. GAAP results and the accompanying
+reconciliations to net
+
+```
+4
+```
+
+earnings, net cash provided by operating activities and diluted earnings per share, provide a more complete understanding of factors
+and trends affecting its business.
+
+Because Adjusted Earnings per Share, Adjusted Operating Income, Adjusted Free Cash Flow and Local Currency Sales Growth
+are not standardized, it may not be possible to compare with other companies’ non-GAAP financial measures having the same or
+similar names. We strongly encourage investors to review our financial statements and publicly filed reports in their entirety and not
+to rely on any single financial measure.
+
+The Release provides a reconciliation of Adjusted Earnings per Share, Adjusted Operating Income and Adjusted Free Cash Flow
+to the most comparable financial measures recorded under U.S. GAAP. The Release also presents Local Currency Sales Growth in
+conjunction with its most comparable financial measure recorded under U.S. GAAP.
+
+```
+5
+```
+
+**Item 9.01 Financial Statements and Exhibits**
+
+```
+Exhibit No. Description
+99.1 Press release, dated November 6, 2025, issued by Mettler-Toledo International Inc.
+104 Cover Page Interactive Data File (embedded within the Inline XBRL document).*
+* Submitted electronically with this Report in accordance with the provision of Regulation S-T.
+```
+```
+6
+```
+
+```
+SIGNATURE
+```
+Pursuant to the requirements of the Securities Exchange Act of 1934, the registrant has duly caused this report to be signed on its behalf by the
+undersigned hereunto duly authorized.
+
+```
+METTLER-TOLEDO INTERNATIONAL INC.
+Dated: November 6, 2025 By: /s/ Shawn P. Vadala
+Shawn P. Vadala
+Chief Financial Officer
+```
+```
+7
+```
+
+```
+FOR IMMEDIATE RELEASE Exhibit 99.
+```
+### METTLER-TOLEDO INTERNATIONAL INC. REPORTS
+
+### THIRD QUARTER 2025 RESULTS
+
+COLUMBUS, Ohio, USA – November 6, 2025 – Mettler-Toledo International Inc. (NYSE: MTD) today announced third quarter
+results for 2025. Provided below are the highlights:
+
+- Reported sales increased 8% compared with the prior year. In local currency, sales increased 6% compared with the prior
+    year.
+- Net earnings per diluted share as reported (EPS) were $10.57, compared with $9.96 in the prior-year period. Adjusted EPS
+    was $11.15, an increase of 9% over the prior-year amount of $10.21. Adjusted EPS is a non-GAAP measure, and a
+    reconciliation to EPS is included on the last page of the attached schedules.
+
+**Third Quarter Results**
+
+Patrick Kaltenbach, President and Chief Executive Officer, stated, “Our third quarter results were strong and reflected very good
+growth, especially in Industrial. I am very pleased with our team’s strong execution as we leverage our Spinnaker sales and
+marketing program and innovative product portfolio to drive growth while delivering solid EPS.”
+
+GAAP Results
+EPS in the quarter was $10.57, compared with the prior-year amount of $9.96.
+
+Compared with the prior year, total reported sales increased 8% to $1,029.7 million. By region, reported sales increased 10% in the
+Americas, 13% in Europe, and 1% in Asia/Rest of World. Earnings before taxes amounted to $269.2 million, compared with $259.
+million in the prior year.
+
+Non-GAAP Results
+Adjusted EPS was $11.15, an increase of 9% over the prior-year amount of $10.21.
+
+Compared with the prior year, total sales in local currency increased 6%. By region, local currency sales increased 10% in the
+Americas, 6% in Europe, and 1% in Asia/Rest of World. Adjusted Operating Profit amounted to $309.9 million, compared with the
+prior-year amount of $296.6 million.
+
+Adjusted EPS and Adjusted Operating Profit are non-GAAP measures. Reconciliations to the most comparable GAAP measures are
+provided in the attached schedules.
+
+**Nine Month Results**
+
+GAAP Results
+EPS was $28.12, compared with the prior-year amount of $28.55 which included a one-time non-cash tax benefit of $1.07 per share.
+
+Compared with the prior year, total reported sales increased 2% to $2.897 billion. By region, reported sales increased 4% in the
+Americas, 3% in Europe, and 1% in Asia/Rest of World. Earnings before taxes amounted to $719.8 million, compared with $722.
+million in the prior year.
+
+Non-GAAP Results
+Adjusted EPS was $29.41, an increase of 2% over the prior-year amount of $28.74.
+
+```
+-1-
+```
+
+Total sales in local currency increased 2% compared with the prior year. By region, local currency sales as compared to prior year
+increased 4% in the Americas, were flat in Europe, and increased 1% in Asia/Rest of World. Excluding the impact from delayed
+fourth quarter 2023 shipments that benefited first quarter 2024 sales, year-to-date 2025 local currency sales increased 4%, including
+5% growth in the Americas, 3% growth in Europe, and 2% growth in Asia/Rest of World. Adjusted Operating Profit amounted to
+$829.9 million, compared with the prior-year amount of $848.0 million.
+
+Adjusted EPS and Adjusted Operating Profit are non-GAAP measures. Reconciliations to the most comparable GAAP measures are
+provided in the attached schedules.
+
+**Share Repurchase Authorization**
+
+The Company noted its Board of Directors authorized an additional $2.75 billion to be added to the share repurchase program, which
+had $1.1 billion remaining as of September 30, 2025. The Company expects the additional authorization will be utilized over the
+next few years, and that the repurchases will be made through open-market transactions, and the amount and timing will depend on
+business and market conditions, stock price, trading restrictions, the level of acquisition activity, and other factors.
+
+**Outlook**
+Management cautions that market conditions are uncertain and could change quickly. Based on today's assessment, management
+anticipates local currency sales for the fourth quarter of 2025 will increase approximately 3%. Adjusted EPS is forecast to be $12.
+to $12.88, a growth rate of 2% to 4%. Included in the fourth quarter guidance is an estimated 7% gross headwind to Adjusted EPS
+growth due to higher tariff costs.
+
+For the full year 2025, management anticipates local currency sales will increase approximately 2%, which includes a headwind of
+approximately 1.5% from the previously disclosed shipping delays in the fourth quarter of 2023 that benefited the first quarter of
+
+2024. Adjusted EPS is forecast to be in the range of $42.05 to $42.25, representing growth of approximately 2% to 3%. This forecast
+includes headwinds of approximately 4% from the previously mentioned shipping delays, and an additional 5% gross headwind
+from higher tariff costs. This compares with previous local currency sales growth guidance of approximately 1% to 2% and Adjusted
+EPS guidance of $41.70 to $42.20.
+
+The Company stated that based on its assessment of market conditions today, management anticipates local currency sales growth of
+approximately 4% in 2026. This is expected to result in Adjusted EPS in the range of $45.35 to $46.00, representing growth of
+approximately 8% to 9%.
+
+The Company does not provide GAAP financial measures on a forward-looking basis because we are unable to predict with
+reasonable certainty and without unreasonable effort the timing and amount of future restructuring and other non-recurring items.
+
+**Conclusion**
+
+Kaltenbach concluded, “Looking ahead, we are well positioned to capture growth opportunities while benefiting from trends like
+automation, digitalization, and onshoring. We continue to remain very agile as we face several uncertainties in global trade disputes
+and governmental policies. We are confident that our strategic initiatives and strong culture of innovation and operational excellence
+will enable us to continue delivering strong performance in this dynamic environment. The additional share repurchase authorization
+also allows us to continue the share repurchase program that has provided strong returns for our shareholders over many years. We
+are confident in our future growth prospects, and our balance sheet and cash flow generation remain strong.”
+
+```
+-2-
+```
+
+**Other Matters**
+
+The Company will host a conference call to discuss its quarterly results tomorrow morning (Friday, November 7) at 8:30 a.m.
+Eastern Time. To listen to a live webcast or replay of the call, visit the investor relations page on the Company’s website at
+investor.mt.com. The presentation referenced on the conference call will be located on the website prior to the call.
+
+METTLER TOLEDO (NYSE: MTD) is a leading global supplier of precision instruments and services. We have strong leadership
+positions in all of our businesses and believe we hold global number-one market positions in most of them. We are recognized as an
+innovation leader and our solutions are critical in key R&D, quality control, and manufacturing processes for customers in a wide
+range of industries including life sciences, food, and chemicals. Our sales and service network is one of the most extensive in the
+industry. Our products are sold in more than 140 countries and we have a direct presence in approximately 40 countries. With proven
+growth strategies and a focus on execution, we have achieved a long-term track record of strong financial performance. For more
+information, please visit [http://www.mt.com.](http://www.mt.com.)
+
+**Forward-Looking Statements Disclaimer**
+You should not rely on forward-looking statements to predict our actual results. Our actual results or performance may be materially different than reflected in forward-looking statements because of
+various risks and uncertainties. You can identify forward-looking statements by terminology such as “may,” “will,” “could,” “would,” “should,” “expect,” “plan,” “anticipate,” “intend,” “believe,”
+“estimate,” “predict,” “potential,” or “continue.”
+
+We make forward-looking statements in this Quarterly Report about future events or our future financial performance, including sales and earnings growth, earnings per share, strategic plans and
+contingency plans, growth opportunities or economic downturns, our ability to respond to changes in market conditions, planned research and development efforts and product introductions, adequacy
+of facilities, access to and the costs of raw materials, shipping and supplier costs, gross margins, customer demand, our competitive position, pricing, capital expenditures, cash flow, share
+repurchases, tax-related matters, the impact of foreign currencies, compliance with laws, effects of acquisitions, the impact of inflation, ongoing developments related to global trade disputes/tariffs,
+governmental policies, the geopolitical environment, the conflict in Ukraine and continuing instability in the Middle East on our business.
+
+Our forward-looking statements may not be accurate or complete, speak only as of the date of this Quarterly Report, and we do not intend to update or revise them in light of actual results. New risks
+also periodically arise. Please consider the risks and factors that could cause our results to differ materially from what is described in our forward-looking statements, including ongoing developments
+related to global trade disputes/tariffs, governmental policies, the geopolitical environment, inflation, the conflict in Ukraine and continuing instability in the Middle East. See in particular “Risk
+Factors” and “Management’s Discussion and Analysis of Financial Condition and Results of Operations” in our Annual Report on Form 10-K for the year ended December 31, 2024 and other reports
+filed with the SEC from time to time.
+
+```
+-3-
+```
+
+```
+METTLER-TOLEDO INTERNATIONAL INC.
+CONSOLIDATED STATEMENTS OF OPERATIONS
+(amounts in thousands except share data)
+(unaudited)
+```
+```
+Three months ended Three months ended
+September 30, 2025 % of sales September 30, 2024 % of sales
+```
+Net sales $ 1,029,699 (a) 100.0 $ 954,535 100.
+Cost of sales 420,243 40.8 382,068 40.
+Gross profit 609,456 59.2 572,467 60.
+
+Research and development 51,143 5.0 47,117 4.
+Selling, general and administrative 248,391 24.1 228,777 24.
+Amortization 20,022 1.9 18,243 1.
+Interest expense 17,695 1.7 18,599 1.
+Restructuring charges 5,972 0.6 2,631 0.
+Other charges (income), net (3,003) (0.2) (1,852) (0.2)
+Earnings before taxes 269,236 26.1 258,952 27.
+
+Provision for taxes 51,743 5.0 47,436 5.
+Net earnings $ 217,493 21.1 $ 211,516 22.
+
+Basic earnings per common share:
+Net earnings $ 10.60 $ 10.
+Weighted average number of common shares 20,510,579 21,139,
+
+Diluted earnings per common share:
+Net earnings $ 10.57 $ 9.
+Weighted average number of common and common
+equivalent shares 20,571,000 21,242,
+
+Note:
+(a) Local currency sales increased 6% (5% excluding acquisitions) as compared to the same period in 2024.
+
+```
+RECONCILIATION OF EARNINGS BEFORE TAXES TO ADJUSTED OPERATING PROFIT
+Three months ended Three months ended
+September 30, 2025 % of sales September 30, 2024 % of sales
+```
+Earnings before taxes $ 269,236 $ 258,
+Amortization 20,022 18,
+Interest expense 17,695 18,
+Restructuring charges 5,972 2,
+Other charges (income), net (3,003) (1,852)
+Adjusted operating profit $ 309,922 (b) 30.1 $ 296,573 31.
+
+Note:
+(b) Adjusted operating profit increased 5% as compared to the same period in 2024.
+
+```
+-4-
+```
+
+```
+METTLER-TOLEDO INTERNATIONAL INC.
+CONSOLIDATED STATEMENTS OF OPERATIONS
+(amounts in thousands except share data)
+(unaudited)
+```
+```
+Nine months ended Nine months ended
+September 30, 2025 % of sales September 30, 2024 % of sales
+```
+Net sales $ 2,896,664 (a) 100.0 $ 2,827,234 100.
+Cost of sales 1,181,453 40.8 1,140,966 40.
+Gross profit 1,715,21 1 59.2 1,686,268 59.
+
+Research and development 146,774 5.1 139,303 4.
+Selling, general and administrative 738,488 25.5 698,963 24.
+Amortization 54,796 1.9 54,649 1.
+Interest expense 51,127 1.7 56,781 2.
+Restructuring charges 13,296 0.5 17,624 0.
+Other charges (income), net (9,105) (0.4) (3,728) (0.1)
+Earnings before taxes 719,835 24.9 722,676 25.
+
+Provision for taxes 136,407 4.8 111,837 4.
+Net earnings $ 583,428 20.1 $ 610,839 21.
+
+Basic earnings per common share:
+Net earnings $ 28.20 $ 28.
+Weighted average number of common shares 20,687,609 21,288,
+
+Diluted earnings per common share:
+Net earnings $ 28.12 $ 28.
+Weighted average number of common and common equivalent
+shares 20,746,950 21,396,
+
+Note:
+(a) Local currency sales increased 2% as compared to the same period in 2024.
+
+```
+RECONCILIATION OF EARNINGS BEFORE TAXES TO ADJUSTED OPERATING PROFIT
+Nine months ended Nine months ended
+September 30, 2025 % of sales September 30, 2024 % of sales
+```
+Earnings before taxes $ 719,835 $ 722,
+Amortization 54,796 54,
+Interest expense 51,127 56,
+Restructuring charges 13,296 17,
+Other charges (income), net (9,105) (3,728)
+Adjusted operating profit $ 829,949 (b) 28.7 $ 848,002 30.
+
+Note:
+(b) Adjusted operating profit decreased 2% as compared to the same period in 2024.
+
+```
+-5-
+```
+
+```
+METTLER-TOLEDO INTERNATIONAL INC.
+CONDENSED CONSOLIDATED BALANCE SHEETS
+(amounts in thousands)
+(unaudited)
+```
+```
+September 30, 2025 December 31, 2024
+```
+Cash and cash equivalents $ 69,065 $ 59,
+Accounts receivable, net 687,264 687,
+Inventories 401,808 342,
+Other current assets and prepaid expenses 123,065 105,
+Total current assets 1,281,202 1,193,
+
+Property, plant and equipment, net 817,738 770,
+Goodwill and other intangible assets, net 1,009,560 926,
+Other non-current assets 412,966 349,
+
+Total assets $ 3,521,466 $ 3,239,
+
+Short-term borrowings and maturities of long-term debt $ 63,609 $ 182,
+Trade accounts payable 247,404 215,
+Accrued and other current liabilities 881,115 769,
+Total current liabilities 1,192,128 1,168,
+
+Long-term debt 2,146,249 1,831,
+Other non-current liabilities 432,287 367,
+Total liabilities 3,770,664 3,366,
+
+Shareholders’ equity (249,198) (126,890)
+
+Total liabilities and shareholders’ equity $ 3,521,466 $ 3,239,
+
+```
+-6-
+```
+
+```
+METTLER-TOLEDO INTERNATIONAL INC.
+CONDENSED CONSOLIDATED STATEMENTS OF CASH FLOWS
+(amounts in thousands)
+```
+**(unaudited)**
+Three months ended Nine months ended
+September 30, September 30,
+2025 2024 2025 2024
+Cash flow from operating activities:
+Net earnings $ 217,493 $ 211,516 $ 583,428 $ 610,
+Adjustments to reconcile net earnings to
+net cash provided by operating activities:
+Depreciation 12,715 12,836 38,049 37,
+Amortization 20,022 18,243 54,796 54,
+Deferred tax benefit (2,287) (1,224) (5,127) (5,061)
+One-time non-cash discrete tax benefit — — — (22,982)
+Share-based compensation 5,506 4,359 16,027 13,
+Increase (decrease) in cash resulting from changes in
+operating assets and liabilities 45,923 8,936 43,014 13,
+Net cash provided by operating activities 299,372 254,666 730,187 702,
+Cash flows from investing activities:
+Proceeds from sale of property, plant and equipment — 65 — 733
+Purchase of property, plant and equipment (24,488) (21,421) (65,620) (62,622)
+Acquisitions (72,513) — (75,428) (2,473)
+Other investing activities (1,911) (16,287) (12,421) (4,048)
+Net cash used in investing activities (98,912) (37,643) (153,469) (68,410)
+Cash flows from financing activities:
+Proceeds from borrowings 435,629 539,071 1,558,207 1,561,
+Repayments of borrowings (411,565) (559,670) (1,474,937) (1,576,862)
+Proceeds from exercise of stock options 1,797 14,203 10,859 22,
+Repurchases of common stock (218,749) (212,499) (656,246) (637,497)
+Other financing activities — (3) (920) (1,913)
+Net cash used in financing activities (192,888) (218,898) (563,037) (632,284)
+Effect of exchange rate changes on cash and cash equivalents (332) 2,639 (3,978) 302
+Net increase (decrease) in cash and cash equivalents 7,240 764 9,703 1,
+Cash and cash equivalents:
+Beginning of period 61,825 70,810 59,362 69,
+End of period $ 69,065 $ 71,574 $ 69,065 $ 71,
+
+RECONCILIATION OF NET CASH PROVIDED BY OPERATING ACTIVITIES TO ADJUSTED FREE CASH FLOW
+Three months ended Nine months ended
+September 30, September 30,
+2025 2024 2025 2024
+Net cash provided by operating activities $ 299,372 $ 254,666 $ 730,187 $ 702,
+Payments in respect of restructuring activities 4,949 4,086 10,594 19,
+Payments for acquisition transaction costs 901 — 901 —
+Transition tax payment — — 13,404 10,
+Proceeds from sale of property, plant and equipment — 65 — 733
+Purchase of property, plant and equipment, net (24,488) (21,421) (65,620) (62,622)
+Adjusted free cash flow $ 280,734 $ 237,396 $ 689,466 $ 670,
+
+```
+-7-
+```
+
+```
+METTLER-TOLEDO INTERNATIONAL INC.
+OTHER OPERATING STATISTICS
+```
+```
+SALES GROWTH BY DESTINATION
+(unaudited)
+```
+```
+Americas Europe Asia/RoW Total
+```
+U.S. Dollar Sales Growth
+Three Months Ended September 30, 2025 10% 13% 1% 8%
+Nine Months Ended September 30, 2025 4% 3% 1% 2%
+
+Local Currency Sales Growth
+Three Months Ended September 30, 2025 10% 6% 1% 6%
+Nine Months Ended September 30, 2025 4% —% 1% 2%
+Note:
+(a) Total net sales growth in local currency was 5%, and 9% in the Americas, excluding acquisitions for the three months ended September 30, 2025.
+(b) The Company estimates net sales growth for the nine months ended September 30, 2025 was reduced by approximately 2% from the recovery of delayed
+shipments during the first quarter of 2024. Excluding this impact, local currency net sales increased by 4%, and by geographic destination increased 5%
+in the Americas, 3% in Europe and 2% in Asia/Rest of World for the nine months ended September 30, 2025.
+**RECONCILIATION OF DILUTED EPS AS REPORTED TO ADJUSTED DILUTED EPS
+(unaudited)**
+Three months ended Nine months ended
+September 30, September 30,
+2025 2024 % Growth 2025 2024 % Growth
+
+EPS as reported, diluted $ 10.57 $ 9.96 6% $ 28.12 $ 28.55 (2)%
+
+Purchased intangible amortization, net of tax 0.26 (a) 0.23 (a) 0.74 (a) 0.71 (a)
+Restructuring charges, net of tax 0.24 (b) 0.10 (b) 0.52 (b) 0.67 (b)
+Acquisition transaction costs, net of tax 0.05 (c) — 0.05 (c) —
+Income tax expense 0.03(d) (0.08)(d) (0.02)(d) (1.19) (d)
+
+Adjusted EPS, diluted $ 11.15 $ 10.21 9% $ 29.41 $ 28.74 2%
+
+Notes:
+(a) Represents the EPS impact of purchased intangibles amortization of $7.1 million ($5.4 million net of tax) and $6.4 million ($5.0 million net of tax) for the three months
+ended September 30, 2025 and 2024, and $19.9 million ($15.3 million net of tax) and $19.5 million ($15.1 million net of tax) for the nine months ended September 30,
+2025 and 2024, respectively.
+(b) Represents the EPS impact of restructuring charges of $6.0 million ($4.8 million after tax) and $2.6 million ($2.1 million after tax) for the three months ended September
+30, 2025 and 2024, and $13.3 million ($10.8 million after tax) and $17.6 million ($14.3 million after tax) for the nine months ended September 30, 2025 and 2024,
+respectively, which primarily include employee related costs.
+(c) Represents the EPS impact of acquisition transaction costs of $1.3 million ($1.0 million after tax) for the three and nine months ended September 30, 2025.
+(d) Represents the EPS impact of the difference between our quarterly and estimated annual tax rate before non-recurring discrete items during the three and nine months
+ended September 30, 2025 and 2024 due to the timing of excess tax benefits associated with stock option exercises. It also includes a reported EPS reduction of $1.07 for
+the nine months ended September 30, 2024 for a one-time non-cash discrete tax benefit resulting from the reduction of uncertain tax position liabilities related to the
+settlement of a tax audit.
+
+```
+-8-
+```

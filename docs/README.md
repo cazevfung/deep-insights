@@ -79,7 +79,8 @@ End-to-end migration plan for moving the Research Tool into a multi-user, cloud-
 - `overview/PROJECT_ORGANIZATION.md`
 
 ### Plans
-- `plans/EDITOR_SELECTION_MAPPING_FIX_PLAN.md` - **NEW** - Fix plan for editor selection mapping issues
+- `plans/YOUTUBE_CHANNEL_VIDEO_LINK_SCRAPER_PLAN.md` - **NEW** - Backend service to scrape video links from YouTube channels with date range filtering
+- `plans/EDITOR_SELECTION_MAPPING_FIX_PLAN.md` - Fix plan for editor selection mapping issues
 - `plans/AI_CONTENT_EDITOR_EXECUTION_PLAN.md` - AI-powered content editor for interactive phase editing
 - `plans/DEEP_RESEARCH_PLAN.md`
 - `plans/DEEP_RESEARCH_PLAN_SUMMARY.md`

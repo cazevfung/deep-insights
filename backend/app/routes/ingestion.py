@@ -45,17 +45,33 @@ async def ingest_sources(
     Returns:
         FormatLinksResponse compatible payload
     """
+    logger.info("Ingestion request received: links=%s, text_entries=%s, files=%s", 
+                "present" if links else "none",
+                "present" if text_entries else "none", 
+                len(files) if files else 0)
+    
     session = _resolve_session(session_id)
+    logger.info("Using session: %s", session.session_id)
+    
     try:
+        logger.debug("Parsing links payload...")
         parsed_links = _parse_links_payload(links)
+        logger.debug("Parsing text entries...")
         parsed_text = _parse_text_entries(text_entries)
         upload_list = files or []
+        logger.info("Parsed: %s links, %s text entries, %s files", 
+                    len(parsed_links), len(parsed_text), len(upload_list))
 
+        logger.info("Initializing ingestion service...")
         service = get_ingestion_service()
+        logger.info("Starting source ingestion...")
         payload = await service.ingest_sources(parsed_links, parsed_text, upload_list, session.session_id)
+        logger.info("Ingestion completed successfully: batch_id=%s, total=%s", 
+                    payload["batch_id"], payload["total"])
 
         session.set_metadata("batch_id", payload["batch_id"])
         session.save()
+        logger.info("Session metadata updated")
 
         return FormatLinksResponse(
             batch_id=payload["batch_id"],
@@ -66,7 +82,7 @@ async def ingest_sources(
     except HTTPException:
         raise
     except ValueError as exc:
-        logger.warning(f"Ingestion validation failed: {exc}")
+        logger.warning(f"Ingestion validation failed: {exc}", exc_info=True)
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:  # pragma: no cover - runtime protection
         logger.exception("Unexpected ingestion failure")

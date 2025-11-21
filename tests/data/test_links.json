@@ -1,101 +1,116 @@
 {
-  "batchId": "20251120_075052",
-  "createdAt": "2025-11-20T07:50:52Z",
+  "batchId": "20251121_111258",
+  "createdAt": "2025-11-21T11:12:58Z",
   "links": [
+    {
+      "id": "art_req1",
+      "type": "article",
+      "url": "https://www.hkma.gov.hk/eng/news-and-media/speeches/2025/04/20250429-1/"
+    },
+    {
+      "id": "yt_req1",
+      "type": "youtube",
+      "url": "https://www.youtube.com/watch?v=oudEPOocOHA"
+    },
     {
       "id": "bili_req1",
       "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV1SaC9BGEKk/"
+      "url": "https://www.bilibili.com/video/BV1SquEzGERq/"
     },
     {
-      "id": "bili_req2",
-      "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV15RW2zvENr/"
+      "id": "yt_req2",
+      "type": "youtube",
+      "url": "https://www.youtube.com/watch?v=CoS2uyc2XI8"
     },
     {
-      "id": "bili_req3",
-      "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV1nZsBzsEs3/"
+      "id": "yt_req3",
+      "type": "youtube",
+      "url": "https://www.youtube.com/watch?v=Oi0d5q21pME"
     },
     {
-      "id": "bili_req4",
-      "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV14AonYDEXh/"
+      "id": "yt_req4",
+      "type": "youtube",
+      "url": "https://www.youtube.com/watch?v=rtrV9QQNLTE"
     },
     {
-      "id": "bili_req5",
-      "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV1GSWQz5E7u/"
+      "id": "yt_req5",
+      "type": "youtube",
+      "url": "https://www.youtube.com/watch?v=SmEd5GHRSgQ"
     },
     {
-      "id": "bili_req6",
-      "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV14g4y1u7cB/"
+      "id": "yt_req6",
+      "type": "youtube",
+      "url": "https://www.youtube.com/watch?v=yFN0hclBofg"
     },
     {
-      "id": "bili_req7",
-      "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV1zv411c7Wn/"
+      "id": "yt_req7",
+      "type": "youtube",
+      "url": "https://www.youtube.com/watch?v=IAChB5ls6eU"
     },
     {
-      "id": "bili_req8",
-      "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV1py411i7RJ/"
+      "id": "yt_req8",
+      "type": "youtube",
+      "url": "https://www.youtube.com/watch?v=OPKtHIQfujs"
     },
     {
-      "id": "bili_req9",
-      "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV1Fz4y1i7RL/"
+      "id": "yt_req9",
+      "type": "youtube",
+      "url": "https://www.youtube.com/watch?v=s8raYTsfiWk"
     },
     {
-      "id": "bili_req10",
-      "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV1kCntzJEzP/"
+      "id": "yt_req10",
+      "type": "youtube",
+      "url": "https://www.youtube.com/watch?v=dMh88kZ_zQg"
     },
     {
-      "id": "bili_req11",
-      "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV1xKW3zHEXt/"
+      "id": "yt_req11",
+      "type": "youtube",
+      "url": "https://www.youtube.com/watch?v=fkNUFsvdhpE"
     },
     {
-      "id": "bili_req12",
-      "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV1nY8mzcE2P/"
+      "id": "art_req2",
+      "type": "article",
+      "url": "https://www.hkma.gov.hk/eng/news-and-media/speeches/2024/09/20240927-3/"
     },
     {
-      "id": "bili_req13",
-      "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV1ywCkBPEGx/"
+      "id": "art_req3",
+      "type": "article",
+      "url": "https://www.hkma.gov.hk/eng/news-and-media/speeches/2025/02/20250217-1/"
     },
     {
-      "id": "bili_req14",
-      "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV1oUoyYTECa/"
+      "id": "art_req4",
+      "type": "article",
+      "url": "https://www.hkma.gov.hk/eng/news-and-media/speeches/2024/04/20240411-1/"
     },
     {
-      "id": "bili_req15",
-      "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV1XwCTBjEmS/"
+      "id": "art_req5",
+      "type": "article",
+      "url": "https://www.hkma.gov.hk/eng/news-and-media/press-releases/2025/10/20251028-4/"
     },
     {
-      "id": "bili_req16",
-      "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV1ZDeZzAEeZ/"
+      "id": "art_req6",
+      "type": "article",
+      "url": "https://www.globalgovernmentfintech.com/hong-kong-monetary-authority-e-hdk-pilots-phase-two/"
     },
     {
-      "id": "bili_req17",
-      "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV1wD8vzcEwz/"
+      "id": "art_req7",
+      "type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_191251/20251121_111258/uploads/1dd0d857c97740138863849606f9723e.pdf"
     },
     {
-      "id": "bili_req18",
-      "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV1fjCdBcE4X/"
+      "id": "art_req8",
+      "type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_191251/20251121_111258/uploads/3270aead21384cbfba7fb9664382a5a7.pdf"
     },
     {
-      "id": "bili_req19",
-      "type": "bilibili",
-      "url": "https://www.bilibili.com/video/BV1xHh9zdEEf/"
+      "id": "art_req9",
+      "type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_191251/20251121_111258/uploads/0fef3e21b8b541009cb41421ccdd3b52.pdf"
+    },
+    {
+      "id": "art_req10",
+      "type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_191251/20251121_111258/uploads/1c1230c9d3694ee0b7453fe6174bc527.pdf"
     }
   ]
 }

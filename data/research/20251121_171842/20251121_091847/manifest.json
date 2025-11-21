@@ -1,0 +1,27 @@
+{
+  "session_id": "20251121_171842",
+  "batch_id": "20251121_091847",
+  "created_at": "2025-11-21T09:18:47Z",
+  "items": [
+    {
+      "source_kind": "upload",
+      "display_name": "ABB-医疗行业电气应用方案.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_171842\\20251121_091847\\uploads\\fe1a004dad0d48269cc087359a5a6c5e.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req1",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_171842/20251121_091847/uploads/fe1a004dad0d48269cc087359a5a6c5e.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "agilent product catalog.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_171842\\20251121_091847\\uploads\\2e71149346784389bc7fa02fedbf3087.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req2",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_171842/20251121_091847/uploads/2e71149346784389bc7fa02fedbf3087.pdf"
+    }
+  ]
+}

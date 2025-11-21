@@ -23,9 +23,9 @@ except Exception:  # pragma: no cover - optional at import time
 from utils.link_formatter import build_items, current_batch_id, iso_timestamp
 
 
-MAX_FILE_COUNT = 10
-MAX_TOTAL_BYTES = 100 * 1024 * 1024  # 100 MB
-MAX_SINGLE_FILE_BYTES = 25 * 1024 * 1024  # 25 MB
+# File size restrictions removed - no limit on upload count or size
+MAX_TOTAL_BYTES = None  # No limit
+MAX_SINGLE_FILE_BYTES = None  # No limit
 
 TEXT_EXTENSIONS = {'.txt', '.md', '.markdown'}
 WORD_EXTENSIONS = {'.doc', '.docx'}
@@ -73,17 +73,12 @@ class IngestionService:
             len(files),
         )
 
-        if len(files) > MAX_FILE_COUNT:
-            raise ValueError(f"Too many files uploaded (max {MAX_FILE_COUNT})")
-
+        # File size validation removed - no restrictions on upload size
         total_bytes = 0
         for upload in files:
             size = await self._get_upload_size(upload)
-            if size > MAX_SINGLE_FILE_BYTES:
-                raise ValueError(f"{upload.filename} exceeds the {MAX_SINGLE_FILE_BYTES // (1024 * 1024)} MB limit")
             total_bytes += size
-        if total_bytes > MAX_TOTAL_BYTES:
-            raise ValueError(f"Total upload size exceeds {MAX_TOTAL_BYTES // (1024 * 1024)} MB limit")
+        # No total size limit check
 
         batch_id = current_batch_id()
         target_session_id = session_id or batch_id
@@ -142,10 +137,17 @@ class IngestionService:
             )
 
         # 3. File uploads
-        for upload in files:
-            normalized = await self._convert_upload(upload, batch_storage)
-            normalized_inputs.append(normalized["item"])
-            manifest_items.append(normalized["manifest"])
+        logger.info("Processing %s file upload(s)...", len(files))
+        for idx, upload in enumerate(files, start=1):
+            logger.info("Processing file %s/%s: %s", idx, len(files), upload.filename)
+            try:
+                normalized = await self._convert_upload(upload, batch_storage)
+                normalized_inputs.append(normalized["item"])
+                manifest_items.append(normalized["manifest"])
+                logger.info("Successfully processed file %s/%s: %s", idx, len(files), upload.filename)
+            except Exception as e:
+                logger.error("Failed to process file %s/%s (%s): %s", idx, len(files), upload.filename, e, exc_info=True)
+                raise ValueError(f"Failed to process file {upload.filename}: {str(e)}") from e
 
         if not normalized_inputs:
             raise ValueError("No valid sources were provided after filtering")
@@ -193,7 +195,13 @@ class IngestionService:
         }
 
     async def _convert_upload(self, upload: UploadFile, batch_storage: Path) -> Dict[str, Any]:
-        """Convert uploaded file into normalized artifact and manifest."""
+        """Convert uploaded file into normalized artifact and manifest.
+        
+        For PDFs and other files that need processing, we save the raw file
+        and create a file:// URL. The file will be processed by the scraper
+        workflow (ArticleScraper) alongside other sources, using the same
+        worker pool.
+        """
         filename = upload.filename or f"upload-{uuid.uuid4().hex}"
         suffix = Path(filename).suffix.lower()
         if suffix not in SUPPORTED_EXTENSIONS:
@@ -204,53 +212,124 @@ class IngestionService:
         raw_path = raw_dir / f"{uuid.uuid4().hex}{suffix}"
 
         # Persist raw bytes
+        logger.info("Reading upload %s (%s bytes)...", filename, upload.size if hasattr(upload, 'size') else 'unknown')
         contents = await upload.read()
         raw_path.write_bytes(contents)
         logger.info("Saved upload %s to %s (%s bytes)", filename, raw_path, len(contents))
 
-        text_content = self._extract_text_from_file(raw_path, suffix)
-        if not text_content.strip():
-            raise ValueError(f"No textual content could be extracted from {filename}")
-
-        text_file = batch_storage / "prepared" / f"{raw_path.stem}.txt"
-        text_file.parent.mkdir(parents=True, exist_ok=True)
-        text_file.write_text(text_content, encoding="utf-8")
-
-        item = IngestionItem(
-            url=text_file.as_uri(),
-            source_kind="upload",
-            display_name=filename,
-            metadata={
-                "original_name": filename,
-                "file_extension": suffix,
+        # For text files (txt, md), extract immediately for backward compatibility
+        # For PDFs, Word docs, Excel, etc. - save raw file and let scraper handle it
+        if suffix in TEXT_EXTENSIONS:
+            # Text files: extract immediately (fast, no processing needed)
+            logger.info("Extracting text from text file %s...", filename)
+            try:
+                text_content = raw_path.read_text(encoding="utf-8", errors="ignore")
+                if not text_content.strip():
+                    raise ValueError(f"No textual content could be extracted from {filename}")
+                
+                # Save extracted text
+                text_file = batch_storage / "prepared" / f"{raw_path.stem}.txt"
+                text_file.parent.mkdir(parents=True, exist_ok=True)
+                text_file.write_text(text_content, encoding="utf-8")
+                
+                item = IngestionItem(
+                    url=text_file.as_uri(),
+                    source_kind="upload",
+                    display_name=filename,
+                    metadata={
+                        "original_name": filename,
+                        "file_extension": suffix,
+                        "raw_path": str(raw_path),
+                        "text_path": str(text_file),
+                    },
+                )
+                
+                manifest = {
+                    "source_kind": "upload",
+                    "display_name": filename,
+                    "raw_path": str(raw_path),
+                    "text_file": str(text_file),
+                    "file_extension": suffix,
+                }
+            except Exception as e:
+                logger.error("Error extracting text from %s: %s", filename, e, exc_info=True)
+                raise ValueError(f"Failed to extract text from {filename}: {str(e)}")
+        else:
+            # PDFs, Word, Excel, etc. - save raw file, let scraper process it
+            logger.info("Saving %s for scraper workflow processing (type: %s)", filename, suffix)
+            
+            # Create file:// URL pointing to the raw file
+            # Use absolute path for file:// URL
+            file_url = raw_path.resolve().as_uri()
+            
+            item = IngestionItem(
+                url=file_url,  # file:// URL - will be processed by ArticleScraper
+                source_kind="upload",
+                display_name=filename,
+                metadata={
+                    "original_name": filename,
+                    "file_extension": suffix,
+                    "raw_path": str(raw_path),
+                    "processed_by": "scraper_workflow",  # Indicates this will be processed by scraper
+                },
+            )
+            
+            manifest = {
+                "source_kind": "upload",
+                "display_name": filename,
                 "raw_path": str(raw_path),
-                "text_path": str(text_file),
-            },
-        )
-
-        manifest = {
-            "source_kind": "upload",
-            "display_name": filename,
-            "raw_path": str(raw_path),
-            "text_file": str(text_file),
-            "file_extension": suffix,
-        }
-
-        if suffix in EXCEL_EXTENSIONS and pd is not None:
-            manifest["structured_preview"] = self._extract_excel_preview(raw_path)
+                "file_extension": suffix,
+                "processed_by": "scraper_workflow",
+            }
+            
+            if suffix in EXCEL_EXTENSIONS and pd is not None:
+                # For Excel, we can still extract a preview during ingestion
+                try:
+                    manifest["structured_preview"] = self._extract_excel_preview(raw_path)
+                except Exception as e:
+                    logger.warning("Failed to extract Excel preview: %s", e)
 
         return {"item": item, "manifest": manifest}
 
     def _extract_text_from_file(self, path: Path, suffix: str) -> str:
         """Route to the appropriate converter."""
+        logger.debug("Extracting text from file: %s (suffix: %s)", path, suffix)
         if suffix in TEXT_EXTENSIONS:
+            logger.debug("Using plain text reader for %s", path)
             return path.read_text(encoding="utf-8", errors="ignore")
         if suffix in PDF_EXTENSIONS:
-            from pypdf import PdfReader
-
-            reader = PdfReader(str(path))
-            pages = [page.extract_text() or "" for page in reader.pages]
-            return "\n\n".join(pages)
+            # Convert PDF to markdown format
+            logger.info("Converting PDF to markdown: %s", path)
+            try:
+                from utils.pdf_to_markdown import convert_pdf_to_markdown
+                logger.debug("Using PDF to markdown converter")
+                result = convert_pdf_to_markdown(path)
+                logger.info("PDF conversion completed: %s characters extracted", len(result))
+                return result
+            except ImportError as e:
+                logger.warning(f"PDF to markdown converter not available: {e}. Falling back to plain text extraction.")
+                # Fallback to plain text extraction
+                from pypdf import PdfReader
+                logger.debug("Using pypdf fallback")
+                reader = PdfReader(str(path))
+                pages = [page.extract_text() or "" for page in reader.pages]
+                result = "\n\n".join(pages)
+                logger.info("PDF text extraction completed: %s characters extracted", len(result))
+                return result
+            except Exception as e:
+                logger.error(f"Error converting PDF to markdown: {e}. Falling back to plain text extraction.", exc_info=True)
+                # Fallback to plain text extraction
+                try:
+                    from pypdf import PdfReader
+                    logger.debug("Using pypdf fallback after error")
+                    reader = PdfReader(str(path))
+                    pages = [page.extract_text() or "" for page in reader.pages]
+                    result = "\n\n".join(pages)
+                    logger.info("PDF text extraction (fallback) completed: %s characters extracted", len(result))
+                    return result
+                except Exception as fallback_error:
+                    logger.error(f"Fallback PDF extraction also failed: {fallback_error}", exc_info=True)
+                    raise ValueError(f"Failed to extract text from PDF: {str(e)}") from e
         if suffix in WORD_EXTENSIONS:
             from docx import Document
 

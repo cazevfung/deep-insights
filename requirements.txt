@@ -11,4 +11,5 @@ dashscope>=1.17.0  # Alibaba Cloud Paraformer API
 oss2>=2.18.0  # Alibaba Cloud OSS SDK
 openai>=1.0.0  # OpenAI-compatible SDK for Qwen API
 pytest>=7.0.0  # Testing framework
+python-dateutil>=2.8.0  # Date parsing for channel scraper
 

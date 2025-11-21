@@ -8,6 +8,7 @@ message ends up in the same sinks across processes.
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import Optional
@@ -15,6 +16,11 @@ from typing import Optional
 from loguru import logger
 
 LOG_FILE = Path(__file__).resolve().parents[2] / "logs" / "backend.log"
+DEFAULT_FILE_LEVEL = os.getenv("BACKEND_FILE_LOG_LEVEL", "INFO").upper()
+DISABLE_FILE_ROTATION = os.getenv(
+    "BACKEND_DISABLE_LOG_ROTATION",
+    "1" if os.name == "nt" else "0",
+) == "1"
 _configured = False
 
 
@@ -35,10 +41,20 @@ class _InterceptHandler(logging.Handler):
         logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
 
 
-def _websocket_debug_filter(record) -> bool:
-    """Filter out DEBUG logs from websocket manager to reduce noise."""
+def _default_sink_filter(record) -> bool:
+    """Filter noisy records before they hit disk."""
     # Skip DEBUG logs from the websocket manager module
     if record["level"].name == "DEBUG" and record["name"] == "app.websocket.manager":
+        return False
+    # Skip DEBUG logs produced by the stdlib logging internals when DEBUG logging is enabled
+    if record["level"].name == "DEBUG" and record["name"] == "logging":
+        return False
+    # Drop extremely chatty idle loop INFO logs from worker processes
+    if (
+        record["level"].name == "INFO"
+        and record["name"] == "backend.lib.scraping_control_center"
+        and "Still idle after" in record["message"]
+    ):
         return False
     return True
 
@@ -76,7 +92,7 @@ def _setup_stdlib_interception() -> None:
     """Route stdlib logging (incl. uvicorn) through Loguru sinks."""
     intercept_handler = _InterceptHandler()
     logging.root.handlers = [intercept_handler]
-    logging.root.setLevel(logging.NOTSET)
+    logging.root.setLevel(logging.INFO)
 
     for logger_name in ("uvicorn", "uvicorn.error", "uvicorn.access", "uvicorn.asgi", "uvicorn.lifespan"):
         std_logger = logging.getLogger(logger_name)
@@ -117,16 +133,25 @@ def setup_logging(
     is_network_drive = str(LOG_FILE).startswith("\\\\") or "\\\\" in str(LOG_FILE.resolve())
     
     try:
-        if is_network_drive:
+        if DISABLE_FILE_ROTATION:
+            logger.add(
+                str(LOG_FILE),
+                format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+                level=DEFAULT_FILE_LEVEL,
+                enqueue=True,
+                filter=_default_sink_filter,
+                catch=True,
+            )
+        elif is_network_drive:
             # For network drives, use custom rotation function that handles errors gracefully
             logger.add(
                 str(LOG_FILE),
                 format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
-                level="DEBUG",
+                level=DEFAULT_FILE_LEVEL,
                 rotation=_safe_rotation_function,
                 retention="7 days",
                 enqueue=True,  # Safe when uvicorn reload/workers spawn new processes.
-                filter=_websocket_debug_filter,  # Filter out noisy websocket DEBUG logs
+                filter=_default_sink_filter,  # Filter out noisy websocket DEBUG logs
                 catch=True,  # Catch errors in the sink to prevent crashes
             )
         else:
@@ -134,11 +159,11 @@ def setup_logging(
             logger.add(
                 str(LOG_FILE),
                 format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
-                level="DEBUG",
+                level=DEFAULT_FILE_LEVEL,
                 rotation="10 MB",
                 retention="7 days",
                 enqueue=True,  # Safe when uvicorn reload/workers spawn new processes.
-                filter=_websocket_debug_filter,  # Filter out noisy websocket DEBUG logs
+                filter=_default_sink_filter,  # Filter out noisy websocket DEBUG logs
                 catch=True,  # Catch errors in the sink to prevent crashes
             )
     except Exception as e:
@@ -148,9 +173,9 @@ def setup_logging(
             logger.add(
                 str(LOG_FILE),
                 format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
-                level="DEBUG",
+                level=DEFAULT_FILE_LEVEL,
                 enqueue=True,
-                filter=_websocket_debug_filter,
+                filter=_default_sink_filter,
                 catch=True,
             )
         except Exception as e2:

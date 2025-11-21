@@ -6,6 +6,7 @@ from typing import Dict
 from loguru import logger
 from playwright.sync_api import Page
 import trafilatura
+from urllib.parse import unquote
 from scrapers.base_scraper import BaseScraper
 
 
@@ -123,9 +124,54 @@ class ArticleScraper(BaseScraper):
         from pathlib import Path
         
         try:
+            def _build_success_result(content: str, extraction_method: str, extra_metadata: Dict = None) -> Dict:
+                """
+                Build a standardized success payload for local file extractions.
+                Ensures batch/link identifiers are preserved for downstream routing.
+                """
+                if not content or not content.strip():
+                    raise ValueError(f"No textual content could be extracted from {path.name}")
+                
+                cleaned_content = content.strip()
+                word_count = len(cleaned_content.split())
+                file_size = path.stat().st_size if path.exists() else 0
+                
+                metadata = {
+                    'title': path.stem,
+                    'source': 'local_file',
+                    'url': file_url,
+                    'file_path': str(path),
+                    'file_size': file_size,
+                    'word_count': word_count,
+                    'file_extension': path.suffix,
+                    'extraction_method': extraction_method
+                }
+                if extra_metadata:
+                    metadata.update(extra_metadata)
+                
+                return {
+                    'success': True,
+                    'url': file_url,
+                    'content': cleaned_content,
+                    'title': metadata.get('title', ''),
+                    'author': metadata.get('author', ''),
+                    'publish_date': metadata.get('publish_date', ''),
+                    'source': metadata.get('source', 'local_file'),
+                    'language': metadata.get('language', 'auto'),
+                    'word_count': word_count,
+                    'extraction_method': extraction_method,
+                    'extraction_timestamp': datetime.now().isoformat(),
+                    'batch_id': self._current_batch_id,
+                    'link_id': self._current_link_id,
+                    'metadata': metadata,
+                    'article_id': uuid.uuid4().hex[:12],
+                    'error': None
+                }
+        
             # Parse file:// URL
             # file:///C:/path/to/file.md or file:///path/to/file.md
             file_path = file_url.replace('file:///', '').replace('file://', '')
+            file_path = unquote(file_path)
             
             # Handle Windows paths (file:///C:/...)
             if file_path.startswith('/') and len(file_path) > 1 and file_path[1] == ':':
@@ -149,48 +195,159 @@ class ArticleScraper(BaseScraper):
                     'article_id': uuid.uuid4().hex[:12]
                 }
             
-            # Read file content with progress reporting
-            self._report_progress("loading", 50, f"Reading file: {path.name}")
+            # Handle different file types
+            suffix = path.suffix.lower()
             
-            # Try UTF-8 first, fallback to other encodings
-            try:
-                content = path.read_text(encoding='utf-8')
-            except UnicodeDecodeError:
-                # Graceful fallback: Try common encodings
-                for encoding in ['utf-8-sig', 'latin-1', 'cp1252']:
+            # PDF files - convert to markdown using PDF converter
+            if suffix == '.pdf':
+                self._report_progress("loading", 30, f"Converting PDF: {path.name}")
+                logger.info(f"[Article] Processing PDF file: {path}")
+                
+                # Suppress verbose DEBUG logging from PDF parsing libraries
+                import logging
+                pdf_loggers = ['pdfminer', 'pdfminer.pdfparser', 'pdfminer.pdfdocument', 
+                              'pdfminer.pdfinterp', 'pdfminer.pdfpage', 'pdfminer.converter',
+                              'pdfminer.layout', 'pdfminer.psparser', 'pdfminer.cmapdb',
+                              'pdfminer.six', 'pypdf', 'PyPDF2']
+                
+                # Store original log levels
+                original_levels = {}
+                root_logger = logging.getLogger()
+                original_root_level = root_logger.level
+                
+                # Suppress PDF library logs
+                root_logger.setLevel(logging.WARNING)
+                for logger_name in pdf_loggers:
+                    pdf_logger = logging.getLogger(logger_name)
+                    original_levels[logger_name] = pdf_logger.level
+                    pdf_logger.setLevel(logging.WARNING)
+                
+                try:
+                    from utils.pdf_to_markdown import convert_pdf_to_markdown
+                    content = convert_pdf_to_markdown(path)
+                    extraction_method = 'pdf_to_markdown'
+                except ImportError:
+                    logger.warning("[Article] PDF to markdown converter not available, using pypdf fallback")
+                    from pypdf import PdfReader
+                    reader = PdfReader(str(path))
+                    pages = [page.extract_text() or "" for page in reader.pages]
+                    content = "\n\n".join(pages)
+                    extraction_method = 'pypdf_fallback'
+                except Exception as e:
+                    logger.error(f"[Article] PDF conversion failed: {e}", exc_info=True)
+                    # Try pypdf fallback
                     try:
-                        content = path.read_text(encoding=encoding)
-                        logger.info(f"[Article] Successfully read file with {encoding} encoding")
-                        break
-                    except UnicodeDecodeError:
-                        continue
-                else:
-                    # All encodings failed
-                    raise UnicodeDecodeError('utf-8', b'', 0, 1, 'Could not decode file with any encoding')
+                        from pypdf import PdfReader
+                        reader = PdfReader(str(path))
+                        pages = [page.extract_text() or "" for page in reader.pages]
+                        content = "\n\n".join(pages)
+                        extraction_method = 'pypdf_fallback'
+                    except Exception as fallback_error:
+                        logger.error(f"[Article] PDF extraction (fallback) also failed: {fallback_error}", exc_info=True)
+                        raise ValueError(f"Failed to extract text from PDF: {str(e)}") from e
+                finally:
+                    # Restore original log levels
+                    root_logger.setLevel(original_root_level)
+                    for logger_name, level in original_levels.items():
+                        logging.getLogger(logger_name).setLevel(level)
+                
+                self._report_progress("extracting", 90, f"Extracted {len(content.split())} words from PDF {path.name}")
+                
+                return _build_success_result(
+                    content,
+                    extraction_method,
+                    extra_metadata={'pdf_total_pages': None}
+                )
             
-            # Extract metadata (matching existing format)
-            word_count = len(content.split())
-            file_size = path.stat().st_size
+            # Word documents (.doc, .docx)
+            elif suffix in ['.doc', '.docx']:
+                self._report_progress("loading", 30, f"Extracting from Word document: {path.name}")
+                logger.info(f"[Article] Processing Word document: {path}")
+                
+                try:
+                    from docx import Document
+                    doc = Document(str(path))
+                    content = "\n".join(p.text for p in doc.paragraphs)
+                    extraction_method = 'python_docx'
+                except Exception as e:
+                    logger.error(f"[Article] Word document extraction failed: {e}", exc_info=True)
+                    raise ValueError(f"Failed to extract text from Word document: {str(e)}") from e
+                
+                self._report_progress("extracting", 90, f"Extracted {len(content.split())} words from Word document {path.name}")
+                
+                return _build_success_result(content, extraction_method)
             
-            self._report_progress("extracting", 90, f"Extracted {word_count} words from {path.name}")
+            # PowerPoint files (.ppt, .pptx)
+            elif suffix in ['.ppt', '.pptx']:
+                self._report_progress("loading", 30, f"Extracting from PowerPoint: {path.name}")
+                logger.info(f"[Article] Processing PowerPoint file: {path}")
+                
+                try:
+                    from pptx import Presentation
+                    prs = Presentation(str(path))
+                    texts = []
+                    for slide in prs.slides:
+                        for shape in slide.shapes:
+                            if hasattr(shape, "text") and shape.text:
+                                texts.append(shape.text)
+                    content = "\n".join(texts)
+                    extraction_method = 'python_pptx'
+                except Exception as e:
+                    logger.error(f"[Article] PowerPoint extraction failed: {e}", exc_info=True)
+                    raise ValueError(f"Failed to extract text from PowerPoint: {str(e)}") from e
+                
+                self._report_progress("extracting", 90, f"Extracted {len(content.split())} words from PowerPoint {path.name}")
+                
+                return _build_success_result(content, extraction_method)
             
-            # Return format matches existing extract() return format for backward compatibility
-            return {
-                'success': True,
-                'content': content,
-                'metadata': {
-                    'title': path.stem,
-                    'source': 'local_file',  # NEW field, but optional
-                    'url': file_url,
-                    'file_path': str(path),  # NEW field, but optional
-                    'file_size': file_size,  # NEW field, but optional
-                    'word_count': word_count,
-                    'file_extension': path.suffix,  # NEW field, but optional
-                    'extraction_method': 'local_file_read'  # NEW field, but optional
-                },
-                'extraction_timestamp': datetime.now().isoformat(),
-                'article_id': uuid.uuid4().hex[:12]
-            }
+            # Excel files (.xls, .xlsx) - convert to JSON
+            elif suffix in ['.xls', '.xlsx']:
+                self._report_progress("loading", 30, f"Extracting from Excel: {path.name}")
+                logger.info(f"[Article] Processing Excel file: {path}")
+                
+                try:
+                    import pandas as pd
+                    sheets = pd.read_excel(str(path), sheet_name=None, engine="openpyxl")
+                    content_parts = []
+                    for sheet_name, df in sheets.items():
+                        sanitized = df.dropna(how="all").dropna(axis=1, how="all").fillna("")
+                        content_parts.append(f"Sheet: {sheet_name}\n")
+                        content_parts.append(sanitized.to_string())
+                        content_parts.append("\n\n")
+                    content = "\n".join(content_parts)
+                    extraction_method = 'pandas_excel'
+                except Exception as e:
+                    logger.error(f"[Article] Excel extraction failed: {e}", exc_info=True)
+                    raise ValueError(f"Failed to extract text from Excel: {str(e)}") from e
+                
+                self._report_progress("extracting", 90, f"Extracted {len(content.split())} words from Excel {path.name}")
+                
+                return _build_success_result(content, extraction_method)
+            
+            # Plain text files (.txt, .md, .markdown)
+            else:
+                self._report_progress("loading", 50, f"Reading file: {path.name}")
+                
+                # Try UTF-8 first, fallback to other encodings
+                try:
+                    content = path.read_text(encoding='utf-8')
+                except UnicodeDecodeError:
+                    # Graceful fallback: Try common encodings
+                    for encoding in ['utf-8-sig', 'latin-1', 'cp1252']:
+                        try:
+                            content = path.read_text(encoding=encoding)
+                            logger.info(f"[Article] Successfully read file with {encoding} encoding")
+                            break
+                        except UnicodeDecodeError:
+                            continue
+                    else:
+                        # All encodings failed
+                        raise UnicodeDecodeError('utf-8', b'', 0, 1, 'Could not decode file with any encoding')
+                
+                # Extract metadata (matching existing format)
+                self._report_progress("extracting", 90, f"Extracted {len(content.split())} words from {path.name}")
+                
+                return _build_success_result(content, 'local_file_read')
             
         except UnicodeDecodeError as e:
             logger.error(f"[Article] Failed to decode file {file_url}: {e}")
@@ -204,7 +361,9 @@ class ArticleScraper(BaseScraper):
                     'url': file_url
                 },
                 'extraction_timestamp': datetime.now().isoformat(),
-                'article_id': uuid.uuid4().hex[:12]
+                'article_id': uuid.uuid4().hex[:12],
+                'batch_id': self._current_batch_id,
+                'link_id': self._current_link_id
             }
         except Exception as e:
             logger.error(f"[Article] Failed to read local file {file_url}: {e}", exc_info=True)
@@ -218,7 +377,9 @@ class ArticleScraper(BaseScraper):
                     'url': file_url
                 },
                 'extraction_timestamp': datetime.now().isoformat(),
-                'article_id': uuid.uuid4().hex[:12]
+                'article_id': uuid.uuid4().hex[:12],
+                'batch_id': self._current_batch_id,
+                'link_id': self._current_link_id
             }
     
     def _extract_with_playwright(self, url: str) -> Dict:

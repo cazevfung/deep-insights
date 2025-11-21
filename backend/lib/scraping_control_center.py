@@ -810,6 +810,14 @@ class ScrapingControlCenter:
                 if not result.get('success'):
                     task.error = result.get('error')
                 
+                # Ensure essential identifiers are present on the result payload
+                if task.link_id and not result.get('link_id'):
+                    result['link_id'] = task.link_id
+                if task.url and not result.get('url'):
+                    result['url'] = task.url
+                if task.batch_id and not result.get('batch_id'):
+                    result['batch_id'] = task.batch_id
+
                 # Update worker state to idle
                 worker = self.workers[worker_id]
                 worker.current_task = None

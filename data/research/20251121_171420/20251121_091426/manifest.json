@@ -1,0 +1,37 @@
+{
+  "session_id": "20251121_171420",
+  "batch_id": "20251121_091426",
+  "created_at": "2025-11-21T09:14:26Z",
+  "items": [
+    {
+      "source_kind": "upload",
+      "display_name": "ABB-医疗行业电气应用方案.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_171420\\20251121_091426\\uploads\\cac43206dd11443ebc385729f70b78d8.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req1",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_171420/20251121_091426/uploads/cac43206dd11443ebc385729f70b78d8.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "agilent product catalog.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_171420\\20251121_091426\\uploads\\c1b5735983ee4dae9d4fab1494cdd291.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req2",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_171420/20251121_091426/uploads/c1b5735983ee4dae9d4fab1494cdd291.pdf"
+    },
+    {
+      "source_kind": "upload",
+      "display_name": "eaton-电气解决方案-医疗.pdf",
+      "raw_path": "D:\\App Dev\\Research Tool\\data\\research\\20251121_171420\\20251121_091426\\uploads\\987c95ca45064e3ca1a89ef013a470d9.pdf",
+      "file_extension": ".pdf",
+      "processed_by": "scraper_workflow",
+      "link_id": "art_req3",
+      "link_type": "article",
+      "url": "file:///D:/App%20Dev/Research%20Tool/data/research/20251121_171420/20251121_091426/uploads/987c95ca45064e3ca1a89ef013a470d9.pdf"
+    }
+  ]
+}

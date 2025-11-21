@@ -1,0 +1,29 @@
+{
+  "batch_id": "batch_002_2025-11-21_15-46-49",
+  "timestamp": "2025-11-21T15:47:14.974249",
+  "date_range": {
+    "start": "2025-11-21T00:00:00",
+    "end": "2025-11-21T00:00:00"
+  },
+  "channels_scraped": 2,
+  "total_videos": 31,
+  "channels": [
+    {
+      "name": "Channel UCBi2mrWuNuyYy4gbM6fU18Q",
+      "channelId": "UCBi2mrWuNuyYy4gbM6fU18Q",
+      "handle": null,
+      "videos_found": 25,
+      "status": "success",
+      "error": null
+    },
+    {
+      "name": "Channel UC16niRr50-MSBwiO3YDb3RA",
+      "channelId": "UC16niRr50-MSBwiO3YDb3RA",
+      "handle": null,
+      "videos_found": 6,
+      "status": "success",
+      "error": null
+    }
+  ],
+  "errors": []
+}

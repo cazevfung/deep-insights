@@ -1,0 +1,44 @@
+{
+  "session_id": "news_session_20251121_154649_001",
+  "created_at": "2025-11-21T15:46:49.955622",
+  "date_range": {
+    "start_date": "2025-11-21",
+    "end_date": "2025-11-21"
+  },
+  "status": "running",
+  "current_step": null,
+  "steps": {
+    "channel_scraping": {
+      "status": "completed",
+      "completed_at": "2025-11-21T15:47:15.065111",
+      "batch_id": "batch_002_2025-11-21_15-46-49",
+      "total_videos": 31,
+      "channels_scraped": 2
+    }
+  },
+  "artifacts": {
+    "channel_batch_file": "channel_batch_batch_002_2025-11-21_15-46-49.txt"
+  },
+  "errors": [],
+  "metadata": {
+    "prompt_version": "v1.0"
+  },
+  "channel_ids": [
+    "UCBi2mrWuNuyYy4gbM6fU18Q",
+    "UC16niRr50-MSBwiO3YDb3RA"
+  ],
+  "test_channels": [
+    {
+      "name": "ABC News",
+      "channelId": "UCBi2mrWuNuyYy4gbM6fU18Q",
+      "link": "https://www.youtube.com/channel/UCBi2mrWuNuyYy4gbM6fU18Q",
+      "id": "UCBi2mrWuNuyYy4gbM6fU18Q"
+    },
+    {
+      "name": "BBC News",
+      "channelId": "UC16niRr50-MSBwiO3YDb3RA",
+      "link": "https://www.youtube.com/channel/UC16niRr50-MSBwiO3YDb3RA",
+      "id": "UC16niRr50-MSBwiO3YDb3RA"
+    }
+  ]
+}
